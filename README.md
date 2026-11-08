@@ -1,13 +1,15 @@
 # Devanture
 
-Un langage déclaratif (YAML strict) pour écrire des sites vitrines et de petites boutiques, et un compilateur, `sitec`, qui en produit un site PHP + JS + CSS déployable sur n'importe quel hébergement mutualisé. Conçu pour être écrit par un modèle de langage autant que par un humain : peu de tokens, un vérificateur qui explique ses erreurs, aucun PHP à écrire.
+Un langage déclaratif (YAML strict) pour écrire des sites vitrines et de petites boutiques, et un compilateur, `sitec`, qui en produit un site complet pour une cible d'hébergement bon marché : aujourd'hui PHP + JS + CSS sans framework, déployable sur n'importe quel hébergement mutualisé. Conçu pour être écrit par un modèle de langage autant que par un humain : peu de tokens, un vérificateur qui explique ses erreurs, aucun code à écrire.
+
+Le langage ne contient rien de PHP ; PHP est la première cible parce qu'il est présent partout sans rien installer. Les bancs de vérification testent les sites produits par HTTP et valideraient une autre cible.
 
 > Prototype v0 (novembre 2026). Les mesures, les choix et les limites sont documentés dans [docs/rapports](docs/rapports/).
 
 ## Installer
 
 ```
-git clone <ce dépôt> devanture
+git clone https://github.com/dtdagames/devanture.git
 cd devanture
 npm install
 node bin/sitec.js help

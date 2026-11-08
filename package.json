@@ -1,7 +1,7 @@
 {
   "name": "devanture",
   "version": "0.1.0",
-  "description": "Devanture : langage déclaratif (YAML) pour sites vitrines et petites boutiques, compilé en PHP + JS + CSS par sitec. Écrit pour les modèles de langage autant que pour les humains.",
+  "description": "Devanture : langage déclaratif (YAML) pour sites vitrines et petites boutiques. Le compilateur sitec produit un site complet pour une cible d'hébergement bon marché, aujourd'hui PHP + JS + CSS sans framework. Pensé pour être écrit par un modèle de langage autant que par un humain : peu de tokens, un vérificateur qui explique ses erreurs, aucun code à écrire.",
   "type": "module",
   "bin": {
     "sitec": "./bin/sitec.js"
@@ -39,7 +39,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/VOTRE-COMPTE/devanture.git"
+    "url": "https://github.com/dtdagames/devanture.git"
   },
   "keywords": [
     "dsl",
@@ -47,5 +47,9 @@
     "php",
     "site-generator",
     "llm"
-  ]
+  ],
+  "homepage": "https://github.com/dtdagames/devanture#readme",
+  "bugs": {
+    "url": "https://github.com/dtdagames/devanture/issues"
+  }
 }

@@ -18,7 +18,7 @@ Usage :
   sitec build … --draft                      Compile malgré des textes à compléter
   sitec keywords <dossier-projet> [--all] [--dry-run] [--export f.json] [--import f.json] [--model id]
                                              Fait proposer par un LLM les mots-clés de recherche de chaque section et les fige dans le YAML
-  sitec init  <dossier> [--name "Nom du site"] [--repo github:compte/devanture]
+  sitec init  <dossier> [--name "Nom du site"] [--repo github:compte/depot#tag | --local]
                                              Crée un dépôt de site sans PHP : squelette YAML, brief, README, CLAUDE.md, .gitignore, flux GitHub Actions (vérifier, déployer), premier commit
   sitec host  <dossier-hôte> [--draft]        Compile les sites listés dans hosts.yaml en un seul dist/ routé par domaine
   sitec deploy <dossier-projet> [--to https://domaine | SITE_URL] [--secret s | DEVANTURE_DEPLOY_SECRET]
@@ -145,13 +145,13 @@ export async function run(argv) {
 
     case 'init': {
       const dir = args[0];
-      if (!dir) { console.error('Usage : sitec init <dossier> [--name "Nom du site"] [--repo github:compte/devanture]'); return 2; }
+      if (!dir) { console.error('Usage : sitec init <dossier> [--name "Nom du site"] [--repo github:compte/depot#tag | --local]'); return 2; }
       const nameIdx = rest.indexOf('--name'), repoIdx = rest.indexOf('--repo');
       const { initProject } = await import('./init.js');
       try {
-        const r = await initProject(dir, { name: nameIdx >= 0 ? rest[nameIdx + 1] : undefined, repo: repoIdx >= 0 ? rest[repoIdx + 1] : undefined, git: !flags.has('--no-git') });
+        const r = await initProject(dir, { name: nameIdx >= 0 ? rest[nameIdx + 1] : undefined, repo: repoIdx >= 0 ? rest[repoIdx + 1] : undefined, local: flags.has('--local'), git: !flags.has('--no-git') });
         console.log(`OK  ${r.name} → ${path.relative(process.cwd(), r.root) || '.'} : ${r.files.length} fichiers${r.committed ? ', dépôt git initialisé (branche main, premier commit)' : ''}`);
-        console.log(`    compilateur : ${r.dependency}${r.dependency.startsWith('file:') ? '  (chemin local ; pour l’intégration continue, publier le compilateur et passer --repo github:compte/devanture)' : ''}`);
+        console.log(`    compilateur : ${r.dependency}${r.dependency.startsWith('file:') ? '  (chemin local, pour travailler sur le compilateur ; sans --local, la dépendance est le dépôt GitHub étiqueté)' : ''}`);
         console.log('    ensuite : cd ' + dir + ' && npm install && npx sitec check .   (remplir brief.md et les [à compléter])');
         return 0;
       } catch (e) { console.error('Erreur : ' + e.message); return 1; }

@@ -10,7 +10,7 @@ const SITEC_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '.
 
 function slug(s) { return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'site'; }
 
-export async function initProject(dir, { name, repo, git = true } = {}) {
+export async function initProject(dir, { name, repo, local = false, git = true } = {}) {
   const root = path.resolve(dir);
   const siteName = name || path.basename(root).replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   const id = slug(path.basename(root));
@@ -21,7 +21,7 @@ export async function initProject(dir, { name, repo, git = true } = {}) {
 
   // Dépendance vers le compilateur : dépôt git public quand il existe, sinon le chemin local (fonctionne ici, pas en intégration continue).
   const rel = path.relative(root, SITEC_ROOT).replaceAll('\\', '/');
-  const dep = repo || ('file:' + (rel.startsWith('.') ? rel : './' + rel));
+  const dep = repo || (local ? 'file:' + (rel.startsWith('.') ? rel : './' + rel) : 'github:dtdagames/devanture#v0.1.0');
 
   const files = {
     'site.yaml': `site:
