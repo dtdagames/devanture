@@ -26,6 +26,29 @@ function asset(string $path): string { return '/assets/' . ltrim($path, '/'); }
 /** URL d'une route interne ou lien externe tel quel. */
 function url(string $to): string { return $to; }
 
+/** Valeur d'en-tête e-mail : telle quelle si ASCII, sinon encodée (RFC 2047, UTF-8 base64). Jamais de retour à la ligne. */
+function sl_mail_encode(string $s): string {
+    $s = str_replace(["\\r", "\\n"], ' ', $s);
+    return preg_match('/[^\\x20-\\x7e]/', $s) ? '=?UTF-8?B?' . base64_encode($s) . '?=' : $s;
+}
+
+/** E-mail texte par mail() de PHP (le sendmail de l'hébergement) : expéditeur à l'adresse du domaine (ou MAIL_FROM dans .env), sujet encodé, en-têtes sûrs. $o : reply_to, from_name. */
+function sl_mail(string $to, string $subject, string $body, array $o = []): bool {
+    $to = trim(str_replace(["\\r", "\\n"], '', $to));
+    if ($to === '' || !filter_var($to, FILTER_VALIDATE_EMAIL)) return false;
+    $from = sl_env('MAIL_FROM');
+    if ($from === '' || !filter_var($from, FILTER_VALIDATE_EMAIL)) {
+        $host = strtolower(preg_replace('/:\\d+$/', '', (string)($_SERVER['HTTP_HOST'] ?? 'localhost')));
+        $host = preg_replace('/^www\\./', '', $host) ?: 'localhost';
+        $from = 'no-reply@' . $host;
+    }
+    $name = (string)($o['from_name'] ?? '');
+    $h = ['From: ' . ($name !== '' ? sl_mail_encode($name) . ' <' . $from . '>' : $from), 'MIME-Version: 1.0', 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: 8bit', 'X-Mailer: Devanture'];
+    $reply = trim(str_replace(["\\r", "\\n"], '', (string)($o['reply_to'] ?? '')));
+    if ($reply !== '' && filter_var($reply, FILTER_VALIDATE_EMAIL)) $h[] = 'Reply-To: ' . $reply;
+    return @mail($to, sl_mail_encode($subject), str_replace("\\r\\n", "\\n", $body), implode("\\r\\n", $h));
+}
+
 /** Manifeste des images compilées (dimensions, variantes WebP), produit à la compilation dans lib/images.php. */
 function sl_images(): array {
     static $m = null;
@@ -221,15 +244,18 @@ function contact_store(array $config, array $data, array $site, string $source):
     foreach ($fields as $f) $labels[$f['name']] = $f['label'];
     $id = strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
     $record = ['id' => $id, 'at' => date('c'), 'source' => $source, 'ip' => $_SERVER['REMOTE_ADDR'] ?? '', 'page' => $_SERVER['REQUEST_URI'] ?? ''] + $data;
-    sl_store_append('messages', $record);
     $to = (string)($config['to'] ?? ($site['contact']['email'] ?? ''));
+    $sent = null;
     if ($to !== '' && filter_var($to, FILTER_VALIDATE_EMAIL)) {
         $body = ($source === 'agent' ? "(envoyé par un assistant)\\n" : '');
         foreach ($data as $k => $v) $body .= ($labels[$k] ?? $k) . " : $v\\n";
         $reply = '';
-        foreach ($fields as $f) if ($f['type'] === 'email' && !empty($data[$f['name']])) { $reply = 'Reply-To: ' . $data[$f['name']] . "\\r\\n"; break; }
-        @mail($to, '[' . ($site['name'] ?? 'Site') . '] Nouveau message', $body, "Content-Type: text/plain; charset=UTF-8\\r\\n" . $reply);
+        foreach ($fields as $f) if ($f['type'] === 'email' && !empty($data[$f['name']])) { $reply = (string)$data[$f['name']]; break; }
+        $sent = sl_mail($to, '[' . ($site['name'] ?? 'Site') . '] Nouveau message', $body, ['reply_to' => $reply, 'from_name' => (string)($site['name'] ?? '')]);
     }
+    // Statut d'envoi visible dans le back-office : none (pas de destinataire), sent, failed (mail() a refusé : le message reste enregistré).
+    $record['mail'] = $sent === null ? 'none' : ($sent ? 'sent' : 'failed');
+    sl_store_append('messages', $record);
     return $id;
 }
 
@@ -615,9 +641,11 @@ function shop_stock_set(string $id, int $remaining): void {
 function shop_notify_order(array $o, array $site): void {
     $body = "Commande n° {$o['id']}\\n"; foreach ($o['lines'] as $l) $body .= "{$l['qty']} x {$l['name']} : " . shop_money($l['price'] * $l['qty']) . "\\n";
     $body .= "Total : " . shop_money($o['total']) . "\\n\\nClient : {$o['customer']['name']} <{$o['customer']['email']}>\\n{$o['customer']['address']}\\n";
-    global $SHOP; $to = $SHOP['order_email'] ?? ($site['contact']['email'] ?? '');
-    if ($to) @mail($to, '[' . ($site['name'] ?? 'Boutique') . '] Commande ' . $o['id'], $body, "Content-Type: text/plain; charset=UTF-8\\r\\n");
-    if (filter_var($o['customer']['email'] ?? '', FILTER_VALIDATE_EMAIL)) @mail($o['customer']['email'], 'Votre commande ' . $o['id'] . ' - ' . ($site['name'] ?? ''), $body, "Content-Type: text/plain; charset=UTF-8\\r\\n");
+    global $SHOP; $to = (string)($SHOP['order_email'] ?? ($site['contact']['email'] ?? ''));
+    $name = (string)($site['name'] ?? 'Boutique'); $ok = true; $any = false;
+    if ($to !== '') { $any = true; $ok = sl_mail($to, '[' . $name . '] Commande ' . $o['id'], $body, ['from_name' => $name, 'reply_to' => (string)($o['customer']['email'] ?? '')]) && $ok; }
+    if (filter_var($o['customer']['email'] ?? '', FILTER_VALIDATE_EMAIL)) { $any = true; $ok = sl_mail((string)$o['customer']['email'], 'Votre commande ' . $o['id'] . ' - ' . $name, $body, ['from_name' => $name, 'reply_to' => $to]) && $ok; }
+    if ($any && function_exists('shop_update_order')) shop_update_order((string)$o['id'], fn($x) => array_merge($x, ['mail' => $ok ? 'sent' : 'failed', 'mail_at' => date('c')]));
 }
 
 /** Met à jour une commande. $fn reçoit la commande et renvoie la version modifiée. */

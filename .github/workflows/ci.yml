@@ -9,8 +9,8 @@ jobs:
     name: Exemples compilés, bancs HTTP, atelier
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with: { node-version: 20, cache: npm }
       - uses: shivammathur/setup-php@v2
         with:
@@ -42,8 +42,8 @@ jobs:
     name: Sites compilés sous Apache (php:8.3-apache)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with: { node-version: 20, cache: npm }
       - run: npm ci
       - name: Atelier navigateur (requis par la savonnerie, site.studio.enabled)

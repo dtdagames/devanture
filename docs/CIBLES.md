@@ -23,7 +23,8 @@ Les noms de routes commençant par `_` sont techniques et réservés. Les cookie
 - `POST` sur la route de la page, champ caché `_form=contact`, jeton `_csrf` lié à la session, pot de miel `site_web` (vide obligatoire).
 - Destinataire, liste des champs, obligations et conditions `when` sont fixés côté serveur à la compilation, jamais lus depuis la requête.
 - Validation : champ manquant → message « est obligatoire », e-mail invalide → « e-mail invalide » ; réponse 200 avec les erreurs par champ et les valeurs conservées. Succès → message `success` de la section.
-- Enregistrement : collection `messages` (voir § 7), document `{ id, at, source: 'form', ip, page, …champs }`.
+- Enregistrement : collection `messages` (voir § 7), document `{ id, at, source: 'form', ip, page, mail: none | sent | failed, …champs }`.
+- E-mail au destinataire (`to` de la section, sinon `site.contact.email`) : texte brut UTF-8, `From` à l'adresse du domaine (`no-reply@<domaine>`, ou `MAIL_FROM` de l'environnement) avec le nom du site, `Reply-To` sur l'e-mail du visiteur, sujet encodé RFC 2047 s'il n'est pas ASCII, jamais de retour à la ligne dans un en-tête. L'échec d'envoi n'empêche pas l'enregistrement. Mêmes règles pour les e-mails de commande (marchand et client).
 - Préremplissage : `?q=` remplit le message et, si une option de `select` correspond, la sélectionne.
 
 ## 3. Jumeau pour agents

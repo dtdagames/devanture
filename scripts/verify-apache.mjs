@@ -65,7 +65,8 @@ try { docker(['rm', '-f', name]); } catch { /* pas de conteneur résiduel */ }
 docker(['run', '-d', '--rm', '--name', name, '-p', `127.0.0.1:${port}:80`, '-v', `${work.replaceAll('\\', '/')}:/var/www/html`, 'php:8.3-apache', 'bash', '-c',
   // Sous Linux, le dossier monté appartient à l'utilisateur hôte : PHP (www-data) doit pouvoir écrire data/, cache/ et déployer ;
   // chez un hébergeur mutualisé, PHP tourne sous le compte du client et la question ne se pose pas. Sans effet sur un montage Windows.
-  "chmod -R a+rwX /var/www/html 2>/dev/null; a2enmod rewrite headers expires deflate >/dev/null 2>&1; sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf; exec apache2-foreground"]);
+  // Puits de courrier : mail() de PHP écrit chaque message dans data/mail.log au lieu d'un vrai sendmail, pour vérifier en-têtes et contenu.
+  "chmod -R a+rwX /var/www/html 2>/dev/null; printf '%s\\n' '#!/bin/sh' 'cat >> /var/www/html/data/mail.log' 'printf \"\\n--- fin ---\\n\" >> /var/www/html/data/mail.log' > /usr/local/bin/mailsink; chmod +x /usr/local/bin/mailsink; echo 'sendmail_path = /usr/local/bin/mailsink' > /usr/local/etc/php/conf.d/zz-mail.ini; a2enmod rewrite headers expires deflate >/dev/null 2>&1; sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf; exec apache2-foreground"]);
 let up = false;
 for (let i = 0; i < 120 && !up; i++) { try { await raw('/'); up = true; } catch { await new Promise(r => setTimeout(r, 500)); } }
 ok('Apache démarré (php:8.3-apache)' + (HOST ? ` pour Host: ${HOST}` : ''), up);
@@ -176,6 +177,20 @@ try {
       ok('Banc boutique sous Apache', shop.code === 0, shopSum + ' ' + shop.out.split('\n').filter(l => l.startsWith('FAIL')).join(' | ').slice(0, 600));
       if (shopSum) console.log('  banc boutique :', shopSum);
     }
+  }
+
+  // E-mails produits pendant les bancs (formulaire de contact, commandes), lus dans le puits de courrier.
+  if (!flags.includes('--no-benches') && !HOST) {
+    const log = await fs.readFile(path.join(work, 'data', 'mail.log'), 'utf8').catch(() => '');
+    const mails = log.split('--- fin ---').map(m => m.trim()).filter(Boolean);
+    ok('E-mails : au moins un message envoyé par mail()', mails.length > 0, String(mails.length));
+    const contact = mails.find(m => /^Subject: .*Nouveau message/m.test(m));
+    ok('E-mail du formulaire : présent, To et Reply-To du visiteur', !!contact && /^To: .+@.+/m.test(contact) && /^Reply-To: .+@.+/m.test(contact), contact ? contact.split('\n').slice(0, 8).join(' | ') : 'absent');
+    ok('E-mail du formulaire : From au domaine du site, MIME et UTF-8 déclarés', !!contact && /^From: .*no-reply@127\.0\.0\.1/m.test(contact) && /^MIME-Version: 1\.0/m.test(contact) && /^Content-Type: text\/plain; charset=UTF-8/m.test(contact));
+    ok('E-mail du formulaire : accents intacts dans le corps', !!contact && /éàç/.test(contact));
+    ok('E-mails : aucun sujet avec caractères non ASCII bruts', mails.every(m => { const s = /^Subject: (.*)$/m.exec(m)?.[1] || ''; return !/[^\x20-\x7e]/.test(s); }));
+    let orderMail = null; try { await fs.access(path.join(work, 'data', 'products.json')); orderMail = mails.filter(m => /^Subject: .*[Cc]ommande/m.test(m)); } catch { /* pas de boutique */ }
+    if (orderMail) ok('E-mails de commande : marchand et client', orderMail.length >= 2 && orderMail.some(m => /^Subject: Votre commande/m.test(m)), String(orderMail.length));
   }
 
   // Back-office : jeton requis, session ensuite.

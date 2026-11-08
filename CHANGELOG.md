@@ -1,6 +1,13 @@
 # Journal des versions
 
-Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.1.2`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.1.3`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+
+## v0.1.3 — 2026-11-08
+
+- **E-mails fiables** : une seule aide `sl_mail()` pour le formulaire de contact et les commandes : expéditeur `no-reply@<domaine du site>` (ou `MAIL_FROM` dans `.env`) avec le nom du site, `Reply-To` sur le visiteur ou le marchand, sujet encodé RFC 2047 s'il contient des accents, en-têtes MIME et UTF-8 explicites, aucun retour à la ligne injectable. Auparavant les messages partaient sans `From` (souvent rejetés ou classés indésirables) et avec un sujet brut.
+- Statut d'envoi (`mail: sent | failed | none`) enregistré sur chaque message et chaque commande, colonne « E-mail » dans le back-office ; un échec d'envoi n'empêche jamais l'enregistrement.
+- Banc Apache : un puits de courrier remplace sendmail dans le conteneur et vérifie les e-mails réellement produits par PHP (destinataire, réponse, expéditeur, MIME, accents, sujets ASCII, e-mails marchand et client d'une commande).
+- Intégration continue : actions GitHub `checkout` et `setup-node` en v5.
 
 ## v0.1.2 — 2026-11-08
 
