@@ -66,6 +66,16 @@ main > .section ~ .section{padding-top:0}
 .intent-results .ir-answer .ir-text{display:block;white-space:normal;font-size:.92rem;margin:4px 0 6px;color:var(--color-fg)}
 .intent-results .ir-answer .ir-page{color:var(--color-primary);font-weight:600}
 .field[hidden]{display:none}
+/* Formulaires : contact et formulaires déclarés des composants (effects.form) partagent ces règles. */
+.sl-form .field,.contact-form .field{margin-bottom:16px}
+.sl-form label,.contact-form label{display:block;font-weight:600;margin-bottom:6px}
+.sl-form input,.sl-form textarea,.sl-form select,.contact-form input,.contact-form textarea,.contact-form select{width:100%;padding:10px 12px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-bg);color:var(--color-fg);font:inherit}
+.sl-form input:focus,.sl-form textarea:focus,.sl-form select:focus,.contact-form input:focus,.contact-form textarea:focus,.contact-form select:focus{outline:2px solid var(--color-primary);outline-offset:1px}
+.sl-form .has-error input,.sl-form .has-error textarea,.sl-form .has-error select,.contact-form .has-error input,.contact-form .has-error textarea,.contact-form .has-error select{border-color:#c0392b}
+.field-error,.form-error{color:#c0392b;font-size:.9rem;margin-top:4px}
+.form-error{margin-bottom:12px}
+.hp{position:absolute;left:-9999px;opacity:0;height:0;overflow:hidden}
+.contact-success{border-color:var(--color-accent)}
 .consent{position:fixed;left:16px;right:16px;bottom:16px;max-width:560px;margin:0 auto;background:var(--color-bg);border:1px solid var(--color-border);border-radius:var(--radius);box-shadow:0 10px 30px rgba(0,0,0,.18);padding:16px 18px;z-index:50;font-size:.95rem}
 .consent[hidden]{display:none}
 .consent p{margin:0 0 12px}

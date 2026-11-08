@@ -8,7 +8,6 @@ sections:
   - hero:
       title: "{{ item.title }}"
       subtitle: "{{ item.category | replace('-', ' ') | capitalize }} · {{ item.date | date('F Y') }}"
-      image: "{{ item.image }}"
       align: left
       cta: { label: Toutes les réalisations, to: /realisations }
   - richtext:
