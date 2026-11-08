@@ -194,7 +194,7 @@ try {
     ok('E-mails : aucun sujet avec caractères non ASCII bruts', mails.every(m => { const s = /^Subject: (.*)$/m.exec(m)?.[1] || ''; return !/[^\x20-\x7e]/.test(s); }));
     let orderMail = null; try { await fs.access(path.join(work, 'lib', 'data', 'products.json')); orderMail = mails.filter(m => /[Cc]ommande/.test(subject(m))); } catch { /* pas de boutique */ }
     if (orderMail) ok('E-mails de commande : marchand et client', orderMail.length >= 2 && orderMail.some(m => /^Votre commande/.test(subject(m))), String(orderMail.length));
-    if (contact) ok('E-mail du formulaire : sujet décodé lisible (nom du site, accents)', subject(contact).includes(String((/"name":\s*"([^"]+)"/.exec(await fs.readFile(path.join(work, 'site.json'), 'utf8').catch(() => '')) || [])[1] || '')));
+    if (contact) ok('E-mail du formulaire : sujet décodé lisible (nom du site, accents)', subject(contact).includes(String(JSON.parse(await fs.readFile(path.join(work, 'site.json'), 'utf8').catch(() => '{}')).name || '')), subject(contact));
   }
 
   // Back-office : jeton requis, session ensuite.
