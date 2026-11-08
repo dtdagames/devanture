@@ -1,0 +1,28 @@
+site:
+  name: Maison Dubois
+  tagline: Savonnerie artisanale à Marseille, saponification à froid depuis 1987
+  locale: fr-FR
+  theme: { preset: chaleureux }
+  nav:
+    - { label: Accueil, to: / }
+    - { label: Boutique, to: /boutique }
+    - { label: L'atelier, to: /atelier }
+    - { label: Contact, to: /contact }
+  footer:
+    text: SIRET 345 678 901 00023 · Fabriqué à Marseille
+    links:
+      - { label: Mentions légales, to: /mentions-legales }
+      - { label: Panier, to: /panier }
+  contact:
+    email: bonjour@maison-dubois.fr
+    phone: 04 91 00 00 00
+    address: 12 rue des Lilas, 13001 Marseille
+  shop:
+    currency: "€"
+    payment: manual
+    manual_instructions: Paiement par virement à réception de la confirmation (coordonnées dans l'e-mail) ou en espèces au retrait à l'atelier.
+    shipping: { flat: 4.9, free_from: 50 }
+  studio: { enabled: true }
+  agents:
+    summary: Savonnerie artisanale marseillaise, savons et cosmétiques solides saponifiés à froid, vente en ligne et retrait à l'atelier.
+    business_type: Store

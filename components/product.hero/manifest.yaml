@@ -1,0 +1,12 @@
+name: product.hero
+order: 111
+description: "Fiche produit (page dynamique /produit/[id], source: products) : image, nom, prix, description, stock et ajout au panier avec quantité."
+props:
+  type: object
+  properties:
+    back: { $ref: "#/$defs/link", description: lien de retour (ex. vers la boutique) }
+    show_stock: { type: boolean, description: afficher le stock restant (défaut true) }
+example: |
+  - product.hero:
+      back: { label: Retour à la boutique, to: /boutique }
+intents: [fiche produit, détail, acheter]

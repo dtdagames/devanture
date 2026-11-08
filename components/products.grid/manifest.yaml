@@ -1,0 +1,26 @@
+name: products.grid
+order: 110
+description: "Grille de produits depuis data/products.yaml : image, nom, prix, badge, bouton d'ajout au panier et lien vers la fiche. Filtre par catégorie ou mis en avant."
+props:
+  type: object
+  properties:
+    title: { type: string }
+    intro: { type: string }
+    filter:
+      type: object
+      additionalProperties: false
+      properties:
+        category: { type: string, description: "catégorie telle qu'écrite dans products.yaml" }
+        featured: { type: boolean, description: "true = seulement les produits featured: true" }
+    sort: { type: string, enum: [name, price, price_desc], description: ordre d'affichage (défaut ordre du fichier) }
+    limit: { type: integer, minimum: 1 }
+    columns: { type: integer, enum: [2, 3, 4], description: défaut 3 }
+    show_add: { type: boolean, description: "bouton « Ajouter au panier » (défaut true)" }
+    cta: { $ref: "#/$defs/link", description: lien sous la grille (ex. vers la boutique complète) }
+example: |
+  - products.grid:
+      title: Nos savons
+      filter: { category: savons }
+      columns: 3
+      cta: { label: Toute la boutique, to: /boutique }
+intents: [boutique, acheter, produits, commander, catalogue, articles]

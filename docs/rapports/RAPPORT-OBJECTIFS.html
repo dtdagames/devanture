@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Objectifs Sitelang</title>
+<style>
+  :root { --bg:#fff; --bg-soft:#f6f7f9; --fg:#1b1f24; --fg-muted:#5b6470; --accent:#1f3a5f; --accent-soft:#e8eef6; --border:#d9dee5; --code-bg:#f1f3f6; --ok-bg:#e7f5ec; --ok-border:#5aa36f; --warn-bg:#fff6e0; --warn-border:#e8c46a; --bad-bg:#fdecea; --bad-border:#d9534f; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0f1216; --bg-soft:#161b22; --fg:#e6e9ee; --fg-muted:#9aa4b1; --accent:#8fb4e3; --accent-soft:#1b2a3f; --border:#2a323d; --code-bg:#161b22; --ok-bg:#12301c; --ok-border:#3c8a52; --warn-bg:#2b2410; --warn-border:#8a6d1f; --bad-bg:#3a1716; --bad-border:#b23b36; } }
+  :root[data-theme="dark"] { --bg:#0f1216; --bg-soft:#161b22; --fg:#e6e9ee; --fg-muted:#9aa4b1; --accent:#8fb4e3; --accent-soft:#1b2a3f; --border:#2a323d; --code-bg:#161b22; --ok-bg:#12301c; --ok-border:#3c8a52; --warn-bg:#2b2410; --warn-border:#8a6d1f; --bad-bg:#3a1716; --bad-border:#b23b36; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  .wrap { max-width:960px; margin:0 auto; padding:32px 16px 80px; }
+  header { border-bottom:1px solid var(--border); padding-bottom:20px; margin-bottom:28px; }
+  header h1 { font-size:1.8rem; line-height:1.25; margin:0 0 8px; }
+  header p.meta { color:var(--fg-muted); margin:0; }
+  h2 { font-size:1.4rem; margin:44px 0 12px; padding-top:8px; border-top:1px solid var(--border); }
+  h3 { font-size:1.08rem; margin:26px 0 8px; }
+  p { margin:0 0 14px; } ul, ol { margin:0 0 14px; padding-left:24px; } li { margin-bottom:5px; }
+  code { font:.9em/1.5 ui-monospace,"Cascadia Code",Consolas,monospace; background:var(--code-bg); padding:1px 5px; border-radius:4px; }
+  pre { background:var(--code-bg); border:1px solid var(--border); border-radius:8px; padding:12px 14px; overflow-x:auto; margin:0 0 18px; }
+  pre code { background:none; padding:0; font-size:.82rem; }
+  table { width:100%; border-collapse:collapse; margin:0 0 20px; font-size:.93rem; }
+  th, td { text-align:left; vertical-align:top; padding:8px 10px; border:1px solid var(--border); }
+  th { background:var(--bg-soft); font-weight:600; }
+  .table-wrap { overflow-x:auto; margin-bottom:20px; }
+  .verdict { background:var(--accent-soft); border-left:4px solid var(--accent); padding:14px 18px; border-radius:0 8px 8px 0; margin-bottom:18px; }
+  .box { border-radius:8px; padding:12px 16px; margin:0 0 18px; border:1px solid; }
+  .ok { background:var(--ok-bg); border-color:var(--ok-border); } .warn { background:var(--warn-bg); border-color:var(--warn-border); } .bad { background:var(--bad-bg); border-color:var(--bad-border); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Personnalisation, e-commerce minimal, agents comme visiteurs</h1>
+  <p class="meta">Implémentés le 7 novembre 2026 dans le prototype Sitelang · Les trois objectifs de la demande initiale sont désormais couverts · Suite de <a href="RAPPORT-NAVIGATION.html">RAPPORT-NAVIGATION.html</a></p>
+</header>
+
+<h2>1. Où en est le prototype</h2>
+<div class="verdict">
+La demande de départ visait trois choses : un langage économe en tokens pour les LLM, des expériences adaptées à chaque visiteur, et des sites vitrines et e-commerce faciles à produire. Après cette passe, les trois sont couvertes dans le prototype : le DSL et son compilateur sont mesurés sur quatre tests, la personnalisation par segments et variantes est en place et vérifiée dans le navigateur, et une boutique complète, du catalogue à la confirmation de commande, se décrit en neuf fichiers YAML. S'y ajoute un point d'entrée pour les assistants qui agissent au nom des visiteurs. Le catalogue compte dix-huit composants.
+</div>
+
+<h2>2. Personnalisation par segments et variantes</h2>
+<h3>Le modèle</h3>
+<p>Un fichier <code>segments.yaml</code> déclare des segments à conditions structurées, pas des expressions libres : nombre de visites, appareil, événements avec fenêtre temporelle, nombre d'occurrences et filtre, combinés par <code>all</code>, <code>any</code>, <code>not</code>, plus un ordre de priorité. N'importe quelle section accepte un bloc <code>variants</code> qui surcharge des props par segment. Le compilateur vérifie tout : événements connus, segments déclarés, variantes valides une fois fusionnées avec la base, interdiction de toucher à l'identifiant ou aux mots-clés.</p>
+<pre><code>segments:
+  nouveau: { visits: 1 }
+  recurrent: { visits: { gte: 2 } }
+  devis_abandonne: { all: [ { event: form_start, within: 7d }, { not: { event: form_submit, within: 7d } } ] }
+  fan_services: { event: section_view, where: { section: services }, count: { gte: 2 } }
+priority: [devis_abandonne, fan_services, recurrent, nouveau]
+
+- hero:
+    title: Plombier chauffagiste à Lyon
+    variants:
+      devis_abandonne: { title: Votre demande de devis vous attend, cta: { label: Reprendre ma demande, to: /contact } }
+      recurrent: { subtitle: Content de vous revoir. }</code></pre>
+<h3>Le runtime</h3>
+<ul>
+  <li><strong>Une définition, deux évaluateurs.</strong> La spécification compilée est embarquée dans un module PHP et dans le JavaScript de la page, avec la même sémantique. Le PHP choisit la variante au premier rendu, donc sans scintillement et indexable ; le JavaScript tient le profil à jour.</li>
+  <li><strong>Le profil reste chez le visiteur.</strong> Un cookie first-party contient des agrégats : nombre de sessions, compteurs et dernière date par événement, ventilés uniquement sur les clés que les segments utilisent. Le compilateur n'émet le suivi que des événements réellement référencés.</li>
+  <li><strong>Consentement par défaut.</strong> Un bandeau demande l'accord avant toute écriture ; sans accord, aucun segment n'est actif et le site reste générique. Texte et activation configurables.</li>
+  <li><strong>Mesure.</strong> Chaque variante affichée émet un événement vers un journal serveur, avec les segments actifs, pour comparer les conversions.</li>
+</ul>
+<h3>Vérifié dans le navigateur</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Étape</th><th>Segments côté serveur</th><th>Ce que voit le visiteur</th></tr></thead>
+  <tbody>
+    <tr><td>Première visite, avant consentement</td><td>aucun</td><td>Bandeau, page générique</td></tr>
+    <tr><td>Après « Accepter »</td><td>nouveau</td><td>Page générique (pas de variante pour ce segment)</td></tr>
+    <tr><td>Nouvelle session</td><td>nouveau puis recurrent à la page suivante</td><td>Sous-titre « Content de vous revoir »</td></tr>
+    <tr><td>Formulaire commencé sans envoi, retour à l'accueil</td><td>devis_abandonne, recurrent</td><td>Titre « Votre demande de devis vous attend », bouton « Reprendre ma demande »</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="box warn">Le compteur de visites s'incrémente côté navigateur après le rendu : une variante liée au nombre de visites s'applique donc à partir de la page suivante de la nouvelle session, pas à la première. Les variantes liées aux événements s'appliquent dès la page suivante de l'événement. Il n'y a pas de remplacement de contenu en direct sans rechargement, c'est volontaire : le serveur reste la seule source du rendu.</div>
+
+<h2>3. E-commerce minimal</h2>
+<h3>Le modèle</h3>
+<p>Un fichier <code>data/products.yaml</code> décrit les produits (identifiant, nom, prix numérique, catégorie, image, description, stock, badge, mise en avant). Six composants couvrent le parcours : <code>products.grid</code> (grille filtrée par catégorie ou mise en avant, tri, bouton d'ajout), une page dynamique <code>/produit/[id]</code> avec <code>product.hero</code> et <code>products.related</code>, <code>cart.page</code>, <code>checkout.page</code>, et une page dynamique <code>/commande/[id]</code> avec <code>order.confirmation</code>. Le compilateur vérifie la cohérence du parcours : des produits vendus sans panier, un panier sans commande ou une commande sans confirmation sont des erreurs nommées, avec la marche à suivre.</p>
+<h3>Le runtime</h3>
+<ul>
+  <li>Panier en session PHP, actions par formulaires POST protégés par jeton, redirection vers la page d'origine, compteur dans l'en-tête, message de confirmation d'ajout.</li>
+  <li>Commande : validation des coordonnées, calcul des frais de port (forfait et seuil de gratuité), enregistrement dans un fichier JSONL avec identifiant et jeton d'accès, e-mail au commerçant et au client, vidage du panier, page de confirmation inaccessible sans le jeton.</li>
+  <li>Paiement : <code>manual</code> (à réception, virement, retrait) ou <code>stripe</code> via Stripe Checkout, la clé secrète dans un fichier <code>.env</code> jamais présent dans le DSL. Le mode Stripe est écrit mais <strong>non testé</strong> : ce poste n'a ni clé ni extension HTTPS en PHP. La confirmation après retour de Stripe n'est pas vérifiée côté serveur en v0 ; un webhook est nécessaire avant toute mise en production.</li>
+  <li>Les événements <code>cart_add</code>, <code>checkout_start</code> et <code>purchase</code> alimentent la personnalisation, ce qui rend possible le segment « panier abandonné » de la proposition.</li>
+</ul>
+<h3>Vérifié</h3>
+<p>Site de démonstration <code>examples/savonnerie</code> : neuf pages, six produits dont un épuisé. Un banc dédié de 31 contrôles joue le parcours complet sur serveur PHP réel : grille, fiche avec titre interpolé, fiche inconnue en 404, produit épuisé sans bouton, ajout refusé sans jeton, ajout de deux articles, sous-total exact, modification de quantité, retrait d'une ligne, frais de port, commande invalide avec erreurs par champ, commande valide, confirmation, confirmation sans jeton en 404, panier vidé, commande enregistrée et non servie en HTTP, produits exposés dans le jumeau. Le banc général passe ses 62 contrôles sur ce site.</p>
+
+<h2>4. Agents comme visiteurs</h2>
+<p>Le jumeau décrivait déjà le site ; il permet maintenant d'agir. <code>GET /api/contact</code> renvoie la définition des champs du formulaire et indique si l'API est active. <code>POST /api/contact</code> en JSON, avec un jeton porteur défini par le propriétaire dans <code>.env</code>, passe exactement la même validation que le formulaire, champs conditionnels compris, enregistre le message avec la source « agent » et l'envoie par e-mail. Vingt requêtes par heure et par adresse. Sans jeton configuré, l'API répond 503 ; avec un mauvais jeton, 401 ; au-delà du débit, 429. Le fichier d'instructions et les données structurées décrivent l'API, et la boutique y expose ses produits et ses routes.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Cas</th><th>Réponse</th></tr></thead>
+  <tbody>
+    <tr><td>Sans jeton, mauvais jeton</td><td>401</td></tr>
+    <tr><td>Téléphone à deux chiffres, urgence manquante, message manquant</td><td>400 avec un message par champ</td></tr>
+    <tr><td>Demande complète</td><td>200, identifiant, confirmation au nom du site, ligne JSONL avec source « agent »</td></tr>
+    <tr><td>Champs conditionnels hors condition</td><td>Ignorés, comme sur le formulaire</td></tr>
+    <tr><td>21e requête dans l'heure</td><td>429</td></tr>
+    <tr><td>Jeton absent du fichier <code>.env</code></td><td>503 avec l'indication à suivre</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>5. Ce que vérifie le compilateur en plus</h2>
+<ul>
+  <li>Segments : événement inconnu avec suggestion, durée mal formée, condition inconnue, segment inconnu dans la priorité ou dans une variante, variante invalide après fusion, variante qui touche à l'identifiant.</li>
+  <li>Produits : propriétés inconnues, identifiant mal formé ou en double, prix non numérique avec correction proposée, image absente, stock non entier.</li>
+  <li>Boutique : route dynamique mal formée, source manquante, composants de fiche hors de la page dynamique, panier ou commande ou confirmation absents, catégorie de filtre inconnue avec suggestion.</li>
+</ul>
+
+<h2>6. Limites et suites</h2>
+<ul>
+  <li><strong>Webhook Stripe</strong> (ajouté après ce rapport) : <code>/_stripe/webhook</code> vérifie la signature HMAC avec le secret du webhook, refuse une signature fausse ou un horodatage de plus de cinq minutes, passe la commande à « payée » sur session complétée, l'annule et libère le stock sur session expirée, ignore les autres événements, et répond 503 tant que le secret n'est pas configuré. Testé localement avec des événements signés par le banc (10 contrôles, 48 au total), rejeu idempotent compris. Reste <strong>non testé</strong> : la création de la session de paiement elle-même, qui exige une clé et une sortie HTTPS depuis PHP.</li>
+  <li><strong>Stock</strong> (ajouté après ce rapport) : une réserve persistante <code>data/stock.json</code> tient le restant par produit ; l'ajout et la modification au panier sont plafonnés au restant avec un message ; la commande réserve toutes les lignes sous un seul verrou, et si le stock a changé entre-temps le panier est ajusté et le client prévenu ; la fiche et la grille affichent « Plus que N » sous trois unités puis « Épuisé ». Un réapprovisionnement dans <code>products.yaml</code> relance le restant. Les données d'exploitation (commandes, messages, stock, événements, <code>.env</code>) survivent désormais à une recompilation. Sept contrôles ajoutés au banc d'achat (38 au total).</li>
+  <li><strong>Pas d'espace client ni de suivi</strong> : la confirmation est accessible par lien avec jeton, c'est tout.</li>
+  <li><strong>Personnalisation sans mise à jour en direct</strong> : la variante s'applique au prochain rendu. Une version avec remplacement de section côté client demanderait d'émettre les variantes dans le HTML, au prix du poids des pages.</li>
+  <li><strong>L'API couvre le formulaire de contact</strong>. Une commande par un agent demanderait un panier sans session navigateur et un paiement sans interface, hors périmètre pour l'instant.</li>
+  <li>Comme à chaque passe, mon propre YAML a déclenché le piège de la virgule une fois, et le message dédié l'a signalé du premier coup.</li>
+</ul>
+
+<div class="box ok"><strong>Mise à jour.</strong> Cinq chantiers de plus : relecture éditoriale à la compilation, assemblage des pages par segment, mémoire du visiteur, version texte avec lecture à voix haute, micro-sites par dérivation. Voir <a href="RAPPORT-CREATION.html">RAPPORT-CREATION.html</a>.</div>
+<h2>7. Reproduire</h2>
+<pre><code>node bin/sitec.js check examples/savonnerie
+node bin/sitec.js build examples/savonnerie
+node scripts/verify-shop.mjs examples/savonnerie/dist 8910
+node scripts/verify-php-site.mjs examples/savonnerie/dist 8911
+node bin/sitec.js explain site        # segments, personnalisation, boutique
+# API agents : écrire AGENT_API_TOKEN=... dans dist/.env, puis GET et POST /api/contact</code></pre>
+
+</div>
+</body>
+</html>

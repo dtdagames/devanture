@@ -1,0 +1,5 @@
+.feature-icon{color:var(--color-primary);margin-bottom:12px;line-height:1}
+.feature-icon .icon{width:32px;height:32px}
+.feature h3{margin-bottom:.3em}
+.feature p{margin:0}
+.feature-link{display:inline-block;margin-top:10px;font-weight:600;text-decoration:none}

@@ -1,0 +1,38 @@
+page: honoraires
+route: /honoraires
+seo:
+  title: "Honoraires et convention d'honoraires, cabinet Garnier"
+  description: "Honoraires au forfait ou au temps passé, convention d'honoraires systématique et première consultation de 30 minutes offerte."
+sections:
+  - hero:
+      title: "Honoraires"
+      subtitle: "Des modalités claires, décidées avec vous avant toute intervention."
+  - features:
+      title: "Nos modes de facturation"
+      intro: "Le mode de calcul dépend de la nature de votre dossier et de son déroulement prévisible."
+      items:
+        - icon: check
+          title: "Au forfait"
+          text: "Un montant convenu à l'avance pour une prestation définie, comme la rédaction d'un contrat ou une procédure amiable."
+        - icon: clock
+          title: "Au temps passé"
+          text: "Une facturation selon le temps consacré au dossier, avec un point régulier sur son avancement."
+        - icon: shield
+          title: "Convention systématique"
+          text: "Chaque mission fait l'objet d'une convention d'honoraires écrite, signée avant le début du travail."
+        - icon: gift
+          title: "Première consultation offerte"
+          text: "Un premier échange de 30 minutes pour évaluer votre situation et les options possibles."
+  - faq:
+      title: "Questions sur les honoraires"
+      items:
+        - q: "Qu'est-ce qu'une convention d'honoraires ?"
+          a: "C'est le contrat qui fixe la mission, les modalités de facturation et les frais prévus. Elle vous est remise avant tout travail."
+        - q: "Que comprend la première consultation ?"
+          a: "Un échange de 30 minutes, offert, qui permet de faire le point sur votre dossier et sur les démarches envisageables."
+        - q: "Quels frais peuvent s'ajouter aux honoraires ?"
+          a: "Les frais de justice, d'huissier ou de greffe, lorsqu'ils sont nécessaires. Ils sont annoncés dans la convention."
+  - cta:
+      title: "Un devis clair avant tout engagement"
+      text: "Décrivez-nous votre dossier, nous vous indiquons la modalité la plus adaptée."
+      button: { label: "Nous contacter", to: "/contact" }

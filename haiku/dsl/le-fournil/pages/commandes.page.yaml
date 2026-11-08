@@ -1,0 +1,42 @@
+page: commandes
+route: /commandes
+seo:
+  title: Commandes pour événements, buffets et pièces montées | Le Fournil Nantes
+  description: Buffets, pièces montées et commandes spéciales pour vos événements, préparées par Le Fournil à Nantes.
+sections:
+  - hero:
+      title: Commandes événements
+      subtitle: Buffets, pièces montées et commandes spéciales
+      image: evenement.svg
+      cta: { label: Demander un devis, to: "#formulaire" }
+  - features:
+      title: Ce que nous préparons
+      columns: 3
+      items:
+        - { icon: gift, title: Buffets, text: "Pains, viennoiseries et mini-sandwichs pour vos réceptions." }
+        - { icon: star, title: Pièces montées, text: "Choux, nougatine ou fondant, sur devis." }
+        - { icon: tools, title: Commandes spéciales, text: Gâteaux et pains sur mesure pour vos fêtes. }
+  - faq:
+      title: Questions fréquentes
+      intro: Les réponses aux questions les plus souvent posées.
+      items:
+        - q: Quel délai faut-il prévoir ?
+          a: Nous demandons au minimum 48 h pour un buffet, et davantage pour une pièce montée.
+        - q: Livrez-vous ?
+          a: Oui, sur le centre de Nantes. Le tarif de livraison dépend de la distance et s'indique avec le devis.
+        - q: Puis-je goûter avant de commander ?
+          a: "Oui, sur rendez-vous en boutique, sans engagement."
+  - contact.form:
+      id: formulaire
+      title: Demande de devis
+      intro: Décrivez votre événement, nous revenons vers vous sous 48 h.
+      to: bonjour@lefournil-nantes.fr
+      fields:
+        - name
+        - email
+        - phone
+        - { name: event_date, label: Date de l'événement, type: date, required: true }
+        - { name: guests, label: Nombre de convives, type: number }
+        - { name: kind, label: Type de commande, type: select, options: [Buffet, Pièce montée, Autre] }
+        - message
+      success: Merci, nous revenons vers vous sous 48 h.

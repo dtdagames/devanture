@@ -1,0 +1,12 @@
+page: mentions-legales
+route: /mentions-legales
+seo:
+  title: Mentions légales — Cabinet Garnier & Associés
+  description: Mentions légales du site du cabinet Garnier & Associés.
+sections:
+  - richtext:
+      title: Mentions légales
+      text: |
+        Site édité par le cabinet Garnier & Associés, avocats, 25 cours de l'Intendance, 33000 Bordeaux. Téléphone : 05 56 00 00 00. Email : contact@garnier-associes.fr.
+
+        Les avocats du cabinet exercent au Barreau de Bordeaux et sont soumis à la déontologie de la profession d'avocat.

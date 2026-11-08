@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atelier Sitelang</title>
+<meta name="description" content="Compilateur Sitelang dans le navigateur : éditer le DSL, vérifier, compiler, déployer par envoi signé.">
+<style>
+  :root { --bg:#fff; --bg-soft:#f4f6f8; --bg-panel:#fafbfc; --fg:#1b1f24; --muted:#5b6470; --accent:#1f3a5f; --accent-fg:#fff; --accent-soft:#e8eef6; --border:#d9dee5; --err:#b42318; --err-bg:#fdecea; --warn:#8a5a00; --warn-bg:#fff4d6; --ok:#1e7a3c; --ok-bg:#e7f5ec; --code:#f1f3f6; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0f1216; --bg-soft:#161b22; --bg-panel:#12161b; --fg:#e6e9ee; --muted:#9aa4b1; --accent:#8fb4e3; --accent-fg:#0f1216; --accent-soft:#1b2a3f; --border:#2a323d; --err:#ff8a7a; --err-bg:#3a1713; --warn:#e8c46a; --warn-bg:#2b2410; --ok:#6fcf8a; --ok-bg:#12301c; --code:#161b22; } }
+  :root[data-theme="dark"] { --bg:#0f1216; --bg-soft:#161b22; --bg-panel:#12161b; --fg:#e6e9ee; --muted:#9aa4b1; --accent:#8fb4e3; --accent-fg:#0f1216; --accent-soft:#1b2a3f; --border:#2a323d; --err:#ff8a7a; --err-bg:#3a1713; --warn:#e8c46a; --warn-bg:#2b2410; --ok:#6fcf8a; --ok-bg:#12301c; --code:#161b22; }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; display:flex; flex-direction:column; }
+  button, select, input { font:inherit; color:inherit; }
+  button { background:var(--bg-soft); border:1px solid var(--border); border-radius:6px; padding:5px 10px; cursor:pointer; }
+  button:hover { border-color:var(--accent); }
+  button.primary { background:var(--accent); color:var(--accent-fg); border-color:var(--accent); }
+  button:disabled { opacity:.5; cursor:default; }
+  input[type=text], input[type=password], input[type=url], select { background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:5px 8px; }
+  code, pre, textarea.editor, .mono { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  code { background:var(--code); padding:0 4px; border-radius:4px; font-size:.92em; }
+  header { display:flex; align-items:center; gap:8px; padding:8px 12px; border-bottom:1px solid var(--border); background:var(--bg-panel); flex-wrap:wrap; }
+  header h1 { font-size:1rem; margin:0 12px 0 0; white-space:nowrap; }
+  header .project { color:var(--muted); margin-right:auto; }
+  header .status { font-size:.85rem; padding:2px 8px; border-radius:999px; background:var(--bg-soft); }
+  header .status.ok { background:var(--ok-bg); color:var(--ok); } header .status.err { background:var(--err-bg); color:var(--err); }
+  main { flex:1; display:grid; grid-template-columns:230px 1fr; grid-template-rows:1fr auto; min-height:0; }
+  aside { border-right:1px solid var(--border); background:var(--bg-panel); overflow:auto; padding:8px; grid-row:1 / span 2; }
+  aside h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:8px 4px 4px; }
+  aside ul { list-style:none; margin:0; padding:0; }
+  aside li { display:flex; align-items:center; border-radius:6px; }
+  aside li a { flex:1; display:block; padding:4px 6px; color:inherit; text-decoration:none; border-radius:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  aside li.on a { background:var(--accent-soft); }
+  aside li.dirty a::after { content:" •"; color:var(--accent); }
+  aside li.bin a { color:var(--muted); }
+  aside li button.del { border:none; background:none; color:var(--muted); padding:0 6px; visibility:hidden; }
+  aside li:hover button.del { visibility:visible; }
+  aside .add { width:100%; margin-top:6px; }
+  #editor { display:flex; flex-direction:column; min-height:0; }
+  #editor .bar { display:flex; align-items:center; gap:8px; padding:4px 10px; border-bottom:1px solid var(--border); color:var(--muted); font-size:.85rem; }
+  textarea.editor { flex:1; width:100%; border:none; resize:none; padding:10px 12px; background:var(--bg); color:var(--fg); font-size:13px; line-height:1.5; tab-size:2; outline:none; white-space:pre; }
+  #panel { border-top:1px solid var(--border); background:var(--bg-panel); height:38vh; min-height:160px; display:flex; flex-direction:column; }
+  #panel nav { display:flex; gap:2px; padding:4px 8px 0; border-bottom:1px solid var(--border); }
+  #panel nav button { border:1px solid transparent; border-bottom:none; background:none; border-radius:6px 6px 0 0; padding:5px 10px; color:var(--muted); }
+  #panel nav button.on { background:var(--bg); border-color:var(--border); color:var(--fg); }
+  #panel nav button .n { display:inline-block; min-width:18px; text-align:center; border-radius:999px; background:var(--bg-soft); font-size:.75rem; margin-left:4px; padding:0 5px; }
+  #panel nav button .n.err { background:var(--err-bg); color:var(--err); }
+  #panel section { flex:1; overflow:auto; padding:10px 12px; display:none; }
+  #panel section.on { display:block; }
+  .issue { border-left:3px solid var(--err); background:var(--err-bg); padding:6px 10px; border-radius:0 6px 6px 0; margin:0 0 8px; cursor:pointer; }
+  .issue.warn { border-left-color:var(--warn); background:var(--warn-bg); }
+  .issue b { font-family:ui-monospace,monospace; font-size:.85em; }
+  .issue .where { color:var(--muted); font-size:.85em; }
+  .issue .hint { margin-top:2px; }
+  .files { columns:3; column-gap:16px; font-size:.85rem; }
+  .files div { break-inside:avoid; display:flex; justify-content:space-between; gap:8px; }
+  .files span { color:var(--muted); }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px; }
+  .row label { color:var(--muted); }
+  iframe.preview { width:100%; height:420px; border:1px solid var(--border); border-radius:6px; background:#fff; }
+  pre.log { background:var(--code); padding:8px 10px; border-radius:6px; max-height:180px; overflow:auto; margin:8px 0 0; white-space:pre-wrap; }
+  .comp { display:grid; grid-template-columns:220px 1fr; gap:16px; }
+  .comp ul { list-style:none; margin:0; padding:0; }
+  .comp li a { display:block; padding:3px 6px; border-radius:6px; color:inherit; text-decoration:none; }
+  .comp li.on a { background:var(--accent-soft); }
+  .comp table { border-collapse:collapse; width:100%; font-size:.85rem; }
+  .comp th, .comp td { text-align:left; padding:4px 8px; border-bottom:1px solid var(--border); vertical-align:top; }
+  .help p, .help li { max-width:80ch; }
+  .muted { color:var(--muted); }
+  .ok { color:var(--ok); }
+  @media (max-width: 760px) { main { grid-template-columns:1fr; grid-template-rows:auto 1fr auto; } aside { grid-row:auto; max-height:160px; border-right:none; border-bottom:1px solid var(--border); } .files { columns:1; } .comp { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Atelier Sitelang</h1>
+  <span class="project" id="projectName">…</span>
+  <span class="status" id="status">prêt</span>
+  <select id="example" title="Charger un exemple"><option value="">Exemples…</option></select>
+  <button id="openDir" title="Ouvrir un dossier de projet (Chrome, Edge)">Ouvrir un dossier</button>
+  <button id="saveDir" hidden title="Écrire les fichiers modifiés dans le dossier ouvert">Enregistrer</button>
+  <button id="check">Vérifier</button>
+  <button id="build" class="primary">Compiler</button>
+  <button id="download" disabled>dist.zip</button>
+  <button id="writeDist" hidden disabled title="Écrire dist/ dans le dossier ouvert">Écrire dist/</button>
+</header>
+<main>
+  <aside>
+    <h2>Fichiers</h2>
+    <ul id="files"></ul>
+    <button class="add" id="addFile">+ Nouveau fichier</button>
+  </aside>
+  <div id="editor">
+    <div class="bar"><span id="currentFile">aucun fichier</span><span class="muted" id="editorInfo"></span></div>
+    <textarea class="editor" id="text" spellcheck="false" placeholder="Choisissez un fichier à gauche."></textarea>
+  </div>
+  <div id="panel">
+    <nav>
+      <button data-tab="issues" class="on">Problèmes <span class="n" id="nIssues">0</span></button>
+      <button data-tab="output">Sortie <span class="n" id="nFiles">0</span></button>
+      <button data-tab="deploy">Déployer</button>
+      <button data-tab="components">Composants</button>
+      <button data-tab="help">Aide</button>
+    </nav>
+    <section id="tab-issues" class="on"><p class="muted">Cliquez sur « Vérifier » : les erreurs du DSL s'affichent ici, avec le fichier, le chemin et la correction suggérée.</p></section>
+    <section id="tab-output"><p class="muted">Cliquez sur « Compiler » : la sortie PHP + JS + CSS est produite en mémoire, téléchargeable en zip, et l'aperçu montre la version texte de chaque page.</p></section>
+    <section id="tab-deploy">
+      <div class="row"><label for="deployUrl">Site</label><input type="url" id="deployUrl" placeholder="https://mon-site.fr" size="36"><label for="deploySecret">Secret</label><input type="password" id="deploySecret" placeholder="DEPLOY_SECRET du .env" size="24"><button id="deploy" class="primary">Compiler et déployer</button></div>
+      <p class="muted">Chaque envoi est signé (HMAC-SHA256, horodaté) ; le serveur vérifie chaque fichier contre le manifeste d'empreintes avant de remplacer la version en place. Données, cache et .env du serveur sont conservés. Le secret reste dans cet onglet.</p>
+      <pre class="log" id="deployLog" hidden></pre>
+    </section>
+    <section id="tab-components"><div class="comp"><ul id="compList"></ul><div id="compDetail" class="muted">Choisissez un composant.</div></div></section>
+    <section id="tab-help" class="help">
+      <p><b>Structure</b> : <code>site.yaml</code> (identité, nav, thème, coordonnées), <code>pages/&lt;id&gt;.page.yaml</code> (une page par fichier : <code>route</code>, <code>seo</code>, <code>sections</code>), <code>assets/</code> (images), et selon le site <code>segments.yaml</code>, <code>data/products.yaml</code>, <code>brief.md</code>, <code>custom/</code>.</p>
+      <p><b>Section</b> = un objet avec une seule clé, le nom du composant, et ses props dessous. Toute section accepte <code>id</code> (ancre), <code>keywords</code> (recherche) et <code>variants</code> (personnalisation).</p>
+      <ul>
+        <li><b>Piège n° 1</b> : en notation <code>{ a: x, b: y }</code>, une virgule ou un deux-points dans un texte coupe la valeur. Texte long → notation bloc ou guillemets.</li>
+        <li><b>Piège n° 2</b> : un <code>#</code> précédé d'un espace commence un commentaire. Ancre seule ou couleur toujours entre guillemets : <code>"#contact"</code>, <code>"#6b2d5c"</code>.</li>
+        <li>Un lien est toujours <code>{ label: Texte, to: cible }</code> ; <code>to</code> est une route déclarée, une ancre, ou une URL <code>https:</code>, <code>mailto:</code>, <code>tel:</code>.</li>
+        <li>N'inventez ni prix, ni délai, ni distinction absents du brief : écrivez <code>[à compléter]</code>, la compilation le signale.</li>
+      </ul>
+      <p><b>Équivalents en ligne de commande</b> : <code>node bin/sitec.js check | build | catalog | explain | review | keywords | host | deploy</code>.</p>
+      <p><b>Après déploiement</b> : le back-office du site est sur <code>/_admin</code> (jeton <code>ADMIN_TOKEN</code>), la version texte sur <code>/lisible…</code>, le jumeau pour agents sur <code>/site.json</code> et <code>/llms.txt</code>.</p>
+    </section>
+  </div>
+</main>
+<script type="module" src="./app.js"></script>
+</body>
+</html>

@@ -1,0 +1,3 @@
+Plomberie Martin, plombier chauffagiste à Lyon (Croix-Rousse), entreprise familiale fondée en 1999 par Jean-Pierre Martin, dirigée par sa fille Claire depuis 2018. 6 artisans salariés, aucun sous-traitant. Certifiés RGE Qualibat et Qualigaz.
+Dépannage 7j/7 de 7 h à 22 h, intervention sous 1 h à Lyon et sous 2 h dans la métropole. Devis gratuit pour les travaux. Déplacement + 1 h de main-d'œuvre à partir de 95 € TTC. Majoration de 30 % dimanches et jours fériés. Contrat d'entretien chaudière 129 € par an. Paiement en 3 fois sans frais au-delà de 1 500 €.
+Adresse : 14 rue des Canuts, 69004 Lyon. Tél 04 72 00 11 22. SIRET 812 345 678 00012. Note Google 4,9/5 sur 312 avis, 4 800 interventions, 25 ans d'expérience.

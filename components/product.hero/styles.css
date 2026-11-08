@@ -1,0 +1,9 @@
+.product-hero-inner{display:grid;gap:40px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));align-items:start}
+.product-hero-media img{width:100%;border-radius:var(--radius);aspect-ratio:4/3;object-fit:cover}
+.product-back{display:inline-block;margin-bottom:12px;text-decoration:none;font-size:.95rem}
+.product-hero-price{font-family:var(--font-heading);font-size:1.8rem;font-weight:700;color:var(--color-primary);margin:8px 0 16px}
+.product-add{display:flex;gap:14px;align-items:end;flex-wrap:wrap;margin-top:12px}
+.product-add label{display:flex;flex-direction:column;gap:4px;font-size:.9rem}
+.product-add input{width:90px;padding:9px 10px;border:1px solid var(--color-border);border-radius:6px;font:inherit;background:var(--color-bg);color:var(--color-fg)}
+.product-stock{margin-top:10px;font-size:.95rem}
+.product-stock-low{color:#b2541a;font-weight:600}

@@ -1,0 +1,13 @@
+name: checkout.page
+order: 114
+description: "Commande : récapitulatif du panier, coordonnées de livraison, validation. Paiement selon site.shop.payment (manual = à réception / virement, stripe = Stripe Checkout). Une seule par site."
+props:
+  type: object
+  properties:
+    title: { type: string, description: défaut « Finaliser ma commande » }
+    intro: { type: string }
+    notes_label: { type: string, description: "libellé du champ libre (défaut « Précisions pour la livraison »)" }
+example: |
+  - checkout.page:
+      intro: Livraison en 48 h ouvrées, offerte dès 50 €.
+intents: [commander, payer, finaliser, livraison]

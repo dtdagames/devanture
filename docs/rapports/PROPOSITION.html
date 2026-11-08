@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proposition Sitelang</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-soft: #f6f7f9;
+    --fg: #1b1f24;
+    --fg-muted: #5b6470;
+    --accent: #1f3a5f;
+    --accent-soft: #e8eef6;
+    --border: #d9dee5;
+    --code-bg: #f1f3f6;
+    --code-fg: #1b1f24;
+    --warn-bg: #fff6e0;
+    --warn-border: #e8c46a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1216;
+      --bg-soft: #161b22;
+      --fg: #e6e9ee;
+      --fg-muted: #9aa4b1;
+      --accent: #8fb4e3;
+      --accent-soft: #1b2a3f;
+      --border: #2a323d;
+      --code-bg: #161b22;
+      --code-fg: #e6e9ee;
+      --warn-bg: #2b2410;
+      --warn-border: #8a6d1f;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1216;
+    --bg-soft: #161b22;
+    --fg: #e6e9ee;
+    --fg-muted: #9aa4b1;
+    --accent: #8fb4e3;
+    --accent-soft: #1b2a3f;
+    --border: #2a323d;
+    --code-bg: #161b22;
+    --code-fg: #e6e9ee;
+    --warn-bg: #2b2410;
+    --warn-border: #8a6d1f;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 32px 16px 80px; }
+  header { border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 32px; }
+  header h1 { font-size: 1.9rem; line-height: 1.25; margin: 0 0 10px; }
+  header p.meta { color: var(--fg-muted); margin: 0; }
+  nav.toc { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; margin-bottom: 36px; }
+  nav.toc h2 { margin: 0 0 8px; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--fg-muted); }
+  nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 32px; }
+  nav.toc li { break-inside: avoid; }
+  nav.toc a { color: var(--accent); text-decoration: none; }
+  nav.toc a:hover { text-decoration: underline; }
+  h2 { font-size: 1.45rem; margin: 48px 0 14px; padding-top: 8px; border-top: 1px solid var(--border); }
+  h3 { font-size: 1.1rem; margin: 28px 0 8px; }
+  p { margin: 0 0 14px; }
+  ul, ol { margin: 0 0 14px; padding-left: 24px; }
+  li { margin-bottom: 4px; }
+  code { font: 0.9em/1.5 ui-monospace, "Cascadia Code", Consolas, monospace; background: var(--code-bg); color: var(--code-fg); padding: 1px 5px; border-radius: 4px; }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 0 0 18px; }
+  pre code { background: none; padding: 0; font-size: 0.85rem; }
+  table { width: 100%; border-collapse: collapse; margin: 0 0 20px; font-size: 0.95rem; }
+  th, td { text-align: left; vertical-align: top; padding: 9px 12px; border: 1px solid var(--border); }
+  th { background: var(--bg-soft); font-weight: 600; }
+  .table-wrap { overflow-x: auto; margin-bottom: 20px; }
+  .thesis { background: var(--accent-soft); border-left: 4px solid var(--accent); padding: 14px 18px; border-radius: 0 8px 8px 0; margin-bottom: 18px; }
+  .callout { background: var(--warn-bg); border: 1px solid var(--warn-border); border-radius: 8px; padding: 12px 16px; margin: 0 0 18px; }
+  .num { display: inline-block; min-width: 1.6em; color: var(--fg-muted); }
+  @media (max-width: 640px) {
+    nav.toc ol { columns: 1; }
+    header h1 { font-size: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Proposition : une couche déclarative pour sites vitrines et e-commerce, pilotée par LLM</h1>
+  <p class="meta">Nom de travail : <strong>Sitelang</strong> (fichiers <code>.site.yaml</code>, compilateur <code>sitec</code>). Le nom est provisoire. Rédigé le 7 novembre 2026.</p>
+</header>
+
+<nav class="toc">
+  <h2>Sommaire</h2>
+  <ol>
+    <li><a href="#these">Thèse en une phrase</a></li>
+    <li><a href="#principes">Principes de conception</a></li>
+    <li><a href="#architecture">Vue d'ensemble de l'architecture</a></li>
+    <li><a href="#dsl">Le DSL</a></li>
+    <li><a href="#compilateur">Le compilateur sitec</a></li>
+    <li><a href="#catalogue">Le catalogue de composants</a></li>
+    <li><a href="#runtime">Runtime de personnalisation</a></li>
+    <li><a href="#protocole">Protocole LLM</a></li>
+    <li><a href="#sortie">Sortie générée</a></li>
+    <li><a href="#roadmap">Feuille de route</a></li>
+    <li><a href="#indicateurs">Indicateurs</a></li>
+    <li><a href="#risques">Risques et parades</a></li>
+    <li><a href="#decisions">Décisions ouvertes</a></li>
+    <li><a href="#etapes">Premières étapes concrètes</a></li>
+  </ol>
+</nav>
+
+<h2 id="these">1. Thèse en une phrase</h2>
+<div class="thesis">
+Ne pas inventer un langage généraliste. Construire un <strong>DSL déclaratif métier</strong>, écrit dans une syntaxe que les LLM connaissent déjà (YAML strict validé par un schéma), compilé par un <strong>compilateur strict aux erreurs actionnables</strong> vers du <strong>PHP et du JavaScript standard</strong>, avec la <strong>personnalisation comme concept natif</strong> mais résolue au runtime par des règles, jamais par un LLM à chaque requête.
+</div>
+
+<h2 id="principes">2. Principes de conception</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>#</th><th>Principe</th><th>Conséquence concrète</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Densité sémantique plutôt que syntaxe courte</td><td>Une primitive = un bloc métier complet (catalogue, panier, formulaire). 20 lignes de DSL = 2 000 lignes de PHP/JS.</td></tr>
+    <tr><td>2</td><td>Zéro apprentissage pour le modèle</td><td>YAML + JSON Schema. Pas de parser maison en v1. Aucun symbole exotique.</td></tr>
+    <tr><td>3</td><td>Le compilateur est le vrai produit</td><td>Chaque erreur dit : où, quoi, pourquoi, quelles valeurs sont acceptées, et propose une correction.</td></tr>
+    <tr><td>4</td><td>Contexte à la demande</td><td>Le LLM ne charge jamais toute la doc. Il demande la fiche d'un composant quand il en a besoin (<code>sitec explain hero</code>).</td></tr>
+    <tr><td>5</td><td>Personnalisation = segments + variantes</td><td>Déclaratif dans le DSL, résolu côté serveur (SEO) et côté client (réactivité).</td></tr>
+    <tr><td>6</td><td>Sortie standard, lisible, hébergeable partout</td><td>PHP 8.x sans framework lourd, JS vanilla ou léger, CSS avec design tokens. Compatible hébergement mutualisé.</td></tr>
+    <tr><td>7</td><td>Porte de sortie toujours ouverte</td><td>Bloc <code>custom:</code> pour du PHP/JS brut quand le DSL ne suffit pas. Le DSL ne doit jamais bloquer.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="architecture">3. Vue d'ensemble de l'architecture</h2>
+<pre><code> ┌──────────────┐    .site.yaml     ┌────────────────────┐    PHP + JS + CSS    ┌──────────────┐
+ │  LLM agent   │ ───────────────▶  │   sitec (Node/TS)  │ ───────────────────▶ │  Hébergement │
+ │  (Claude…)   │ ◀───────────────  │  check / build /   │                      │  PHP mutual. │
+ └──────────────┘   erreurs JSON    │  explain / preview │                      └──────────────┘
+        ▲                           └────────────────────┘                             │
+        │                                     │                                        ▼
+        │                           ┌─────────┴──────────┐                   ┌──────────────────┐
+        └── sitec explain &lt;comp&gt; ── │ Catalogue de       │                   │ Runtime perso    │
+             (fiche ciblée)         │ composants         │                   │ events→segments  │
+                                    │ (manifestes)       │                   │ →variantes       │
+                                    └────────────────────┘                   └──────────────────┘</code></pre>
+<p>Quatre briques :</p>
+<ol>
+  <li><strong>Le DSL</strong> : fichiers <code>.site.yaml</code> décrivant site, données, pages, sections, segments, variantes.</li>
+  <li><strong>Le compilateur <code>sitec</code></strong> : Node/TypeScript. Valide, résout, émet.</li>
+  <li><strong>Le catalogue de composants</strong> : chaque composant = manifeste (props, slots, variantes, événements) + template PHP + module JS + CSS.</li>
+  <li><strong>Le runtime de personnalisation</strong> : collecte d'événements, calcul de segments, sélection de variantes. Une partie PHP, une partie JS, issues d'une même définition.</li>
+</ol>
+
+<h2 id="dsl">4. Le DSL</h2>
+
+<h3>4.1 Structure d'un projet</h3>
+<pre><code>mon-site/
+  site.yaml            # identité, thème, langues, intégrations
+  data/
+    products.yaml      # ou products.source: csv | json | api
+    collections.yaml
+  pages/
+    accueil.page.yaml
+    produit.page.yaml  # page dynamique [slug]
+    panier.page.yaml
+  segments.yaml        # règles de segmentation
+  custom/              # PHP/JS brut si besoin</code></pre>
+
+<h3>4.2 <code>site.yaml</code></h3>
+<pre><code>site:
+  name: Maison Dubois
+  locale: fr-FR
+  theme:
+    preset: boutique-claire        # un des presets livrés
+    tokens:                        # surcharges optionnelles
+      color.primary: "#1F3A5F"
+      font.heading: "Playfair Display"
+  nav:
+    - { label: Accueil, to: / }
+    - { label: Boutique, to: /boutique }
+    - { label: Contact, to: /contact }
+  integrations:
+    payment: { provider: stripe, mode: checkout }   # adaptateur, clés hors DSL (.env)
+    email:   { provider: smtp }
+    analytics: { provider: none }</code></pre>
+
+<h3>4.3 Une page vitrine</h3>
+<pre><code>page: accueil
+route: /
+seo: { title: Maison Dubois, description: Artisan savonnier depuis 1987 }
+sections:
+  - hero:
+      title: Des savons faits main
+      subtitle: Fabriqués en Provence
+      image: hero.jpg
+      cta: { label: Découvrir, to: /boutique }
+  - features:
+      items:
+        - { icon: leaf, title: 100 % naturel, text: Huiles bio et locales }
+        - { icon: truck, title: Livraison 48 h, text: Offerte dès 40 € }
+  - products.grid:
+      source: products
+      filter: { featured: true }
+      limit: 4
+  - testimonials: { source: reviews, limit: 3 }
+  - contact.form:
+      fields: [name, email, message]
+      to: contact@maisondubois.fr</code></pre>
+
+<h3>4.4 Une page e-commerce dynamique</h3>
+<pre><code>page: produit
+route: /produit/[slug]
+source: products          # fournit `product` au template
+seo: { title: "{{ product.name }} | Maison Dubois" }
+sections:
+  - product.hero:
+      gallery: product.images
+      price: product.price
+      stock: product.stock
+      action: add-to-cart
+  - product.details: { tabs: [description, composition, livraison] }
+  - products.related:
+      strategy: same-collection
+      fallback: best-sellers
+      limit: 4</code></pre>
+<p>Le panier et le checkout sont des pages fournies par le catalogue (<code>cart.page</code>, <code>checkout.page</code>) que l'on peut surcharger section par section.</p>
+
+<h3>4.5 Personnalisation native : segments et variantes</h3>
+<p><code>segments.yaml</code> :</p>
+<pre><code>segments:
+  nouveau:       { visits: { eq: 1 } }
+  recurrent:     { visits: { gte: 2 } }
+  panier_abandonne:
+    all:
+      - { event: add_to_cart, within: 7d }
+      - { not: { event: purchase, within: 7d } }
+  fan_savons:    { event: product_view, where: { collection: savons }, count: { gte: 3 } }
+  mobile:        { device: mobile }</code></pre>
+<p>Variante sur n'importe quelle section :</p>
+<pre><code>  - hero:
+      title: Des savons faits main
+      cta: { label: Découvrir, to: /boutique }
+      variants:
+        nouveau:
+          subtitle: "-10 % sur votre première commande avec BIENVENUE"
+        panier_abandonne:
+          title: Votre panier vous attend
+          cta: { label: Reprendre mon panier, to: /panier }
+        fan_savons:
+          cta: { label: Nouveautés savons, to: /boutique/savons }</code></pre>
+<p>Règles :</p>
+<ul>
+  <li>Les conditions sont <strong>structurées</strong>, pas des expressions libres. Le compilateur peut tout vérifier et produire des erreurs précises.</li>
+  <li>Une section a toujours une valeur par défaut. Les variantes ne font que <strong>surcharger</strong> des props.</li>
+  <li>Priorité explicite si plusieurs segments correspondent : <code>priority: [panier_abandonne, fan_savons, nouveau]</code> au niveau du site, sinon ordre de déclaration.</li>
+  <li>Un LLM peut <strong>générer les textes des variantes à la compilation</strong> (optionnel). Jamais à la requête en v1.</li>
+</ul>
+
+<h3>4.6 Porte de sortie</h3>
+<pre><code>  - custom:
+      php: custom/promo-banner.php
+      js:  custom/promo-banner.js
+      props: { code: ETE2026 }</code></pre>
+
+<h2 id="compilateur">5. Le compilateur <code>sitec</code></h2>
+
+<h3>5.1 Pipeline</h3>
+<pre><code>lecture YAML ─▶ validation JSON Schema ─▶ résolution (routes, sources, composants, segments)
+            ─▶ vérifications sémantiques ─▶ IR (arbre de pages/sections typé)
+            ─▶ émetteurs : PHP (rendu serveur, routage, données, sessions, panier)
+                           JS  (hydratation, panier client, segments client, variantes)
+                           CSS (tokens + composants utilisés uniquement)
+            ─▶ manifeste de build (hash, pages, assets, dépendances)</code></pre>
+
+<h3>5.2 Commandes</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Commande</th><th>Rôle</th><th>Pensée pour le LLM</th></tr></thead>
+  <tbody>
+    <tr><td><code>sitec check</code></td><td>Validation sans émission, moins d'une seconde</td><td>Boucle rapide, sortie JSON</td></tr>
+    <tr><td><code>sitec build</code></td><td>Génère <code>dist/</code> (PHP + JS + CSS)</td><td>Idempotent, reproductible</td></tr>
+    <tr><td><code>sitec explain &lt;composant&gt;</code></td><td>Fiche du composant : props, types, exemples, variantes</td><td>Évite de charger toute la doc</td></tr>
+    <tr><td><code>sitec catalog</code></td><td>Liste compacte des composants (une ligne chacun)</td><td>Environ 800 tokens pour tout le catalogue</td></tr>
+    <tr><td><code>sitec preview</code></td><td>Serveur PHP local + rechargement</td><td>Vérification visuelle</td></tr>
+    <tr><td><code>sitec diff</code></td><td>Ce qui change dans <code>dist/</code> entre deux builds</td><td>Revue de changement</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>5.3 Format d'erreur</h3>
+<p>Chaque erreur est une ligne JSON, pensée pour être corrigée sans relecture de doc :</p>
+<pre><code>{
+  "code": "E_UNKNOWN_PROP",
+  "file": "pages/accueil.page.yaml",
+  "path": "sections[2].products.grid.limite",
+  "message": "Propriété inconnue `limite` sur `products.grid`.",
+  "expected": ["source", "filter", "sort", "limit", "columns", "variants"],
+  "hint": "Vouliez-vous dire `limit` ?",
+  "fix": { "rename": { "from": "limite", "to": "limit" } }
+}</code></pre>
+<p>Familles d'erreurs : schéma (prop inconnue, type), références (route, source, segment, image inexistants), sémantique (variante sans segment, deux pages même route, champ de formulaire sans destinataire), cohérence e-commerce (produit sans prix, paiement configuré sans page checkout).</p>
+<p>Toute erreur a un <code>fix</code> applicable quand c'est possible. <code>sitec check --fix</code> applique les corrections sûres.</p>
+
+<h3>5.4 Pourquoi compiler et non interpréter</h3>
+<ul>
+  <li>La validation statique est ce qui fait converger la boucle LLM. Interpréter repousse les erreurs à l'exécution, où le modèle ne les voit pas.</li>
+  <li>La sortie PHP/JS est lisible et déboguable par un humain. Pas de runtime propriétaire sur le serveur.</li>
+  <li>On émet uniquement le CSS et le JS des composants utilisés.</li>
+</ul>
+
+<h2 id="catalogue">6. Le catalogue de composants</h2>
+
+<h3>6.1 Manifeste</h3>
+<p>Chaque composant est un dossier :</p>
+<pre><code>components/products.grid/
+  manifest.yaml     # props (JSON Schema), slots, variantes, events émis, exemples
+  template.php      # rendu serveur
+  module.js         # comportement client (optionnel)
+  styles.css        # utilise les tokens, pas de couleur en dur
+  README.md         # ce que renvoie `sitec explain`</code></pre>
+<p>Le manifeste <strong>est</strong> la source du schéma de validation et de la fiche <code>explain</code>. Une seule source de vérité.</p>
+
+<h3>6.2 Catalogue v1</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Famille</th><th>Composants</th></tr></thead>
+  <tbody>
+    <tr><td>Structure</td><td><code>nav</code>, <code>footer</code>, <code>section</code>, <code>columns</code>, <code>spacer</code></td></tr>
+    <tr><td>Vitrine</td><td><code>hero</code>, <code>features</code>, <code>gallery</code>, <code>testimonials</code>, <code>faq</code>, <code>team</code>, <code>cta</code>, <code>richtext</code>, <code>map</code></td></tr>
+    <tr><td>Formulaires</td><td><code>contact.form</code>, <code>newsletter</code>, <code>quote.form</code> (devis)</td></tr>
+    <tr><td>E-commerce</td><td><code>products.grid</code>, <code>products.related</code>, <code>product.hero</code>, <code>product.details</code>, <code>collections.list</code>, <code>cart.summary</code>, <code>cart.page</code>, <code>checkout.page</code>, <code>order.confirmation</code></td></tr>
+    <tr><td>Données</td><td>sources <code>yaml</code>, <code>json</code>, <code>csv</code>, <code>api</code> (REST en lecture), plus tard <code>woocommerce</code>, <code>shopify</code></td></tr>
+    <tr><td>Intégrations</td><td><code>stripe</code> (Checkout), <code>paypal</code>, <code>smtp</code>, <code>webhook</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>6.3 Thèmes</h3>
+<p>Presets de design tokens (<code>boutique-claire</code>, <code>atelier-sombre</code>, <code>minimal</code>, ...) surchargeables. Les composants n'utilisent que des tokens. Un site a donc toujours une cohérence visuelle, même généré vite.</p>
+
+<h2 id="runtime">7. Runtime de personnalisation</h2>
+
+<h3>7.1 Modèle d'événements</h3>
+<p>Événements standard, émis automatiquement par les composants :</p>
+<p><code>page_view</code>, <code>product_view</code>, <code>add_to_cart</code>, <code>remove_from_cart</code>, <code>checkout_start</code>, <code>purchase</code>, <code>form_submit</code>, <code>search</code>, <code>click_cta</code>.</p>
+<p>Stockage v1 : <strong>cookie first-party chiffré + localStorage</strong>, agrégats seulement (compteurs, derniers événements, horodatages). Pas de base serveur obligatoire. Option <code>profile.store: server</code> plus tard (session PHP + table).</p>
+
+<h3>7.2 Résolution des segments</h3>
+<ul>
+  <li>Une <strong>même définition</strong> (compilée depuis <code>segments.yaml</code>) produit <code>segments.php</code> et <code>segments.js</code>.</li>
+  <li>Côté serveur : le PHP lit le cookie, calcule les segments, rend la bonne variante. Le premier affichage est déjà personnalisé, sans flash, et indexable.</li>
+  <li>Côté client : le JS recalcule après chaque événement et peut mettre à jour les sections marquées <code>live: true</code>.</li>
+</ul>
+
+<h3>7.3 Garde-fous</h3>
+<ul>
+  <li>Variantes <strong>bornées</strong> : on ne change que des props déclarées, jamais la structure ni le code. Pas d'injection possible.</li>
+  <li>Consentement : bandeau intégré, segments désactivés tant que non accepté (<code>personalization.requires_consent: true</code>).</li>
+  <li>Mesure : chaque variante affichée émet <code>variant_shown</code>, exploitable pour comparer les conversions.</li>
+</ul>
+
+<h3>7.4 Rôle du LLM dans la personnalisation</h3>
+<p>À la <strong>compilation</strong> uniquement : proposer des segments pertinents pour le métier, rédiger les textes des variantes, suggérer des règles. Le résultat est écrit dans le YAML, relu, versionné. Rien de généré à la requête en v1.</p>
+
+<h2 id="protocole">8. Protocole LLM</h2>
+<p>Objectif : qu'un agent produise un site fonctionnel avec le moins de tokens et d'itérations possible.</p>
+<ol>
+  <li><strong>Amorce</strong> : un <code>CLAUDE.md</code> d'une page livré avec le projet (règles, commandes, 3 exemples). Environ 600 tokens.</li>
+  <li><strong>Découverte</strong> : <code>sitec catalog</code> (liste compacte), puis <code>sitec explain &lt;composant&gt;</code> uniquement pour ceux utilisés.</li>
+  <li><strong>Écriture</strong> : fichiers <code>.site.yaml</code>.</li>
+  <li><strong>Boucle</strong> : <code>sitec check</code>, erreurs JSON, correction, <code>check</code> à nouveau. Objectif : convergence en 1 à 2 itérations.</li>
+  <li><strong>Vérification</strong> : <code>sitec build</code> puis <code>sitec preview</code>, capture d'écran si l'agent dispose d'un navigateur.</li>
+</ol>
+<div class="callout">
+Budget cible pour un site vitrine de 5 pages : moins de 15 000 tokens au total. À comparer avec la baseline mesurée en phase 0 (ordre de grandeur attendu en PHP/JS direct avec reprises : 80 000 à 150 000).
+</div>
+
+<h2 id="sortie">9. Sortie générée (<code>dist/</code>)</h2>
+<pre><code>dist/
+  index.php            # routeur minimal (ou .htaccess + front controller)
+  pages/*.php
+  components/*.php
+  lib/
+    router.php, render.php, data.php, cart.php, segments.php, payment-stripe.php
+  assets/
+    site.css           # tokens + composants utilisés
+    site.js            # hydratation + panier + segments
+  data/                # copies normalisées des sources (json)
+  .env.example         # clés d'intégration à renseigner</code></pre>
+<p>Contraintes : PHP 8.1 ou plus, aucune dépendance Composer obligatoire en v1, fonctionne sur hébergement mutualisé classique.</p>
+
+<h2 id="roadmap">10. Feuille de route</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Phase</th><th>Durée</th><th>Livrable</th><th>Critère de sortie</th></tr></thead>
+  <tbody>
+    <tr><td>0. Benchmark</td><td>2 semaines</td><td>3 sites de référence écrits à la main en PHP/JS avec une bibliothèque de composants. Mesure tokens/itérations quand un LLM les produit.</td><td>Baseline chiffrée</td></tr>
+    <tr><td>1. Vitrine</td><td>6 semaines</td><td>Schéma, <code>check</code>, <code>build</code>, <code>explain</code>, 12 composants vitrine, 2 thèmes, formulaire contact</td><td>Un LLM produit un site 5 pages en 2 itérations ou moins</td></tr>
+    <tr><td>2. E-commerce</td><td>6 semaines</td><td>Sources produits, panier, Stripe Checkout, pages commande</td><td>Vente test de bout en bout</td></tr>
+    <tr><td>3. Personnalisation</td><td>4 semaines</td><td><code>segments.yaml</code>, variantes, runtime PHP+JS, consentement, <code>variant_shown</code></td><td>3 segments actifs sur un site démo, mesure A/B</td></tr>
+    <tr><td>4. Outillage</td><td>continu</td><td><code>preview</code>, <code>diff</code>, <code>--fix</code>, génération de variantes assistée</td><td>Confort d'itération</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout">
+Décision go/no-go après la phase 1 : si le DSL ne divise pas au moins par deux les itérations et les tokens par rapport à la baseline de la phase 0, on arrête et on garde seulement la bibliothèque de composants.
+</div>
+
+<h2 id="indicateurs">11. Indicateurs</h2>
+<ul>
+  <li>Tokens par site fonctionnel (entrée + sortie, toutes itérations).</li>
+  <li>Nombre d'itérations <code>check</code> avant zéro erreur.</li>
+  <li>Taux d'erreurs corrigées du premier coup grâce au <code>hint</code> ou au <code>fix</code>.</li>
+  <li>Part des besoins couverts sans bloc <code>custom:</code> (cible : plus de 90 % sur sites vitrines, plus de 75 % en e-commerce).</li>
+  <li>Temps humain de relecture avant mise en ligne.</li>
+</ul>
+
+<h2 id="risques">12. Risques et parades</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Risque</th><th>Parade</th></tr></thead>
+  <tbody>
+    <tr><td>Plafond d'expressivité du DSL</td><td>Bloc <code>custom:</code> dès la v1, et chaque usage de <code>custom</code> est remonté comme candidat à un nouveau composant.</td></tr>
+    <tr><td>Coût de maintenance du compilateur</td><td>Manifestes comme source unique. Ajouter un composant ne touche pas le cœur.</td></tr>
+    <tr><td>Qualité visuelle moyenne</td><td>Thèmes par tokens, composants dessinés par un designer, pas par le LLM.</td></tr>
+    <tr><td>Sécurité (formulaires, panier, paiement)</td><td>Paiement délégué à Stripe Checkout, échappement systématique dans les templates, CSRF intégré au routeur, aucune valeur libre interprétée en PHP.</td></tr>
+    <tr><td>Dérive de la personnalisation (vie privée)</td><td>Agrégats first-party uniquement, consentement, segments auditables en YAML.</td></tr>
+    <tr><td>Le YAML devient trop gros</td><td>Un fichier par page, références par nom, <code>sitec check</code> détecte les duplications.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="decisions">13. Décisions ouvertes</h2>
+<ol>
+  <li><strong>YAML ou JSON</strong> pour les fichiers source ? YAML est plus dense et plus lisible, JSON est sans ambiguïté. Recommandation : YAML en entrée, JSON Schema pour la validation, les deux acceptés.</li>
+  <li><strong>Stack du compilateur</strong> : Node/TypeScript (cohérent avec le nom du dossier, écosystème JSON Schema mature). PHP possible mais moins outillé pour le schéma.</li>
+  <li><strong>Stockage du profil utilisateur</strong> en v1 : cookie seul ou session serveur ? Recommandation : cookie seul, serveur en option en phase 3.</li>
+  <li><strong>Stripe Checkout</strong> (redirection, simple) ou <strong>Payment Element</strong> (intégré, plus de code) ? Recommandation : Checkout en v1.</li>
+</ol>
+
+<h2 id="etapes">14. Premières étapes concrètes</h2>
+<ol>
+  <li>Écrire les 3 sites de référence de la phase 0 et mesurer la baseline.</li>
+  <li>Rédiger le JSON Schema de <code>site.yaml</code> et d'une page avec 4 composants (<code>hero</code>, <code>features</code>, <code>products.grid</code>, <code>contact.form</code>).</li>
+  <li>Implémenter <code>sitec check</code> avec le format d'erreur de la section 5.3.</li>
+  <li>Faire produire une page par un LLM avec uniquement <code>CLAUDE.md</code>, <code>catalog</code> et <code>explain</code>. Compter les tokens et les itérations.</li>
+  <li>Seulement ensuite, écrire l'émetteur PHP.</li>
+</ol>
+
+</div>
+</body>
+</html>

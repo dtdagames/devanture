@@ -1,0 +1,10 @@
+segments:
+  nouveau: { visits: 1 }
+  recurrent: { visits: { gte: 2 } }
+  devis_abandonne:
+    all:
+      - { event: form_start, within: 7d }
+      - { not: { event: form_submit, within: 7d } }
+  fan_services: { event: section_view, where: { section: services }, count: { gte: 2 } }
+  mobile: { device: mobile }
+priority: [devis_abandonne, fan_services, recurrent, nouveau, mobile]

@@ -1,0 +1,5 @@
+.richtext-narrow{max-width:760px}
+.richtext-split{display:grid;gap:40px;align-items:center;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.richtext-img-left .richtext-media{order:-1}
+.richtext-media img{border-radius:var(--radius);width:100%;aspect-ratio:4/3;object-fit:cover}
+.richtext-body .btn{margin-top:8px}

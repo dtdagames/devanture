@@ -1,0 +1,11 @@
+name: products.related
+order: 112
+description: "Produits de la même catégorie que le produit affiché (page dynamique source: products)."
+props:
+  type: object
+  properties:
+    title: { type: string, description: défaut « Vous aimerez aussi » }
+    limit: { type: integer, minimum: 1, description: défaut 3 }
+example: |
+  - products.related: { title: Dans la même gamme, limit: 3 }
+intents: [similaires, autres produits]

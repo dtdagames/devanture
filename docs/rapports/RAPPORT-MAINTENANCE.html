@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maintenance Sitelang</title>
+<style>
+  :root {
+    --bg: #ffffff; --bg-soft: #f6f7f9; --fg: #1b1f24; --fg-muted: #5b6470;
+    --accent: #1f3a5f; --accent-soft: #e8eef6; --border: #d9dee5;
+    --code-bg: #f1f3f6; --code-fg: #1b1f24;
+    --ok-bg: #e7f5ec; --ok-border: #5aa36f; --warn-bg: #fff6e0; --warn-border: #e8c46a; --bad-bg: #fdecea; --bad-border: #d9534f;
+    --bar: #1f3a5f; --bar2: #8aa3c4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1216; --bg-soft: #161b22; --fg: #e6e9ee; --fg-muted: #9aa4b1;
+      --accent: #8fb4e3; --accent-soft: #1b2a3f; --border: #2a323d;
+      --code-bg: #161b22; --code-fg: #e6e9ee;
+      --ok-bg: #12301c; --ok-border: #3c8a52; --warn-bg: #2b2410; --warn-border: #8a6d1f; --bad-bg: #3a1716; --bad-border: #b23b36;
+      --bar: #8fb4e3; --bar2: #3b5676;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1216; --bg-soft: #161b22; --fg: #e6e9ee; --fg-muted: #9aa4b1;
+    --accent: #8fb4e3; --accent-soft: #1b2a3f; --border: #2a323d;
+    --code-bg: #161b22; --code-fg: #e6e9ee;
+    --ok-bg: #12301c; --ok-border: #3c8a52; --warn-bg: #2b2410; --warn-border: #8a6d1f; --bad-bg: #3a1716; --bad-border: #b23b36;
+    --bar: #8fb4e3; --bar2: #3b5676;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 32px 16px 80px; }
+  header { border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 28px; }
+  header h1 { font-size: 1.8rem; line-height: 1.25; margin: 0 0 8px; }
+  header p.meta { color: var(--fg-muted); margin: 0; }
+  nav.toc { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; margin-bottom: 32px; }
+  nav.toc h2 { margin: 0 0 6px; font-size: .9rem; text-transform: uppercase; letter-spacing: .05em; color: var(--fg-muted); border: 0; padding: 0; }
+  nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 32px; }
+  nav.toc a { color: var(--accent); text-decoration: none; }
+  h2 { font-size: 1.4rem; margin: 44px 0 12px; padding-top: 8px; border-top: 1px solid var(--border); }
+  h3 { font-size: 1.08rem; margin: 26px 0 8px; }
+  p { margin: 0 0 14px; }
+  ul, ol { margin: 0 0 14px; padding-left: 24px; }
+  li { margin-bottom: 5px; }
+  code { font: .9em/1.5 ui-monospace, "Cascadia Code", Consolas, monospace; background: var(--code-bg); color: var(--code-fg); padding: 1px 5px; border-radius: 4px; }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; overflow-x: auto; margin: 0 0 18px; }
+  pre code { background: none; padding: 0; font-size: .82rem; }
+  table { width: 100%; border-collapse: collapse; margin: 0 0 20px; font-size: .93rem; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border: 1px solid var(--border); }
+  th { background: var(--bg-soft); font-weight: 600; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.dsl td { background: var(--accent-soft); }
+  .table-wrap { overflow-x: auto; margin-bottom: 20px; }
+  .verdict { background: var(--accent-soft); border-left: 4px solid var(--accent); padding: 14px 18px; border-radius: 0 8px 8px 0; margin-bottom: 18px; }
+  .box { border-radius: 8px; padding: 12px 16px; margin: 0 0 18px; border: 1px solid; }
+  .ok { background: var(--ok-bg); border-color: var(--ok-border); }
+  .warn { background: var(--warn-bg); border-color: var(--warn-border); }
+  .bad { background: var(--bad-bg); border-color: var(--bad-border); }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 0 0 22px; }
+  .kpi { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .kpi .v { font-size: 1.6rem; font-weight: 700; color: var(--accent); line-height: 1.1; }
+  .kpi .l { color: var(--fg-muted); font-size: .9rem; margin-top: 4px; }
+  .bars { margin: 0 0 22px; }
+  .bar-row { display: grid; grid-template-columns: 230px 1fr 80px; gap: 10px; align-items: center; margin-bottom: 6px; font-size: .92rem; }
+  .bar-row .track { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 4px; height: 18px; overflow: hidden; }
+  .bar-row .fill { height: 100%; background: var(--bar2); }
+  .bar-row.dsl .fill { background: var(--bar); }
+  .bar-row .n { text-align: right; font-variant-numeric: tabular-nums; }
+  .legend { font-size: .85rem; color: var(--fg-muted); margin: -10px 0 18px; }
+  .st-ok { color: var(--ok-border); font-weight: 600; } .st-no { color: var(--bad-border); font-weight: 600; } .st-part { color: var(--warn-border); font-weight: 600; }
+  @media (max-width: 640px) { nav.toc ol { columns: 1; } header h1 { font-size: 1.45rem; } .bar-row { grid-template-columns: 1fr; gap: 2px; } .bar-row .n { text-align: left; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Maintenance : quatre modifications identiques sur six sites, DSL contre PHP à la main</h1>
+  <p class="meta">Réalisé le 7 novembre 2026 · Suite de <a href="RAPPORT-BASELINE.html">RAPPORT-BASELINE.html</a> et de <a href="RAPPORT-TEST-VITRINE.html">RAPPORT-TEST-VITRINE.html</a></p>
+</header>
+
+<nav class="toc">
+  <h2>Sommaire</h2>
+  <ol>
+    <li><a href="#verdict">Verdict</a></li>
+    <li><a href="#protocole">Protocole</a></li>
+    <li><a href="#resultats">Résultats</a></li>
+    <li><a href="#modifs">Lecture modification par modification</a></li>
+    <li><a href="#enseignements">Enseignements</a></li>
+    <li><a href="#correctifs">Correctifs appliqués au compilateur</a></li>
+    <li><a href="#bilan">Bilan des trois tests</a></li>
+    <li><a href="#limites">Limites</a></li>
+    <li><a href="#suites">Suites</a></li>
+    <li><a href="#annexe">Annexe : reproduire</a></li>
+  </ol>
+</nav>
+
+<h2 id="verdict">1. Verdict</h2>
+<div class="verdict">
+En maintenance, l'écart se creuse en faveur du DSL : <strong>25 à 36 % de tokens en moins</strong>, <strong>deux à trois fois moins de temps</strong>, deux fois moins d'appels d'outils, un diff deux fois plus petit, et aucune régression nulle part. Mais le DSL a <strong>échoué sur une des quatre modifications</strong>, l'ajout d'un champ au formulaire, parce que le composant ne le permet pas et qu'il n'existe aucune porte de sortie. Les quatre sites écrits à la main l'ont fait en 2 à 4 lignes. Le DSL est nettement plus économique pour tout ce qu'il couvre, et bloquant pour tout ce qu'il ne couvre pas.
+</div>
+<div class="kpis">
+  <div class="kpi"><div class="v">− 25 à − 36 %</div><div class="l">tokens consommés par les agents DSL vs sans bibliothèque</div></div>
+  <div class="kpi"><div class="v">÷ 2,3 à ÷ 2,7</div><div class="l">temps vs sans bibliothèque</div></div>
+  <div class="kpi"><div class="v">3 / 4</div><div class="l">modifications réalisables avec le DSL v0</div></div>
+  <div class="kpi"><div class="v">6 × 51</div><div class="l">contrôles de non-régression passés sur les six sites</div></div>
+</div>
+
+<h2 id="protocole">2. Protocole</h2>
+<p>Les six sites des tests précédents ont été copiés dans <code>maintenance/</code> (originaux conservés dans <code>maintenance/originaux/</code>). Six nouveaux agents sans contexte, un par site, mêmes modèles qu'avant (Sonnet pour le cabinet d'avocats, modèle par défaut pour la boulangerie), ont reçu quatre modifications décrites mot pour mot dans <code>maintenance/MODIFICATIONS-*.md</code> :</p>
+<ol>
+  <li><strong>M1</strong> : ajouter une FAQ de trois questions données sur la page d'accueil, avant le dernier appel à l'action.</li>
+  <li><strong>M2</strong> : changer le thème : couleur principale <code>#6b2d5c</code>, couleur d'accent <code>#d4a017</code>, titres en Georgia, partout.</li>
+  <li><strong>M3</strong> : ajouter une page Recrutement : route, titre et description SEO, entrée de menu avant Contact, lien de pied de page, trois blocs au texte imposé.</li>
+  <li><strong>M4</strong> : ajouter un champ facultatif « Entreprise » au formulaire, enregistré dans le JSON et dans le corps de l'e-mail.</li>
+</ol>
+<p>Mêmes contraintes qu'avant : les agents DSL n'ont que <code>CLAUDE.md</code>, <code>catalog</code>, <code>explain</code> et <code>check</code>, sans <code>build</code> ; les agents PHP ont <code>php -l</code> et l'exécution en ligne de commande, sans serveur. Chaque agent devait dire si une modification était impossible plutôt que de contourner.</p>
+<p>Vérification après coup, identique pour tous : un banc dédié aux quatre modifications (<code>scripts/verify-maintenance.mjs</code>, 28 contrôles : textes exacts présents, position de la FAQ, valeurs effectives des variables CSS dans l'ordre de cascade, page Recrutement, ordre du menu, champ et clé JSON), plus le banc de non-régression des tests précédents (51 contrôles, une page de plus). Le diff est mesuré entre original et copie modifiée, images exclues.</p>
+
+<h2 id="resultats">3. Résultats</h2>
+<h3>3.1 Coût</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Brief / modèle</th><th>Variante</th><th class="num">Tokens consommés</th><th class="num">Appels d'outils</th><th class="num">Durée</th><th class="num">Fichiers touchés</th><th class="num">Lignes + / −</th><th class="num">Tokens ajoutés</th></tr></thead>
+  <tbody>
+    <tr class="dsl"><td rowspan="3">Garnier &amp; Associés<br>Sonnet</td><td><strong>DSL</strong></td><td class="num"><strong>65 276</strong></td><td class="num"><strong>11</strong></td><td class="num"><strong>49 s</strong></td><td class="num">3</td><td class="num">+37 / −1</td><td class="num">429</td></tr>
+    <tr><td>À la main, sans bibliothèque</td><td class="num">86 860</td><td class="num">22</td><td class="num">1 min 51</td><td class="num">5</td><td class="num">+24 / −9</td><td class="num">537</td></tr>
+    <tr><td>À la main, avec bibliothèque</td><td class="num">79 878</td><td class="num">12</td><td class="num">1 min 31</td><td class="num">7</td><td class="num">+29 / −9</td><td class="num">618</td></tr>
+    <tr class="dsl"><td rowspan="3">Le Fournil<br>modèle par défaut</td><td><strong>DSL</strong></td><td class="num"><strong>74 161</strong></td><td class="num"><strong>14</strong></td><td class="num"><strong>2 min 33</strong></td><td class="num">3</td><td class="num">+36 / −1</td><td class="num">441</td></tr>
+    <tr><td>À la main, sans bibliothèque</td><td class="num">116 461</td><td class="num">31</td><td class="num">6 min 51</td><td class="num">7</td><td class="num">+57 / −10</td><td class="num">853</td></tr>
+    <tr><td>À la main, avec bibliothèque</td><td class="num">97 034</td><td class="num">22</td><td class="num">5 min 08</td><td class="num">7</td><td class="num">+42 / −7</td><td class="num">647</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="legend">Les agents DSL n'ont fait que trois modifications sur quatre (M4 impossible), mais chacun a consommé une partie de son budget à le prouver (<code>explain contact.form</code>, un <code>check</code> en erreur, restauration). Le diff DSL inclut la page Recrutement entière (environ 20 lignes).</p>
+
+<div class="bars">
+  <div class="bar-row dsl"><span>Garnier · DSL</span><div class="track"><div class="fill" style="width:56%"></div></div><span class="n">65 276</span></div>
+  <div class="bar-row"><span>Garnier · avec bibliothèque</span><div class="track"><div class="fill" style="width:68.6%"></div></div><span class="n">79 878</span></div>
+  <div class="bar-row"><span>Garnier · sans bibliothèque</span><div class="track"><div class="fill" style="width:74.6%"></div></div><span class="n">86 860</span></div>
+  <div class="bar-row dsl"><span>Fournil · DSL</span><div class="track"><div class="fill" style="width:63.7%"></div></div><span class="n">74 161</span></div>
+  <div class="bar-row"><span>Fournil · avec bibliothèque</span><div class="track"><div class="fill" style="width:83.3%"></div></div><span class="n">97 034</span></div>
+  <div class="bar-row"><span>Fournil · sans bibliothèque</span><div class="track"><div class="fill" style="width:100%"></div></div><span class="n">116 461</span></div>
+</div>
+<p class="legend">Tokens consommés par agent (cumul entrée + sortie).</p>
+
+<h3>3.2 Résultat fonctionnel</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Site</th><th>M1 FAQ</th><th>M2 Thème</th><th>M3 Page</th><th>M4 Champ</th><th class="num">Non-régression</th><th>Erreurs en cours de route</th></tr></thead>
+  <tbody>
+    <tr class="dsl"><td>Garnier · DSL</td><td><span class="st-ok">6/6</span></td><td><span class="st-ok">4/4</span></td><td><span class="st-ok">11/11</span></td><td><span class="st-no">impossible</span></td><td class="num">51/51</td><td>aucune (hors sonde volontaire)</td></tr>
+    <tr><td>Garnier · sans bibliothèque</td><td><span class="st-ok">6/6</span> ¹</td><td><span class="st-ok">4/4</span> ²</td><td><span class="st-ok">11/11</span></td><td><span class="st-ok">7/7</span></td><td class="num">51/51</td><td>1 erreur de syntaxe PHP (apostrophe), vue par <code>php -l</code></td></tr>
+    <tr><td>Garnier · avec bibliothèque</td><td><span class="st-ok">6/6</span> ¹</td><td><span class="st-ok">4/4</span></td><td><span class="st-ok">11/11</span></td><td><span class="st-ok">7/7</span></td><td class="num">51/51</td><td>1 erreur de syntaxe PHP (apostrophe), vue par <code>php -l</code></td></tr>
+    <tr class="dsl"><td>Fournil · DSL</td><td><span class="st-ok">6/6</span></td><td><span class="st-ok">4/4</span></td><td><span class="st-ok">11/11</span></td><td><span class="st-no">impossible</span></td><td class="num">51/51</td><td>aucune (hors sonde volontaire)</td></tr>
+    <tr><td>Fournil · sans bibliothèque</td><td><span class="st-ok">6/6</span></td><td><span class="st-part">3/4</span> ³</td><td><span class="st-ok">11/11</span></td><td><span class="st-ok">7/7</span></td><td class="num">51/51</td><td>aucune côté site, 1 reprise de harnais</td></tr>
+    <tr><td>Fournil · avec bibliothèque</td><td><span class="st-ok">6/6</span></td><td><span class="st-ok">4/4</span></td><td><span class="st-ok">11/11</span></td><td><span class="st-ok">7/7</span></td><td class="num">51/51</td><td>aucune</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="legend">¹ L'accueil avait déjà une FAQ : l'agent a remplacé les questions plutôt que d'en ajouter une seconde ; les trois questions demandées sont présentes. ² L'agent a aussi recoloré un dégradé codé en dur dans une image SVG et une variable dérivée. ³ L'agent a volontairement gardé la variable nommée « accent », utilisée comme fond du pied de page et des bandeaux, et créé une variable distincte pour les étoiles et les filets ; le banc, qui lit la variable « accent », compte un écart. L'intention du brief est respectée.</p>
+
+<h2 id="modifs">4. Lecture modification par modification</h2>
+<h3>M1. Ajouter une FAQ</h3>
+<p>Équivalent partout : une dizaine de lignes, un composant existant. Les agents PHP ont lu le bloc FAQ existant et un exemple d'usage, les agents DSL ont imité une page voisine. Seule différence : deux agents PHP ont produit une erreur de syntaxe en échappant les apostrophes françaises dans des chaînes PHP, rattrapée par le linter. Le YAML en notation bloc n'a pas ce problème.</p>
+
+<h3>M2. Changer le thème</h3>
+<p>C'est la modification qui sépare le plus les approches. Dans le DSL, trois tokens dans <code>site.yaml</code>, par construction appliqués partout. À la main, les agents ont dû <strong>lire toute la feuille de style</strong> pour trouver ce que « accent » et « titres colorés » voulaient dire dans ce site-là, puis chasser les couleurs codées en dur : un dégradé de SVG, un favicon en ligne, une variable dérivée « primary-dark ». Deux des quatre sites en avaient. Chaque site écrit à la main a son propre vocabulaire de variables, et « accent » désignait un fond brun dans l'un, une couleur d'étoiles dans un autre. Le DSL impose un vocabulaire commun, ce qui rend la consigne non ambiguë.</p>
+<div class="box warn"><strong>Mais le DSL avait un trou</strong>, trouvé par les deux agents : les noms de tokens n'étaient ni documentés ni validés. Un agent a vérifié qu'un token inventé passait <code>check</code> sans erreur. Les deux ont deviné juste, mais un « ok » de <code>check</code> ne prouvait rien. Corrigé depuis (section 6).</div>
+
+<h3>M3. Ajouter une page</h3>
+<p>Simple partout, parce que les six sites ont une table de routes et un menu qui en dérive. Les agents PHP ont écrit une page en PHP et une ligne de route ; les agents DSL un fichier YAML et deux lignes dans <code>site.yaml</code>. Pas de différence de fiabilité ; différence de volume et de temps seulement.</p>
+
+<h3>M4. Ajouter un champ au formulaire</h3>
+<div class="box bad">
+<p><strong>Échec du DSL.</strong> Le composant <code>contact.form</code> n'accepte qu'une liste fermée de cinq champs. Les deux agents l'ont constaté dans <code>explain</code>, confirmé par un <code>check</code> en erreur, restauré le fichier et déclaré la modification impossible, ce qui était le comportement demandé. Ils n'avaient aucun moyen d'agir : pas de champ libre, pas de bloc <code>custom</code>, pas d'accès au compilateur.</p>
+<p>Les quatre sites PHP l'ont fait en 2 à 4 lignes. Deux d'entre eux avaient un formulaire piloté par une table de champs (ajout = une ligne), deux autres dupliquaient les libellés entre deux fichiers (ajout = trois endroits, source d'oubli signalée par les agents).</p>
+</div>
+<p>C'est la limite structurelle d'un DSL fermé : son coût est nul tant qu'on reste dans le catalogue, et infini dès qu'on en sort. La proposition prévoyait une porte de sortie (<code>custom:</code>) ; le prototype v0 ne l'a pas, et ce test montre qu'elle n'est pas optionnelle.</p>
+
+<h2 id="enseignements">5. Enseignements</h2>
+<ol>
+  <li><strong>En maintenance, le gain du DSL est plus net qu'à la création</strong> (25 à 36 % de tokens contre 18 à 19 %, temps divisé par 2,3 à 2,7 contre 1,5 à 2). Modifier demande de comprendre l'existant, et un site DSL se comprend en lisant 200 lignes de YAML homogènes au lieu de 400 à 1 600 lignes de PHP à l'architecture propre à chaque auteur.</li>
+  <li><strong>Le vocabulaire partagé vaut autant que la concision.</strong> « Couleur d'accent » n'a de sens que si le site a un token qui s'appelle ainsi. Sur les sites à la main, la même consigne a donné quatre interprétations.</li>
+  <li><strong>Un DSL sans porte de sortie bloque.</strong> M4 est une demande banale. Il faut au minimum des champs de formulaire déclaratifs libres, et un bloc <code>custom</code> pour le reste, avec un coût accepté : ce qui passe par <code>custom</code> n'est plus validé.</li>
+  <li><strong>La validation doit couvrir tout ce que l'agent peut écrire.</strong> Les tokens de thème non validés étaient un angle mort : <code>check</code> disait « ok » sur une faute de frappe. Chaque clé libre du DSL doit avoir une liste fermée ou une règle.</li>
+  <li><strong>Le linter PHP a suffi aux agents PHP</strong> : deux erreurs de syntaxe, deux détections immédiates, zéro régression au banc. L'argument « le compilateur rattrape les erreurs » reste non démontré ; l'argument « le compilateur rend le travail plus court et plus sûr par construction » se confirme.</li>
+</ol>
+
+<h2 id="correctifs">6. Correctifs appliqués au compilateur</h2>
+<ul>
+  <li><code>E_UNKNOWN_TOKEN</code> : un nom de token de thème inconnu est une erreur, avec la liste des noms acceptés, une suggestion et un <code>fix</code> de renommage.</li>
+  <li><code>sitec explain site</code> : fiche de <code>site.yaml</code> (props, presets, liste des tokens avec un exemple de valeur chacun). <code>catalog</code> et <code>CLAUDE.md</code> y renvoient.</li>
+  <li>Appliqués après la fin des deux agents DSL, pour ne pas modifier les conditions du test en cours.</li>
+</ul>
+<div class="box ok"><strong>Mise à jour, même jour.</strong> Les trois manques structurels ont été implémentés dans le compilateur après ce test :
+<ul>
+  <li><strong>Champs de formulaire libres</strong> : <code>fields</code> accepte des objets <code>{ name, label, type, required, options, placeholder }</code> avec les types text, email, tel, number, date, select et textarea. Validation côté compilateur (noms, types, options, doublons, champs réservés) et côté serveur (e-mail, téléphone, nombre, date, choix dans la liste). La modification M4, impossible pour les deux agents DSL, tient désormais en <strong>une ligne</strong> : rejouée sur les deux sites DSL, elle passe 7/7 au banc, sans régression (51/51).</li>
+  <li><strong>Bloc <code>custom</code></strong> : inclut un fichier PHP du projet (plus CSS et JS optionnels, props libres). <code>check</code> vérifie que les fichiers existent et émet un avertissement <code>W_CUSTOM</code> ; le fichier est copié dans <code>dist/custom/</code>, jamais servi directement.</li>
+  <li><strong>Prop <code>id</code> sur toute section</strong> : pose une ancre avant la section ; les liens <code>/page#id</code> sont validés sur la partie route.</li>
+</ul>
+Le site d'exemple <code>examples/plomberie-martin</code> utilise les trois (bandeau promo custom, formulaire avec entreprise, type de demande en liste et date, ancre « services » dans le menu) et passe le banc complet.</div>
+
+<h2 id="bilan">7. Bilan des trois tests</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Question</th><th>Réponse mesurée</th><th>Source</th></tr></thead>
+  <tbody>
+    <tr><td>Un agent sans contexte peut-il écrire un site dans le DSL ?</td><td>Oui, zéro erreur au premier <code>check</code>, deux modèles.</td><td><a href="RAPPORT-TEST-VITRINE.html">Test vitrine</a></td></tr>
+    <tr><td>Le DSL réduit-il ce que l'agent écrit ?</td><td>Oui, par 3,6 à 4,6 à la création ; diff deux fois plus petit en maintenance.</td><td><a href="RAPPORT-BASELINE.html">Baseline</a>, ce rapport</td></tr>
+    <tr><td>Le DSL réduit-il la consommation totale ?</td><td>Oui, modestement à la création (18 à 19 %), davantage en maintenance (25 à 36 %).</td><td>Baseline, ce rapport</td></tr>
+    <tr><td>Le DSL réduit-il le temps ?</td><td>Oui, ÷ 1,5 à 2 à la création, ÷ 2,3 à 2,7 en maintenance.</td><td>Baseline, ce rapport</td></tr>
+    <tr><td>Le compilateur rattrape-t-il des erreurs que le PHP direct laisserait passer ?</td><td>Non démontré : zéro erreur PHP réelle sur les six créations, deux erreurs de syntaxe en maintenance toutes vues par <code>php -l</code>.</td><td>Baseline, ce rapport</td></tr>
+    <tr><td>Fournir une bibliothèque sans DSL suffit-il ?</td><td>Non : plus cher que rien à la création, un peu moins cher en maintenance, toujours plus cher que le DSL.</td><td>Baseline, ce rapport</td></tr>
+    <tr><td>Le DSL couvre-t-il les besoins ?</td><td>Pas encore : horaires, prix, champs de formulaire, ancres manquent ; M4 impossible.</td><td>Les trois rapports</td></tr>
+    <tr><td>Le code généré est-il sûr ?</td><td>Deux failles trouvées et corrigées une fois pour tous les sites.</td><td>Baseline</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="limites">8. Limites</h2>
+<ul>
+  <li>Un essai par case, pas de variance. Les écarts de temps sont aussi sensibles à la charge des serveurs.</li>
+  <li>Les agents DSL n'ont fait que trois modifications sur quatre : leur coût est donc légèrement sous-estimé par rapport à un DSL qui aurait permis M4.</li>
+  <li>M1 était ambiguë pour les sites qui avaient déjà une FAQ sur l'accueil (deux des six). Les agents ont tranché de la même façon ; le banc accepte les deux lectures.</li>
+  <li>M2 n'a pas été vérifiée visuellement, seulement par les valeurs effectives des variables CSS.</li>
+  <li>Le banc de non-régression ne couvre ni le JavaScript ni le rendu mobile réel.</li>
+</ul>
+
+<div class="box ok"><strong>Mise à jour.</strong> Le test de création a été rejoué sur Haiku : voir <a href="RAPPORT-HAIKU.html">RAPPORT-HAIKU.html</a>. Résumé : 44 à 46 % de tokens en moins et temps divisé par 4 avec le DSL, mais toujours zéro erreur PHP réelle chez les agents « à la main ».</div>
+<h2 id="suites">9. Suites</h2>
+<ol>
+  <li><strong>Ouvrir le formulaire</strong> : <code>fields</code> acceptant soit un nom connu, soit un objet <code>{ name, label, type, required }</code> avec types texte, e-mail, téléphone, nombre, date, choix. C'est la cause de l'unique échec et une demande récurrente des trois tests.</li>
+  <li><strong>Bloc <code>custom</code></strong> : un composant qui inclut un fichier PHP du projet, hors validation, avec un avertissement dans <code>check</code>. Sans lui, chaque besoin hors catalogue est un blocage.</li>
+  <li><strong>Prop <code>id</code> sur toute section</strong>, pour les ancres (demandée deux fois).</li>
+  <li><strong>Composants horaires et liste de prix</strong>, détournés dans les trois tests.</li>
+  <li><strong>Rejouer la maintenance sur Haiku</strong>, où des erreurs réelles devraient apparaître côté PHP et où la différence de fiabilité pourrait enfin se mesurer.</li>
+</ol>
+
+<h2 id="annexe">10. Annexe : reproduire</h2>
+<pre><code># contrôle des quatre modifications (démarre php -S, teste, arrête)
+node scripts/verify-maintenance.mjs maintenance/sans-lib/le-fournil 8832 fournil
+node bin/sitec.js build maintenance/dsl/garnier-associes
+node scripts/verify-maintenance.mjs maintenance/dsl/garnier-associes/dist 8821 garnier
+
+# non-régression
+node scripts/verify-php-site.mjs maintenance/avec-lib/garnier-associes 8824
+
+# taille des diffs
+node scripts/measure-diff.mjs maintenance/originaux/dsl/le-fournil maintenance/dsl/le-fournil
+
+# fiche du site et validation des tokens
+node bin/sitec.js explain site</code></pre>
+
+</div>
+</body>
+</html>

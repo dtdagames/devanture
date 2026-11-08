@@ -1,0 +1,6 @@
+.cta-inner{display:flex;flex-wrap:wrap;gap:24px;align-items:center;justify-content:space-between;padding:40px;border-radius:var(--radius)}
+.cta-primary .cta-inner{background:var(--color-primary);color:var(--color-primary-fg)}
+.cta-primary .cta-inner .btn{background:var(--color-primary-fg);color:var(--color-primary);border-color:var(--color-primary-fg)}
+.cta-surface .cta-inner{background:var(--color-surface);border:1px solid var(--color-border)}
+.cta-inner h2{margin-bottom:.2em}
+.cta-inner p{margin:0;opacity:.9}

@@ -1,0 +1,28 @@
+name: team
+order: 80
+description: Présentation de l'équipe (photo, nom, rôle, courte bio).
+props:
+  type: object
+  required: [members]
+  properties:
+    title: { type: string }
+    intro: { type: string }
+    members:
+      type: array
+      minItems: 1
+      items:
+        type: object
+        additionalProperties: false
+        required: [name]
+        properties:
+          name: { type: string }
+          role: { type: string }
+          photo: { type: string, format: asset }
+          bio: { type: string }
+example: |
+  - team:
+      title: L'équipe
+      members:
+        - { name: Jeanne Dubois, role: Fondatrice, photo: jeanne.jpg }
+        - { name: Paul Martin, role: Maître savonnier, bio: 15 ans de métier }
+intents: [équipe, qui, membres, associés, personnel]

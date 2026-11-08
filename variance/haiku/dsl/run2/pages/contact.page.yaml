@@ -1,0 +1,25 @@
+page: contact
+route: /contact
+seo:
+  title: "Contact, Cabinet Garnier & Associés"
+  description: "Demandez une consultation au cabinet Garnier & Associés à Bordeaux."
+sections:
+  - hero:
+      title: Contact
+      subtitle: "Décrivez votre situation, nous revenons vers vous rapidement."
+      align: left
+  - contact.form:
+      title: Demande de consultation
+      intro: "Les informations transmises ne sont utilisées que pour traiter votre demande."
+      to: contact@garnier-associes.fr
+      fields:
+        - name
+        - email
+        - phone
+        - { name: domaine, label: Domaine concerné, type: select, options: [Droit du travail, Droit des affaires, Droit de la famille, Je ne sais pas] }
+        - { name: statut, label: Vous êtes, type: select, options: [Salarié, Employeur], when: { domaine: Droit du travail } }
+        - { name: ville, label: Ville, type: select, options: [Bordeaux, Libourne, Arcachon] }
+        - message
+      required: [name, email, message, domaine]
+      success: "Merci. Nous revenons vers vous dans les meilleurs délais."
+      show_contact: true

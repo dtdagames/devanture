@@ -1,0 +1,30 @@
+site:
+  name: Plomberie Martin
+  tagline: Plombier chauffagiste à Lyon, dépannage 7j/7
+  locale: fr-FR
+  theme:
+    preset: clair
+    tokens:
+      color.primary: "#0b5d8a"
+      color.accent: "#f0a202"
+  nav:
+    - { label: Accueil, to: / }
+    - { label: Services, to: /#services }
+    - { label: Tarifs, to: /services#tarifs }
+    - { label: Réalisations, to: /realisations }
+    - { label: À propos, to: /a-propos }
+    - { label: Contact, to: /contact }
+  footer:
+    text: SIRET 812 345 678 00012 · RGE Qualibat
+    links:
+      - { label: Mentions légales, to: /mentions-legales }
+      - { label: Contact, to: /contact }
+  offline: { enabled: true }
+  intent: { placeholder: "Que cherchez-vous ? (horaires, tarifs, urgence…)" }
+  agents:
+    summary: Plombier chauffagiste à Lyon, dépannage 7j/7, installation sanitaire et chauffage, devis gratuit.
+    business_type: Plumber
+  contact:
+    email: contact@plomberie-martin.fr
+    phone: 04 72 00 11 22
+    address: 14 rue des Canuts, 69004 Lyon

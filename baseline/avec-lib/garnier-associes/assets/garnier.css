@@ -1,0 +1,8 @@
+/* Surcharges propres au site : palette sobre de cabinet. Les variables restent définies dans :root. */
+:root {
+  --color-primary: #1f3a5f;
+  --color-accent: #b08d57;
+  --color-surface: #f4f1ec;
+}
+address{font-style:normal}
+.site-footer address{line-height:1.7}

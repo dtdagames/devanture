@@ -1,0 +1,21 @@
+name: hero
+order: 10
+description: Bandeau d'en-tête de page, avec titre, sous-titre, image de fond optionnelle et 1 ou 2 boutons.
+props:
+  type: object
+  required: [title]
+  properties:
+    title: { type: string, description: titre principal (h1) }
+    subtitle: { type: string, description: phrase d'accroche sous le titre }
+    image: { type: string, format: asset, description: "image de fond, fichier dans assets/" }
+    cta: { $ref: "#/$defs/link", description: bouton principal }
+    secondary: { $ref: "#/$defs/link", description: "second bouton, style contour" }
+    align: { type: string, enum: [left, center], description: alignement du texte (défaut center) }
+example: |
+  - hero:
+      title: Des savons faits main
+      subtitle: Fabriqués en Provence depuis 1987
+      image: hero.jpg
+      cta: { label: Découvrir, to: /boutique }
+      secondary: { label: Nous contacter, to: /contact }
+intents: [accueil, présentation]

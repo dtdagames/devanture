@@ -1,0 +1,13 @@
+.pricelist-groups{display:grid;gap:32px}
+.pricelist-cols-2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.pricelist-group h3{border-bottom:2px solid var(--color-accent);padding-bottom:6px;margin-bottom:12px}
+.pricelist-items{list-style:none;margin:0;padding:0}
+.pricelist-item{display:flex;justify-content:space-between;gap:16px;align-items:baseline;padding:10px 0;border-bottom:1px dashed var(--color-border)}
+.pricelist-main{display:flex;flex-direction:column;gap:2px}
+.pricelist-name{font-weight:600}
+.pricelist-desc{font-size:.92rem}
+.pricelist-price{font-family:var(--font-heading);font-weight:700;color:var(--color-primary);white-space:nowrap}
+.pricelist-unit{font-family:var(--font-body);font-weight:400;font-size:.9rem}
+.badge{display:inline-block;font-size:.75rem;font-weight:600;background:var(--color-accent);color:#1b1f24;padding:1px 8px;border-radius:999px;margin-left:6px;vertical-align:middle}
+.pricelist-note{margin-top:16px;font-size:.95rem}
+.pricelist-cta{margin-top:12px}

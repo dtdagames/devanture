@@ -1,0 +1,28 @@
+# Micro-site : page d'atterrissage dérivée de l'accueil, pour une campagne « savon de Marseille ».
+page: savons-marseille
+route: /savons-marseille
+extends: accueil
+seo:
+  title: Savon de Marseille artisanal · Maison Dubois
+  description: Le vrai savon de Marseille saponifié à froid, 72 % d'huile d'olive, fabriqué rue des Lilas. Livraison offerte dès 50 €.
+override:
+  accueil-hero:
+    title: Le savon de Marseille, fait à Marseille
+    subtitle: Pur olive, saponifié à froid dans notre atelier de la rue des Lilas. Pas de parfum, pas de colorant, quatre semaines de séchage.
+    cta: { label: Voir le savon pur olive, to: /produit/savon-olive }
+    keywords: [savon de marseille, pur olive, 72 %]
+  best-sellers:
+    title: Nos savons
+    filter: { category: savons }
+    columns: 3
+remove: [avis, reprise]
+append:
+  - faq:
+      title: Le savon de Marseille en trois questions
+      items:
+        - q: Qu'est-ce qu'un vrai savon de Marseille ?
+          a: Un savon composé d'au moins 72 % d'huile végétale, sans graisse animale, sans parfum ni colorant. Le nôtre est à l'huile d'olive.
+        - q: Pourquoi la saponification à froid ?
+          a: Les huiles ne sont pas chauffées au-delà de 40 °C, ce qui conserve la glycérine naturelle et les propriétés des huiles.
+        - q: Peut-on s'en servir pour la lessive ?
+          a: Oui, râpé, à raison de 30 g par litre d'eau chaude. C'est l'usage historique du savon de Marseille.

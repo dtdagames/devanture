@@ -1,0 +1,36 @@
+page: honoraires
+route: /honoraires
+seo:
+  title: Honoraires — Cabinet Garnier & Associés
+  description: Honoraires au forfait ou au temps passé, convention d'honoraires systématique, première consultation de 30 minutes offerte.
+sections:
+  - hero:
+      title: Honoraires
+      subtitle: Des honoraires clairs, convenus par écrit avant toute mission.
+  - pricelist:
+      title: Nos modes de facturation
+      columns: 1
+      note: Les montants sont fixés dans la convention d'honoraires, selon la nature et la complexité du dossier.
+      groups:
+        - title: Modes de facturation
+          items:
+            - name: Première consultation
+              price: offerte
+              description: 30 minutes pour analyser votre situation.
+            - name: Honoraires au forfait
+              price: sur devis
+              description: Un prix global fixé à l'avance pour une mission définie.
+            - name: Honoraires au temps passé
+              price: sur devis
+              description: Facturation selon le temps consacré au dossier, avec un taux horaire convenu.
+  - faq:
+      title: Questions sur les honoraires
+      items:
+        - q: Une convention d'honoraires est-elle obligatoire ?
+          a: Chez nous, elle est systématique. Elle précise la mission, le mode de facturation et les frais prévisibles.
+        - q: Que couvre la consultation offerte ?
+          a: Une rencontre de 30 minutes pour exposer votre situation et connaître les démarches possibles, sans engagement.
+  - cta:
+      title: Demandez un devis
+      text: Décrivez-nous votre dossier, nous vous proposons un forfait ou un taux horaire.
+      button: { label: Nous contacter, to: /contact }

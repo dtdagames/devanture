@@ -1,0 +1,29 @@
+name: gallery
+order: 40
+description: Grille d'images (réalisations, photos, produits) avec légende optionnelle et agrandissement au clic.
+props:
+  type: object
+  required: [images]
+  properties:
+    title: { type: string }
+    intro: { type: string }
+    columns: { type: integer, enum: [2, 3, 4], description: colonnes (défaut 3) }
+    images:
+      type: array
+      minItems: 1
+      items:
+        type: object
+        additionalProperties: false
+        required: [src]
+        properties:
+          src: { type: string, format: asset }
+          alt: { type: string, description: description pour l'accessibilité }
+          caption: { type: string }
+example: |
+  - gallery:
+      title: Nos réalisations
+      columns: 3
+      images:
+        - { src: real-1.jpg, alt: Cuisine rénovée, caption: Cuisine, Lyon 3e }
+        - { src: real-2.jpg, alt: Salle de bain }
+intents: [photos, réalisations, galerie, exemples]

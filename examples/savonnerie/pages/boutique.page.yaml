@@ -1,0 +1,34 @@
+page: boutique
+route: /boutique
+seo:
+  title: Boutique · Maison Dubois
+  description: Savons, shampoings solides, soins et coffrets. Fabrication artisanale à Marseille, livraison en 48 h.
+sections:
+  - hero:
+      title: La boutique
+      subtitle: Tous nos produits sont fabriqués dans l'atelier de la rue des Lilas. Livraison offerte dès 50 €.
+      align: left
+  - products.grid:
+      id: savons
+      title: Savons
+      filter: { category: savons }
+      sort: price
+  - products.grid:
+      id: cheveux-soins
+      title: Cheveux et soins
+      intro: Des formules solides, sans eau, qui durent deux à trois fois plus longtemps.
+      filter: { category: cheveux }
+  - products.grid:
+      title: Soins
+      filter: { category: soins }
+  - products.grid:
+      id: coffrets
+      title: Coffrets
+      filter: { category: coffrets }
+  - faq:
+      title: Questions fréquentes
+      items:
+        - q: Combien de temps se conserve un savon ?
+          a: Deux ans à l'abri de l'humidité. Une fois entamé, posez-le sur un porte-savon ajouré pour qu'il sèche entre deux usages.
+        - q: Livrez-vous à l'étranger ?
+          a: En Europe uniquement pour le moment, au tarif postal réel. Écrivez-nous pour un devis.

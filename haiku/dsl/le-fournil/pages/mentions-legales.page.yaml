@@ -1,0 +1,15 @@
+page: mentions-legales
+route: /mentions-legales
+seo:
+  title: Mentions légales | Boulangerie Le Fournil
+  description: Mentions légales du site de la boulangerie Le Fournil à Nantes.
+sections:
+  - hero:
+      title: Mentions légales
+      align: left
+  - richtext:
+      title: Éditeur du site
+      text: |
+        Boulangerie Le Fournil, 8 rue de la Juiverie, 44000 Nantes. Téléphone : 02 40 00 00 00. Courriel : bonjour@lefournil-nantes.fr.
+
+        Le site est hébergé par un prestataire tiers dont les coordonnées sont disponibles sur demande.

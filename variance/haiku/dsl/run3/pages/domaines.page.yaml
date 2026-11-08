@@ -1,0 +1,52 @@
+page: domaines
+route: /domaines
+seo:
+  title: "Domaines d'intervention, cabinet Garnier à Bordeaux"
+  description: "Droit du travail, droit des affaires et droit de la famille : les domaines d'intervention du cabinet Garnier & Associés."
+sections:
+  - hero:
+      title: "Nos domaines d'intervention"
+      subtitle: "Trois spécialités complémentaires pour les particuliers comme pour les entreprises."
+  - features:
+      title: "Droit du travail"
+      intro: "Me Hélène Garnier conseille employeurs et salariés à chaque étape de la relation de travail."
+      items:
+        - icon: tools
+          title: "Licenciement et rupture"
+          text: "Analyse de la procédure, négociation de la rupture conventionnelle et conseil avant tout courrier."
+        - icon: star
+          title: "Contentieux prud'homal"
+          text: "Défense des salariés et des employeurs devant le conseil de prud'hommes, de la conciliation au jugement."
+  - features:
+      title: "Droit des affaires"
+      intro: "Me Thomas Ruiz accompagne dirigeants et sociétés dans leurs décisions juridiques courantes."
+      items:
+        - icon: check
+          title: "Contrats commerciaux"
+          text: "Rédaction et relecture de contrats, conditions générales, baux professionnels et accords de partenariat."
+        - icon: home
+          title: "Vie sociétaire"
+          text: "Création de société, pacte d'associés, cession de parts et restructuration de l'entreprise."
+  - features:
+      title: "Droit de la famille"
+      intro: "Me Inès Kaddour accompagne les familles dans les moments de rupture et de décision importants."
+      items:
+        - icon: heart
+          title: "Séparation et divorce"
+          text: "Conseil sur la procédure, la liquidation du régime matrimonial et les conséquences pour les enfants."
+        - icon: home
+          title: "Autorité parentale et pension"
+          text: "Préparation des demandes relatives à la résidence des enfants, à la contribution alimentaire et au droit de visite."
+  - faq:
+      title: "Questions fréquentes"
+      items:
+        - q: "Comment se déroule une première consultation ?"
+          a: "Elle dure 30 minutes et est offerte. Nous étudions votre situation et vous indiquons les options possibles, sans engagement de votre part."
+        - q: "Intervenez-vous hors de Bordeaux ?"
+          a: "Oui. Le cabinet intervient à Bordeaux, Libourne et Arcachon, et peut traiter certains dossiers à distance."
+        - q: "Comment sont calculés vos honoraires ?"
+          a: "Au forfait ou au temps passé, selon la nature du dossier. Une convention d'honoraires est signée avant toute intervention."
+  - cta:
+      title: "Votre situation relève-t-elle de l'un de ces domaines ?"
+      text: "Décrivez-nous votre question, nous vous répondons dans les meilleurs délais."
+      button: { label: "Demander un rendez-vous", to: "/contact" }

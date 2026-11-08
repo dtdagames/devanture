@@ -1,0 +1,21 @@
+name: richtext
+order: 30
+description: Bloc de texte libre (plusieurs paragraphes) avec titre optionnel et image à côté. Pour « à propos », histoire, présentation.
+props:
+  type: object
+  required: [text]
+  properties:
+    title: { type: string }
+    text: { type: string, description: "texte, paragraphes séparés par une ligne vide (utiliser | en YAML)" }
+    image: { type: string, format: asset, description: image affichée à côté du texte }
+    image_position: { type: string, enum: [left, right], description: côté de l'image (défaut right) }
+    cta: { $ref: "#/$defs/link" }
+example: |
+  - richtext:
+      title: Notre histoire
+      image: atelier.jpg
+      text: |
+        Fondé en 1987 par Jeanne Dubois, l'atelier perpétue un savoir-faire familial.
+
+        Chaque savon est saponifié à froid puis séché quatre semaines.
+intents: [à propos, histoire, qui sommes-nous, présentation]

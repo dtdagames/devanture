@@ -1,0 +1,41 @@
+page: domaines
+route: /domaines
+seo:
+  title: "Domaines d'intervention | Cabinet Garnier & Associés"
+  description: "Droit du travail, droit des affaires et droit de la famille : nos trois pôles d'intervention à Bordeaux."
+sections:
+  - hero:
+      title: Domaines d'intervention
+      subtitle: "Trois associés, trois spécialités, une même exigence de clarté."
+      align: center
+  - richtext:
+      id: droit-travail
+      title: Droit du travail
+      text: |
+        Nous conseillons les salariés et les employeurs sur les questions liées à la relation de travail : rupture du contrat, licenciement, litiges prud'homaux, négociation de protocoles de rupture.
+
+        Me Hélène Garnier, associée, dirige ce pôle.
+  - richtext:
+      id: droit-affaires
+      title: Droit des affaires
+      text: |
+        Nous accompagnons les dirigeants et les sociétés dans la vie de leur entreprise : rédaction et négociation de contrats, création et structuration de sociétés, recouvrement de créances.
+
+        Me Thomas Ruiz, associé, dirige ce pôle.
+  - richtext:
+      id: droit-famille
+      title: Droit de la famille
+      text: |
+        Nous intervenons dans les procédures de divorce, les séparations, la fixation des modalités de résidence des enfants et la liquidation des régimes matrimoniaux.
+
+        Me Inès Kaddour, associée, dirige ce pôle.
+  - faq:
+      title: Questions fréquentes
+      items:
+        - q: Intervenez-vous hors de Bordeaux ?
+          a: Oui, nous intervenons aussi à Libourne et à Arcachon.
+        - q: Comment prendre rendez-vous ?
+          a: Par téléphone au 05 56 00 00 00 ou par le formulaire de contact.
+  - cta:
+      title: "Votre situation relève-t-elle de l'un de ces domaines ?"
+      button: { label: Prendre rendez-vous, to: /contact }

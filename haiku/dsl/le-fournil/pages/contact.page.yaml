@@ -1,0 +1,33 @@
+page: contact
+route: /contact
+seo:
+  title: Contact et horaires | Boulangerie Le Fournil Nantes
+  description: Horaires, adresse et formulaire de contact de la boulangerie Le Fournil, 8 rue de la Juiverie à Nantes.
+sections:
+  - hero:
+      title: Nous trouver
+      subtitle: 8 rue de la Juiverie, 44000 Nantes
+      align: center
+  - hours:
+      title: Horaires d'ouverture
+      intro: Ouvert du mardi au dimanche, fermé le lundi.
+      note: Fermé le lundi et les jours fériés.
+      timezone: Europe/Paris
+      days:
+        - { day: lundi, closed: true }
+        - { day: mardi, slots: ["06:30-19:30"] }
+        - { day: mercredi, slots: ["06:30-19:30"] }
+        - { day: jeudi, slots: ["06:30-19:30"] }
+        - { day: vendredi, slots: ["06:30-19:30"] }
+        - { day: samedi, slots: ["06:30-19:30"] }
+        - { day: dimanche, slots: ["06:30-19:30"] }
+  - contact.form:
+      title: Écrivez-nous
+      intro: Une question, une réservation de produit ? Envoyez-nous un message.
+      to: bonjour@lefournil-nantes.fr
+      fields:
+        - name
+        - email
+        - phone
+        - message
+      success: Merci, nous vous répondons rapidement.

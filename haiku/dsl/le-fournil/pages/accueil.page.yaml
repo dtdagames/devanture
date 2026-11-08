@@ -1,0 +1,31 @@
+page: accueil
+route: /
+seo:
+  title: Boulangerie Le Fournil, pain au levain à Nantes
+  description: Artisan boulanger quartier Bouffay à Nantes. Pain au levain naturel, viennoiseries pur beurre et sandwichs le midi.
+sections:
+  - hero:
+      title: Le pain du quartier Bouffay
+      subtitle: Levain naturel, farines sélectionnées, fabrication sur place depuis 2009
+      image: hero-fournil.svg
+      cta: { label: Nos produits, to: /produits }
+      secondary: { label: Passer commande, to: /commandes }
+  - features:
+      title: Ce qui fait notre pain
+      intro: Une boulangerie artisanale, des gestes simples et exigeants.
+      columns: 3
+      items:
+        - { icon: leaf, title: Levain naturel, text: "Fermentation longue, sans levure ajoutée." }
+        - { icon: heart, title: Pur beurre, text: Nos viennoiseries sont faites uniquement au beurre. }
+        - { icon: star, title: Médaille d'argent, text: "Baguette tradition, Loire-Atlantique 2024." }
+  - stats:
+      items:
+        - { value: "2009", label: année de fondation }
+        - { value: "2", label: fondateurs à la barre }
+        - { value: "3", label: salariés dans l'équipe }
+        - { value: "6", label: jours d'ouverture par semaine }
+  - cta:
+      title: Une fête en vue ?
+      text: Buffets, pièces montées, commandes pour vos événements.
+      button: { label: Demander un devis, to: /commandes }
+      style: surface

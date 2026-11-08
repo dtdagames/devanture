@@ -1,0 +1,50 @@
+page: domaines
+route: /domaines
+seo:
+  title: Domaines d'intervention - Cabinet Garnier & Associés
+  description: Droit du travail, droit des affaires et droit de la famille. Conseil et contentieux pour particuliers et entreprises à Bordeaux et en Gironde.
+sections:
+  - hero:
+      title: Nos domaines d'intervention
+      subtitle: Conseil en amont et défense devant les juridictions, pour particuliers et entreprises.
+      align: left
+  - richtext:
+      id: travail
+      title: Droit du travail
+      text: |
+        Nous conseillons les salariés et les employeurs sur les questions de rupture du contrat de travail : licenciement, rupture conventionnelle, démission, mise à pied.
+
+        Nous assurons la défense devant le conseil de prud'hommes, en demande comme en défense, et accompagnons les entreprises dans la rédaction de leurs règlements et de leurs procédures internes.
+      image: garnier.svg
+      image_position: right
+      cta: { label: Parler de mon dossier, to: /contact }
+  - richtext:
+      id: affaires
+      title: Droit des affaires
+      text: |
+        Nous accompagnons la création, la vie et la transmission des sociétés : choix de la structure juridique, pactes d'associés, modifications statutaires, cession de parts.
+
+        Nous rédigeons et négocions les contrats commerciaux, suivons les recouvrements de créances et intervenons en amont des difficultés des entreprises.
+      image: ruiz.svg
+      image_position: left
+      cta: { label: Parler de mon projet, to: /contact }
+  - richtext:
+      id: famille
+      title: Droit de la famille
+      text: |
+        Nous assistons les personnes dans les procédures de divorce, de séparation, et dans les questions d'autorité parentale, de résidence des enfants et de pension alimentaire.
+
+        Nous intervenons également en matière de successions et de liquidation de régimes matrimoniaux, avec une attention particulière à la médiation lorsqu'elle est possible.
+      image: kaddour.svg
+      image_position: right
+      cta: { label: Prendre rendez-vous, to: /contact }
+  - faq:
+      title: Questions fréquentes sur nos domaines
+      items:
+        - q: Intervenez-vous hors de Bordeaux ?
+          a: Oui, nous intervenons à Bordeaux, Libourne et Arcachon, et plus largement en Gironde selon la nature du dossier.
+        - q: Quelle est la durée d'une procédure prud'homale ?
+          a: Elle varie selon la complexité du dossier et l'encombrement du conseil. Nous vous indiquons une estimation dès la première consultation.
+  - cta:
+      title: Votre situation relève-t-elle de l'un de ces domaines ?
+      button: { label: Prendre rendez-vous, to: /contact }

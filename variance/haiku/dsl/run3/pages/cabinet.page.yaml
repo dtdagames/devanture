@@ -1,0 +1,35 @@
+page: cabinet
+route: /cabinet
+seo:
+  title: "Le cabinet et son équipe, avocats à Bordeaux"
+  description: "Fondé en 2011, le cabinet Garnier & Associés réunit trois associés et une équipe de collaboratrices à Bordeaux."
+sections:
+  - hero:
+      title: "Le cabinet Garnier & Associés"
+      subtitle: "Un cabinet d'avocats bordelais, fondé en 2011."
+  - richtext:
+      title: "Notre histoire"
+      text: |
+        Le cabinet Garnier & Associés a été fondé à Bordeaux en 2011 par Me Hélène Garnier. Il s'est développé autour d'une idée simple : un dossier juridique se traite avec le temps, la rigueur et une information claire pour le client.
+
+        Aujourd'hui, le cabinet compte trois associés et une équipe composée de deux collaboratrices et d'une assistante. Nous intervenons à Bordeaux, Libourne et Arcachon.
+  - team:
+      title: "Les associés"
+      intro: "Chaque associé suit personnellement les dossiers de son domaine."
+      members:
+        - name: "Me Hélène Garnier"
+          role: "Droit du travail"
+          photo: garnier.svg
+          bio: "Fondatrice du cabinet, elle conseille employeurs et salariés depuis 2011."
+        - name: "Me Thomas Ruiz"
+          role: "Droit des affaires"
+          photo: ruiz.svg
+          bio: "Il accompagne dirigeants et sociétés sur leurs contrats, leurs statuts et leurs opérations."
+        - name: "Me Inès Kaddour"
+          role: "Droit de la famille"
+          photo: kaddour.svg
+          bio: "Elle accompagne les familles lors des séparations et des décisions concernant les enfants."
+  - cta:
+      title: "Rencontrons-nous"
+      text: "Une première consultation de 30 minutes est offerte."
+      button: { label: "Prendre rendez-vous", to: "/contact" }

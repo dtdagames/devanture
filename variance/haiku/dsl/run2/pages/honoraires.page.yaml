@@ -1,0 +1,33 @@
+page: honoraires
+route: /honoraires
+seo:
+  title: "Honoraires, Cabinet Garnier & Associés"
+  description: "Convention d'honoraires écrite, forfait ou temps passé, première consultation offerte."
+sections:
+  - hero:
+      title: Honoraires
+      subtitle: "Un cadre clair et écrit avant le début de toute mission."
+      align: left
+  - richtext:
+      title: Convention d'honoraires
+      text: |
+        Chaque mission fait l'objet d'une convention d'honoraires écrite, signée avant le début du travail. Elle précise l'objet de la mission et les modalités de calcul.
+
+        Selon la nature du dossier, nous proposons un forfait ou une facturation au temps passé. Vous connaissez ainsi le cadre financier de votre affaire dès le départ.
+  - features:
+      title: Nos modalités
+      columns: 3
+      items:
+        - { icon: check, title: Forfait, text: "Un montant fixé à l'avance pour une mission définie." }
+        - { icon: clock, title: Temps passé, text: "Une facturation selon le temps réellement consacré au dossier." }
+        - { icon: gift, title: Première consultation, text: "30 minutes offertes pour faire le point sur votre situation." }
+  - faq:
+      title: Questions sur les honoraires
+      items:
+        - { q: "La première consultation est-elle payante ?", a: "Non. La première consultation de 30 minutes est offerte." }
+        - { q: "Une convention est-elle obligatoire ?", a: "Oui, elle est systématique et signée avant le début de la mission." }
+        - { q: "Comment sont calculés mes honoraires ?", a: "Au forfait ou au temps passé, selon le dossier. Les modalités figurent dans la convention." }
+  - cta:
+      title: Parlons de votre dossier
+      text: "Première consultation de 30 minutes offerte."
+      button: { label: Demander une consultation, to: /contact }

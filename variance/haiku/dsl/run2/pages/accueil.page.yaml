@@ -1,0 +1,34 @@
+page: accueil
+route: /
+seo:
+  title: "Cabinet Garnier & Associés, avocats à Bordeaux"
+  description: "Avocats à Bordeaux, Libourne et Arcachon : droit du travail, droit des affaires et droit de la famille."
+sections:
+  - hero:
+      title: Avocats à Bordeaux, Libourne et Arcachon
+      subtitle: "Droit du travail, droit des affaires et droit de la famille, avec un conseil clair dès la première consultation."
+      image: hero.svg
+      align: left
+      cta: { label: Prendre rendez-vous, to: /contact }
+      secondary: { label: Nos domaines, to: /domaines }
+  - features:
+      title: Un cabinet à votre écoute
+      intro: "Trois associés, une équipe réduite et des honoraires convenus avant tout travail."
+      columns: 3
+      items:
+        - { icon: shield, title: Droit du travail, text: "Salariés comme employeurs : licenciement, rupture conventionnelle, contentieux prud'homal.", link: { label: En savoir plus, to: "/domaines#travail" } }
+        - { icon: star, title: Droit des affaires, text: "Création et vie des sociétés, contrats commerciaux, conseil aux dirigeants.", link: { label: En savoir plus, to: "/domaines#affaires" } }
+        - { icon: heart, title: Droit de la famille, text: "Divorce, séparation, autorité parentale et pensions alimentaires.", link: { label: En savoir plus, to: "/domaines#famille" } }
+  - richtext:
+      title: Le cabinet
+      image: cabinet.svg
+      image_position: right
+      text: |
+        Fondé à Bordeaux en 2011, le cabinet Garnier & Associés accompagne particuliers, salariés, dirigeants et entreprises.
+
+        Nous intervenons à Bordeaux, à Libourne et à Arcachon. Chaque dossier est suivi par l'associé compétent, avec une convention d'honoraires écrite dès l'ouverture.
+      cta: { label: Découvrir l'équipe, to: /cabinet }
+  - cta:
+      title: Une question juridique ?
+      text: "La première consultation de 30 minutes est offerte."
+      button: { label: Demander une consultation, to: /contact }

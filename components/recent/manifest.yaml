@@ -1,0 +1,14 @@
+name: recent
+order: 97
+description: "Mémoire du visiteur : « Vous avez regardé » avec les produits et sections consultés récemment, d'après le profil tenu dans son navigateur (consentement requis). N'affiche rien tant qu'il n'y a pas d'historique."
+props:
+  type: object
+  properties:
+    title: { type: string, description: défaut « Reprendre où vous en étiez » }
+    limit: { type: integer, minimum: 1, maximum: 8, description: défaut 4 }
+    kinds: { type: array, items: { type: string, enum: [products, sections] }, description: "ce qui est repris (défaut les deux)" }
+example: |
+  - recent:
+      title: Vous aviez regardé
+      limit: 4
+intents: [historique, déjà vu, reprendre, récemment]

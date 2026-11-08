@@ -1,0 +1,50 @@
+page: accueil
+route: /
+seo:
+  title: Maison Dubois · Savonnerie artisanale à Marseille
+  description: Savons et cosmétiques solides saponifiés à froid à Marseille depuis 1987. Boutique en ligne, livraison offerte dès 50 €.
+# Assemblage par segment : un visiteur avec un panier en cours voit d'abord la reprise et les best-sellers, sans les avis.
+variants:
+  panier_abandonne: { first: [accueil-hero, reprise, best-sellers], hide: [avis] }
+  recurrent: { first: [accueil-hero, reprise] }
+sections:
+  - hero:
+      id: accueil-hero
+      title: Des savons faits main à Marseille
+      subtitle: Saponification à froid, huiles bio et locales, séchage de quatre semaines. Depuis 1987.
+      image: hero.svg
+      cta: { label: Découvrir la boutique, to: /boutique }
+      secondary: { label: Visiter l'atelier, to: /atelier }
+      variants:
+        panier_abandonne:
+          title: Votre panier vous attend
+          subtitle: Vos savons sont toujours réservés. Finalisez votre commande en deux minutes, livraison offerte dès 50 €.
+          cta: { label: Reprendre mon panier, to: /panier }
+  - recent:
+      id: reprise
+      title: Reprendre où vous en étiez
+      limit: 4
+  - features:
+      id: pourquoi
+      title: Pourquoi nos savons
+      items:
+        - { icon: leaf, title: 100 % naturel, text: "Huiles végétales bio, huiles essentielles, aucun parfum de synthèse." }
+        - { icon: heart, title: Fait main, text: Chaque pain est coupé et estampillé à la main dans notre atelier. }
+        - { icon: truck, title: Livraison offerte dès 50 €, text: "Expédition sous 48 h en colis recyclé, ou retrait gratuit à l'atelier." }
+  - products.grid:
+      id: best-sellers
+      title: Nos best-sellers
+      filter: { featured: true }
+      columns: 4
+      cta: { label: Toute la boutique, to: /boutique }
+  - testimonials:
+      id: avis
+      title: Ils en parlent
+      items:
+        - { quote: Le savon lavande a réconcilié ma peau avec les savons. Je ne commande plus que là., author: Hélène M., role: Aix-en-Provence, rating: 5 }
+        - { quote: Shampoing solide adopté par toute la famille. Livraison rapide et emballage soigné., author: Thomas R., role: Lyon, rating: 5 }
+  - cta:
+      id: contact-cta
+      title: Une question sur un produit ?
+      text: Nous répondons sous 24 h, et l'atelier est ouvert du mardi au samedi.
+      button: { label: Nous écrire, to: /contact }

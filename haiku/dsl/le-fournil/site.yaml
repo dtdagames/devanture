@@ -1,0 +1,24 @@
+site:
+  name: Boulangerie Le Fournil
+  tagline: Artisan boulanger à Nantes depuis 2009, pain au levain naturel
+  locale: fr-FR
+  theme:
+    preset: chaleureux
+    tokens:
+      color.primary: "#6b3e26"
+      color.accent: "#c8a24a"
+      font.heading: Georgia, "Times New Roman", serif
+  nav:
+    - { label: Accueil, to: / }
+    - { label: Nos produits, to: /produits }
+    - { label: La boulangerie, to: /la-boulangerie }
+    - { label: Commandes événements, to: /commandes }
+    - { label: Contact, to: /contact }
+  footer:
+    text: Boulangerie Le Fournil, 8 rue de la Juiverie, 44000 Nantes
+    links:
+      - { label: Mentions légales, to: /mentions-legales }
+  contact:
+    email: bonjour@lefournil-nantes.fr
+    phone: 02 40 00 00 00
+    address: 8 rue de la Juiverie, 44000 Nantes

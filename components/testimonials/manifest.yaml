@@ -1,0 +1,27 @@
+name: testimonials
+order: 50
+description: Témoignages clients (citation, auteur, rôle ou ville, note optionnelle).
+props:
+  type: object
+  required: [items]
+  properties:
+    title: { type: string }
+    items:
+      type: array
+      minItems: 1
+      items:
+        type: object
+        additionalProperties: false
+        required: [quote, author]
+        properties:
+          quote: { type: string }
+          author: { type: string }
+          role: { type: string, description: "fonction, entreprise ou ville" }
+          rating: { type: integer, minimum: 1, maximum: 5, description: note sur 5 }
+example: |
+  - testimonials:
+      title: Ils nous font confiance
+      items:
+        - { quote: Travail soigné et dans les délais., author: Marie L., role: Lyon, rating: 5 }
+        - { quote: Équipe à l'écoute., author: Karim B., role: Villeurbanne }
+intents: [avis, témoignages, clients, note]

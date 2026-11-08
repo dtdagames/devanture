@@ -1,0 +1,22 @@
+page: contact
+route: /contact
+seo:
+  title: "Contact, cabinet Garnier & Associés à Bordeaux"
+  description: "Prenez rendez-vous avec le cabinet Garnier & Associés à Bordeaux. Première consultation de 30 minutes offerte."
+sections:
+  - hero:
+      title: "Contact"
+      subtitle: "Décrivez votre situation, nous vous répondons rapidement."
+  - contact.form:
+      title: "Demande de rendez-vous"
+      intro: "Les champs marqués d'une étoile sont obligatoires. Une première consultation de 30 minutes est offerte."
+      to: contact@garnier-associes.fr
+      fields:
+        - name
+        - email
+        - phone
+        - { name: domaine, label: "Domaine concerné", type: select, options: [Droit du travail, Droit des affaires, Droit de la famille, Autre] }
+        - { name: lieu, label: "Lieu souhaité", type: select, options: [Bordeaux, Libourne, Arcachon] }
+        - message
+      success: "Merci. Votre demande a bien été transmise, nous revenons vers vous rapidement."
+      show_contact: true

@@ -1,0 +1,33 @@
+name: contact.form
+order: 100
+description: Formulaire de contact avec validation serveur, anti-spam et envoi par e-mail. Champs connus ou champs libres. Coordonnées affichées à côté.
+props:
+  type: object
+  required: [to]
+  properties:
+    title: { type: string }
+    intro: { type: string }
+    to: { type: string, format: email, description: adresse qui reçoit les messages }
+    fields:
+      type: array
+      minItems: 1
+      items: {}
+      description: "champs dans l'ordre. Chaque élément est soit un nom connu (name | email | phone | subject | message), soit un objet { name*, label*, type, required, options, placeholder } avec type parmi text | email | tel | number | date | select | textarea (select exige options). Défaut : [name, email, message]"
+    required: { type: array, items: { type: string }, description: "noms des champs obligatoires (défaut : name, email, message s'ils sont présents). Un objet de champ peut aussi porter required: true" }
+    success: { type: string, description: message affiché après envoi }
+    show_contact: { type: boolean, description: afficher adresse / téléphone du site à côté (défaut true) }
+example: |
+  - contact.form:
+      title: Demande de devis
+      to: contact@maisondubois.fr
+      fields:
+        - name
+        - email
+        - phone
+        - { name: company, label: Entreprise }
+        - { name: event_date, label: Date de l'événement, type: date, required: true }
+        - { name: guests, label: Nombre de convives, type: number }
+        - { name: kind, label: Type d'événement, type: select, options: [Mariage, Anniversaire, Séminaire] }
+        - message
+      success: Merci, nous revenons vers vous sous 24 h.
+intents: [contact, écrire, message, devis, rendez-vous, formulaire, email, téléphone, adresse, joindre, appeler, coordonnées, rappeler, demande]

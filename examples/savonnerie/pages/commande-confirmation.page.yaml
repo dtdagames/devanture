@@ -1,0 +1,10 @@
+page: commande-confirmation
+route: /commande/[id]
+source: orders
+seo:
+  title: "Commande {{ order.id }} · Maison Dubois"
+  description: Confirmation de votre commande.
+sections:
+  - order.confirmation:
+      text: Merci de votre confiance. Un e-mail récapitulatif vient de vous être envoyé.
+      cta: { label: Retour à l'accueil, to: / }

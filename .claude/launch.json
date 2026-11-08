@@ -1,0 +1,64 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "plomberie-martin",
+      "runtimeExecutable": "C:/Users/sergi/AppData/Local/Microsoft/WinGet/Packages/PHP.PHP.8.3_Microsoft.Winget.Source_8wekyb3d8bbwe/php.exe",
+      "runtimeArgs": [
+        "-S",
+        "localhost:8765",
+        "-t",
+        "examples/plomberie-martin/dist",
+        "examples/plomberie-martin/dist/index.php"
+      ],
+      "port": 8765
+    },
+    {
+      "name": "garnier-associes",
+      "runtimeExecutable": "C:/Users/sergi/AppData/Local/Microsoft/WinGet/Packages/PHP.PHP.8.3_Microsoft.Winget.Source_8wekyb3d8bbwe/php.exe",
+      "runtimeArgs": [
+        "-S",
+        "localhost:8766",
+        "-t",
+        "examples/garnier-associes/dist",
+        "examples/garnier-associes/dist/index.php"
+      ],
+      "port": 8766
+    },
+    {
+      "name": "savonnerie",
+      "runtimeExecutable": "C:/Users/sergi/AppData/Local/Microsoft/WinGet/Packages/PHP.PHP.8.3_Microsoft.Winget.Source_8wekyb3d8bbwe/php.exe",
+      "runtimeArgs": [
+        "-S",
+        "localhost:8768",
+        "-t",
+        "examples/savonnerie/dist",
+        "examples/savonnerie/dist/index.php"
+      ],
+      "port": 8768
+    },
+    {
+      "name": "le-fournil",
+      "runtimeExecutable": "C:/Users/sergi/AppData/Local/Microsoft/WinGet/Packages/PHP.PHP.8.3_Microsoft.Winget.Source_8wekyb3d8bbwe/php.exe",
+      "runtimeArgs": [
+        "-S",
+        "localhost:8767",
+        "-t",
+        "examples/le-fournil/dist",
+        "examples/le-fournil/dist/index.php"
+      ],
+      "port": 8767
+    },
+    {
+      "name": "studio",
+      "runtimeExecutable": "C:/Users/sergi/AppData/Local/Microsoft/WinGet/Packages/PHP.PHP.8.3_Microsoft.Winget.Source_8wekyb3d8bbwe/php.exe",
+      "runtimeArgs": [
+        "-S",
+        "localhost:8790",
+        "-t",
+        "studio"
+      ],
+      "port": 8790
+    }
+  ]
+}

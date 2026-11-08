@@ -1,0 +1,45 @@
+page: honoraires
+route: /honoraires
+seo:
+  title: Honoraires et première consultation - Cabinet Garnier & Associés
+  description: Honoraires au forfait ou au temps passé, convention d'honoraires systématique. Première consultation de 30 minutes offerte.
+sections:
+  - hero:
+      title: Honoraires
+      subtitle: Des modalités claires, précisées par écrit avant toute intervention.
+      align: left
+  - features:
+      title: Comment nous facturons
+      intro: Le mode de calcul est choisi avec vous selon la nature du dossier.
+      columns: 2
+      items:
+        - icon: check
+          title: Honoraires au forfait
+          text: Un montant fixé à l'avance pour une prestation déterminée, lorsque le périmètre du dossier est connu.
+        - icon: clock
+          title: Honoraires au temps passé
+          text: Une facturation à partir du temps effectivement consacré au dossier, lorsque son étendue ne peut pas être anticipée.
+        - icon: gift
+          title: Première consultation offerte
+          text: Trente minutes d'échange sans frais pour analyser votre situation et vous indiquer les options possibles.
+        - icon: shield
+          title: Convention d'honoraires systématique
+          text: Chaque mission fait l'objet d'une convention écrite, remise avant le début de l'intervention.
+  - richtext:
+      title: Ce que comprend la convention
+      text: |
+        La convention d'honoraires précise l'objet de la mission, le mode de rémunération retenu, les débours éventuels et le calendrier de facturation.
+
+        Nous vous la remettons avant toute intervention et répondons à toutes vos questions sur ce document.
+  - faq:
+      title: Questions fréquentes sur les honoraires
+      items:
+        - q: La première consultation est-elle vraiment gratuite ?
+          a: Oui, la première consultation de 30 minutes est offerte, sans engagement de votre part.
+        - q: Pouvez-vous me donner un montant avant de commencer ?
+          a: Oui. Pour un dossier au forfait, le montant est fixé dans la convention. Pour un dossier au temps passé, nous vous indiquons une fourchette estimative.
+        - q: Les frais de justice sont-ils inclus dans les honoraires ?
+          a: Les frais de procédure et débours, comme les frais d'huissier, sont distincts des honoraires et détaillés dans la convention.
+  - cta:
+      title: Une question sur vos honoraires ?
+      button: { label: Nous écrire, to: /contact }

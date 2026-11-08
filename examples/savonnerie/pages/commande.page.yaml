@@ -1,0 +1,8 @@
+page: commande
+route: /commande
+seo:
+  title: Commande · Maison Dubois
+  description: Finalisez votre commande Maison Dubois.
+sections:
+  - checkout.page:
+      intro: Expédition sous 48 h ouvrées en colis recyclé. Retrait gratuit à l'atelier sur demande dans les précisions.

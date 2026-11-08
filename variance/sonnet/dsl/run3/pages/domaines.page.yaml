@@ -1,0 +1,42 @@
+page: domaines
+route: /domaines
+seo:
+  title: Domaines d'intervention — Cabinet Garnier & Associés
+  description: Droit du travail, droit des affaires et droit de la famille à Bordeaux, Libourne et Arcachon.
+sections:
+  - hero:
+      title: Domaines d'intervention
+      subtitle: Trois associés, trois spécialités, une même exigence de conseil et de défense.
+  - richtext:
+      id: travail
+      title: Droit du travail — Me Hélène Garnier
+      text: |
+        Me Garnier accompagne salariés et employeurs dans leurs relations de travail : contrats, licenciements, ruptures conventionnelles, harcèlement, contentieux prud'homal.
+
+        Elle privilégie, lorsque c'est possible, une solution négociée avant toute procédure.
+      cta: { label: Consulter Me Garnier, to: /contact }
+  - richtext:
+      id: affaires
+      title: Droit des affaires — Me Thomas Ruiz
+      image: cabinet.svg
+      image_position: left
+      text: |
+        Me Ruiz conseille dirigeants, artisans, commerçants et sociétés : création et structuration d'entreprise, pactes d'associés, baux commerciaux, recouvrement de créances, litiges entre associés.
+
+        Il intervient en conseil comme en contentieux.
+      cta: { label: Consulter Me Ruiz, to: /contact }
+  - richtext:
+      id: famille
+      title: Droit de la famille — Me Inès Kaddour
+      text: |
+        Me Kaddour vous assiste en matière de divorce, de séparation, de garde des enfants, de pension alimentaire, de succession et de partage.
+
+        Elle veille à protéger vos intérêts et ceux de vos enfants, avec tact et clarté.
+      cta: { label: Consulter Me Kaddour, to: /contact }
+  - faq:
+      title: Questions fréquentes
+      items:
+        - q: Dans quelles villes intervenez-vous ?
+          a: Nous intervenons à Bordeaux, Libourne et Arcachon.
+        - q: Comment se déroule la première consultation ?
+          a: D'une durée de 30 minutes, elle est offerte. Elle permet d'analyser votre situation et de vous indiquer les options possibles.

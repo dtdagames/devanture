@@ -1,0 +1,45 @@
+page: contact
+route: /contact
+seo:
+  title: Contact, horaires et accès — Boulangerie Le Fournil, Nantes
+  description: "Boulangerie Le Fournil, 8 rue de la Juiverie, 44000 Nantes. Ouvert du mardi au dimanche de 6h30 à 19h30. Tél 02 40 00 00 00."
+sections:
+  - hero:
+      title: Contact et horaires
+      subtitle: Une question, une commande, un devis pour un événement ? Appelez-nous ou écrivez-nous.
+      align: left
+      cta: { label: Appeler le 02 40 00 00 00, to: tel:0240000000 }
+      secondary: { label: Écrire un e-mail, to: mailto:bonjour@lefournil-nantes.fr }
+  - stats:
+      title: Horaires d'ouverture
+      items:
+        - { value: 6 h 30, label: ouverture du mardi au dimanche }
+        - { value: 19 h 30, label: fermeture du mardi au dimanche }
+        - { value: Lundi, label: jour de fermeture hebdomadaire }
+  - contact.form:
+      title: Écrivez-nous
+      intro: Pour une commande, précisez la date souhaitée et le nombre de personnes. Nous répondons sous 48 heures ouvrées.
+      to: bonjour@lefournil-nantes.fr
+      fields: [name, email, phone, { name: company, label: Entreprise }, subject, message]
+      required: [name, email, subject, message]
+      success: Merci, votre message est bien parti. Nous vous répondons sous 48 heures ouvrées.
+      show_contact: true
+  - richtext:
+      title: Venir au Fournil
+      image: boutique.svg
+      image_position: right
+      text: |
+        La boulangerie se trouve au 8 rue de la Juiverie, dans le quartier Bouffay, à 100 mètres de la place du Bouffay et à 5 minutes à pied du château des ducs de Bretagne.
+
+        En tramway, descendez à l'arrêt Bouffay (ligne 1) ou Commerce (lignes 1, 2 et 3). En voiture, le parking Decré-Bouffay et le parking du Commerce sont les plus proches. Des arceaux à vélo sont installés rue de la Juiverie.
+
+        Nous sommes fermés le lundi, ainsi que les 25 décembre et 1er janvier. Les fermetures annuelles sont affichées en boutique trois semaines avant.
+  - faq:
+      title: Questions pratiques
+      items:
+        - q: Peut-on réserver du pain par téléphone ?
+          a: Oui. Appelez le matin avant 10 h et nous mettons votre pain de côté jusqu'à la fermeture.
+        - q: Acceptez-vous la carte bancaire ?
+          a: Oui, sans minimum, ainsi que les tickets restaurant pour les sandwichs et formules du midi.
+        - q: Y a-t-il un accès pour les personnes à mobilité réduite ?
+          a: La boutique est de plain-pied avec une porte large. N'hésitez pas à nous appeler pour que nous vous apportions votre commande dehors si besoin.

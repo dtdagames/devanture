@@ -1,0 +1,11 @@
+page: contact
+route: /contact
+seo:
+  title: Contact · Maison Dubois
+  description: Une question, une commande spéciale, un atelier de groupe ? Écrivez-nous.
+sections:
+  - contact.form:
+      title: Écrivez-nous
+      to: bonjour@maison-dubois.fr
+      fields: [name, email, subject, message]
+      success: Merci, nous vous répondons sous 24 h.

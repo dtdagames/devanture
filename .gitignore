@@ -1,0 +1,17 @@
+# Dépendances
+node_modules/
+
+# Sorties compilées : reconstruites par sitec build (exemples, corpus de mesure, hôte)
+dist/
+studio/sitec-browser.js
+
+# Secrets et données d'exploitation d'un site servi en local
+.env
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+cache/
+
+# Système
+.DS_Store
+Thumbs.db

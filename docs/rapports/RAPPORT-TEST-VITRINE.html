@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rapport test Sitelang</title>
+<style>
+  :root {
+    --bg: #ffffff; --bg-soft: #f6f7f9; --fg: #1b1f24; --fg-muted: #5b6470;
+    --accent: #1f3a5f; --accent-soft: #e8eef6; --border: #d9dee5;
+    --code-bg: #f1f3f6; --code-fg: #1b1f24;
+    --ok-bg: #e7f5ec; --ok-border: #5aa36f; --warn-bg: #fff6e0; --warn-border: #e8c46a; --bad-bg: #fdecea; --bad-border: #d9534f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1216; --bg-soft: #161b22; --fg: #e6e9ee; --fg-muted: #9aa4b1;
+      --accent: #8fb4e3; --accent-soft: #1b2a3f; --border: #2a323d;
+      --code-bg: #161b22; --code-fg: #e6e9ee;
+      --ok-bg: #12301c; --ok-border: #3c8a52; --warn-bg: #2b2410; --warn-border: #8a6d1f; --bad-bg: #3a1716; --bad-border: #b23b36;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1216; --bg-soft: #161b22; --fg: #e6e9ee; --fg-muted: #9aa4b1;
+    --accent: #8fb4e3; --accent-soft: #1b2a3f; --border: #2a323d;
+    --code-bg: #161b22; --code-fg: #e6e9ee;
+    --ok-bg: #12301c; --ok-border: #3c8a52; --warn-bg: #2b2410; --warn-border: #8a6d1f; --bad-bg: #3a1716; --bad-border: #b23b36;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 32px 16px 80px; }
+  header { border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 28px; }
+  header h1 { font-size: 1.8rem; line-height: 1.25; margin: 0 0 8px; }
+  header p.meta { color: var(--fg-muted); margin: 0; }
+  nav.toc { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; margin-bottom: 32px; }
+  nav.toc h2 { margin: 0 0 6px; font-size: .9rem; text-transform: uppercase; letter-spacing: .05em; color: var(--fg-muted); border: 0; padding: 0; }
+  nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 32px; }
+  nav.toc a { color: var(--accent); text-decoration: none; }
+  h2 { font-size: 1.4rem; margin: 44px 0 12px; padding-top: 8px; border-top: 1px solid var(--border); }
+  h3 { font-size: 1.08rem; margin: 26px 0 8px; }
+  p { margin: 0 0 14px; }
+  ul, ol { margin: 0 0 14px; padding-left: 24px; }
+  li { margin-bottom: 5px; }
+  code { font: .9em/1.5 ui-monospace, "Cascadia Code", Consolas, monospace; background: var(--code-bg); color: var(--code-fg); padding: 1px 5px; border-radius: 4px; }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; overflow-x: auto; margin: 0 0 18px; }
+  pre code { background: none; padding: 0; font-size: .82rem; }
+  table { width: 100%; border-collapse: collapse; margin: 0 0 20px; font-size: .95rem; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 11px; border: 1px solid var(--border); }
+  th { background: var(--bg-soft); font-weight: 600; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .table-wrap { overflow-x: auto; margin-bottom: 20px; }
+  .verdict { background: var(--accent-soft); border-left: 4px solid var(--accent); padding: 14px 18px; border-radius: 0 8px 8px 0; margin-bottom: 18px; }
+  .box { border-radius: 8px; padding: 12px 16px; margin: 0 0 18px; border: 1px solid; }
+  .ok { background: var(--ok-bg); border-color: var(--ok-border); }
+  .warn { background: var(--warn-bg); border-color: var(--warn-border); }
+  .bad { background: var(--bad-bg); border-color: var(--bad-border); }
+  .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin: 0 0 20px; }
+  .shots figure { margin: 0; }
+  .shots img { width: 100%; border: 1px solid var(--border); border-radius: 8px; display: block; }
+  .shots figcaption { font-size: .85rem; color: var(--fg-muted); margin-top: 6px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 0 0 22px; }
+  .kpi { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .kpi .v { font-size: 1.7rem; font-weight: 700; color: var(--accent); line-height: 1.1; }
+  .kpi .l { color: var(--fg-muted); font-size: .9rem; margin-top: 4px; }
+  @media (max-width: 640px) { nav.toc ol { columns: 1; } header h1 { font-size: 1.45rem; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Test de la méthode sur un site vitrine : prototype Sitelang v0</h1>
+  <p class="meta">Réalisé le 7 novembre 2026 · Dépôt <code>C:\Users\sergi\nodeLanguage</code> · Fait suite à <a href="PROPOSITION.html">PROPOSITION.html</a></p>
+</header>
+
+<nav class="toc">
+  <h2>Sommaire</h2>
+  <ol>
+    <li><a href="#verdict">Verdict</a></li>
+    <li><a href="#question">Question testée et protocole</a></li>
+    <li><a href="#construit">Ce qui a été construit</a></li>
+    <li><a href="#resultats">Résultats chiffrés</a></li>
+    <li><a href="#erreurs">Qualité des messages d'erreur</a></li>
+    <li><a href="#enseignements">Enseignements</a></li>
+    <li><a href="#manques">Manques relevés par les agents</a></li>
+    <li><a href="#correctifs">Correctifs appliqués pendant le test</a></li>
+    <li><a href="#limites">Limites de ce test</a></li>
+    <li><a href="#suites">Suites proposées</a></li>
+    <li><a href="#annexe">Annexe : reproduire</a></li>
+  </ol>
+</nav>
+
+<h2 id="verdict">1. Verdict</h2>
+<div class="verdict">
+La méthode fonctionne sur le périmètre vitrine. Deux agents sans aucun contexte, l'un sur le modèle par défaut, l'autre sur Sonnet, ont chacun produit un site de 6 pages valide <strong>dès la première exécution de <code>check</code></strong>, avec pour seule documentation un mode d'emploi de 857 tokens, la liste du catalogue (413 tokens) et les fiches des composants utilisés (environ 160 tokens chacune). Le code PHP, JS et CSS généré représente 2,6 à 4,5 fois le volume du DSL écrit, compile sans erreur sur un PHP 8.3 minimal, et les sites s'affichent et fonctionnent, formulaire compris.
+</div>
+<div class="kpis">
+  <div class="kpi"><div class="v">1 / 1</div><div class="l">itérations de <code>check</code> avant zéro erreur (agent défaut / agent Sonnet)</div></div>
+  <div class="kpi"><div class="v">2,7 k – 5,8 k</div><div class="l">tokens de DSL écrits par site de 6 pages</div></div>
+  <div class="kpi"><div class="v">× 2,6 – 4,5</div><div class="l">code généré / DSL écrit</div></div>
+  <div class="kpi"><div class="v">10 / 10</div><div class="l">erreurs injectées détectées avec chemin exact</div></div>
+</div>
+<div class="box ok"><strong>Mise à jour.</strong> La baseline (même site écrit à la main, avec et sans bibliothèque) a été réalisée ensuite : voir <a href="RAPPORT-BASELINE.html">RAPPORT-BASELINE.html</a>. Résumé : volume écrit divisé par 3,6 à 4,6, consommation totale réduite de 18 à 32 %, mais aucune erreur PHP chez les agents « à la main » non plus, donc le pari « convergence » n'est pas démontré sur cette taille de site.</div>
+
+<h2 id="question">2. Question testée et protocole</h2>
+<p>La proposition repose sur trois paris : un DSL de haut niveau réduit ce que le LLM écrit, une syntaxe connue (YAML + schéma) ne demande aucun apprentissage, et un compilateur strict aux erreurs actionnables fait converger la boucle en une ou deux itérations. Le test cherche à vérifier le troisième pari surtout, les deux autres en passant.</p>
+<h3>Protocole</h3>
+<ol>
+  <li>Construire un prototype minimal du compilateur et un catalogue de 10 composants vitrine.</li>
+  <li>Écrire moi-même un premier site (plombier à Lyon) pour valider le pipeline de bout en bout, prévisualiser sous PHP et tester le formulaire.</li>
+  <li>Lancer deux agents <strong>sans accès à cette conversation ni au code source</strong>, avec un brief client chacun. Ils n'ont droit qu'à <code>CLAUDE.md</code>, <code>catalog</code>, <code>explain</code> et <code>check</code>. Ils tiennent un journal de chaque exécution de <code>check</code> et rapportent ce qui leur a manqué.</li>
+  <li>Vérifier leurs sites indépendamment (check, build, lint PHP, HTTP 200 sur toutes les routes), mesurer les tokens, injecter des erreurs pour juger les messages.</li>
+</ol>
+
+<h2 id="construit">3. Ce qui a été construit</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Brique</th><th>Contenu</th><th>Taille</th></tr></thead>
+  <tbody>
+    <tr><td>Compilateur <code>sitec</code></td><td>Node 24, JavaScript (pas de TypeScript pour aller vite). Dépendances : <code>yaml</code>, <code>ajv</code>. Commandes <code>check</code>, <code>build</code>, <code>catalog</code>, <code>explain</code>. Erreurs en JSON, une par ligne, avec <code>code</code>, <code>file</code>, <code>path</code>, <code>expected</code>, <code>hint</code>, <code>fix</code>.</td><td>~520 lignes dans <code>src/</code></td></tr>
+    <tr><td>Catalogue</td><td>10 composants : <code>hero</code>, <code>features</code>, <code>richtext</code>, <code>gallery</code>, <code>testimonials</code>, <code>faq</code>, <code>cta</code>, <code>team</code>, <code>stats</code>, <code>contact.form</code>. Chaque dossier : <code>manifest.yaml</code> (JSON Schema des props + exemple), <code>template.php</code>, <code>styles.css</code>, <code>module.js</code> optionnel. Le manifeste est la source unique de la validation et de <code>explain</code>.</td><td>10 dossiers</td></tr>
+    <tr><td>Émetteurs</td><td>PHP : front controller, layout, nav/footer, pages, copie des templates utilisés, formulaire avec CSRF, pot de miel, validation, stockage JSONL et <code>mail()</code>. CSS : 3 presets de tokens surchargeables + styles de base + styles des seuls composants utilisés. JS : menu mobile + modules des composants utilisés (lightbox).</td><td>~400 lignes</td></tr>
+    <tr><td>Mode d'emploi agent</td><td><code>CLAUDE.md</code> : structure, exemple de <code>site.yaml</code> et de page, règles, piège YAML.</td><td>857 tokens</td></tr>
+    <tr><td>Sites</td><td><code>examples/plomberie-martin</code> (moi), <code>examples/garnier-associes</code> (agent Sonnet), <code>examples/le-fournil</code> (agent modèle par défaut). 6 pages chacun.</td><td>3 sites</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="shots">
+  <figure><img src="docs/captures/plomberie-accueil.jpg" alt="Accueil du site Plomberie Martin"><figcaption>Plomberie Martin, accueil (écrit à la main)</figcaption></figure>
+  <figure><img src="docs/captures/plomberie-a-propos.jpg" alt="Page À propos avec équipe"><figcaption>Plomberie Martin, page À propos (richtext + team)</figcaption></figure>
+  <figure><img src="docs/captures/le-fournil-accueil.jpg" alt="Accueil du site Le Fournil"><figcaption>Le Fournil, accueil (écrit par l'agent, thème chaleureux)</figcaption></figure>
+  <figure><img src="docs/captures/plomberie-mobile.jpg" alt="Rendu mobile"><figcaption>Rendu mobile, menu replié</figcaption></figure>
+</div>
+
+<h2 id="resultats">4. Résultats chiffrés</h2>
+<h3>4.1 Les trois sites</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Site</th><th>Auteur</th><th class="num">Pages</th><th class="num">Sections</th><th class="num">Composants distincts</th><th class="num">DSL (lignes)</th><th class="num">DSL (tokens)</th><th class="num">Généré (tokens)</th><th class="num">Ratio</th></tr></thead>
+  <tbody>
+    <tr><td>plomberie-martin</td><td>moi, avec contexte</td><td class="num">6</td><td class="num">19</td><td class="num">10</td><td class="num">217</td><td class="num">2 504</td><td class="num">11 334</td><td class="num">× 4,5</td></tr>
+    <tr><td>garnier-associes</td><td>agent Sonnet, sans contexte</td><td class="num">6</td><td class="num">25</td><td class="num">9</td><td class="num">231</td><td class="num">2 691</td><td class="num">11 167</td><td class="num">× 4,1</td></tr>
+    <tr><td>le-fournil</td><td>agent défaut, sans contexte</td><td class="num">6</td><td class="num">38</td><td class="num">10</td><td class="num">397</td><td class="num">5 800</td><td class="num">15 294</td><td class="num">× 2,6</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Tokens comptés avec le tokenizer cl100k (ordre de grandeur comparable à celui de Claude). « Généré » = PHP + JS + CSS de <code>dist/</code>, hors images. Le ratio baisse quand le site est plus riche en texte, ce qui est attendu : le texte rédactionnel est incompressible, c'est la structure et la logique qui sont factorisées.</p>
+
+<h3>4.2 Les deux agents</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Agent</th><th class="num">Appels d'outils</th><th class="num">explain</th><th class="num">check</th><th class="num">Erreurs au 1er check</th><th class="num">Tokens consommés (cumul)</th><th class="num">Durée</th></tr></thead>
+  <tbody>
+    <tr><td>Sonnet (garnier-associes)</td><td class="num">15</td><td class="num">10</td><td class="num">1</td><td class="num">0</td><td class="num">70 262</td><td class="num">1 min 40</td></tr>
+    <tr><td>Modèle par défaut (le-fournil)</td><td class="num">18</td><td class="num">10</td><td class="num">4 (2 réelles, 2 de sonde)</td><td class="num">0</td><td class="num">88 661</td><td class="num">7 min 17</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Les tokens consommés sont le cumul entrée + sortie de tous les appels, donc le contexte est recompté à chaque tour. C'est la bonne mesure du coût réel d'une session agent, mais elle n'est pas comparable au « budget cible » de la proposition, qui parlait du DSL écrit. Les deux agents ont appelé <code>explain</code> sur tout le catalogue en une seule commande plutôt qu'à la demande : à 160 tokens la fiche, c'est un choix rationnel de leur part.</p>
+<p>Le second agent a, de sa propre initiative, copié son site dans un dossier temporaire pour y injecter des erreurs et évaluer les messages. Ses observations sont intégrées en section 5 et 7.</p>
+
+<h3>4.3 Coût du contexte « protocole »</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Élément</th><th class="num">Tokens</th></tr></thead>
+  <tbody>
+    <tr><td><code>CLAUDE.md</code></td><td class="num">857</td></tr>
+    <tr><td><code>sitec catalog</code></td><td class="num">413</td></tr>
+    <tr><td><code>sitec explain</code>, les 10 fiches</td><td class="num">1 593</td></tr>
+    <tr><td><strong>Total pour tout savoir</strong></td><td class="num"><strong>2 863</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="erreurs">5. Qualité des messages d'erreur</h2>
+<p>Projet volontairement cassé avec dix erreurs typiques : preset inexistant, route inconnue dans la nav, composant mal orthographié, prop mal orthographiée, prop obligatoire absente, image absente, valeur hors énumération, liste trop courte, lien vers une page inexistante, e-mail invalide. Les dix sont détectées, chacune avec le chemin exact dans le document. Quatre arrivent avec un <code>fix</code> mécanique.</p>
+<pre><code>E_UNKNOWN_COMPONENT  sections[0]              Vouliez-vous dire hero ?    fix: rename heros → hero
+E_UNKNOWN_PROP       sections[1].hero.titre   Vouliez-vous dire title ?   fix: rename titre → title
+E_ENUM               sections[1].hero.align   Vouliez-vous dire center ?  fix: set center
+E_MISSING_ASSET      sections[1].hero.image   Ajoutez le fichier dans assets/ ou corrigez le chemin.
+E_UNKNOWN_ROUTE      sections[3].cta.button.to  expected: ["/"]  Créez la page ou utilisez une URL complète.
+…</code></pre>
+<div class="box bad"><strong>Trois défauts trouvés, tous corrigés depuis (section 8).</strong>
+<ul>
+  <li><strong>Cascade après une erreur YAML.</strong> Une page illisible faisait disparaître sa route, donc <code>check</code> signalait en plus « route / inconnue » et « pas de page d'accueil ». Un agent qui suit les indices à la lettre aurait tourné en rond.</li>
+  <li><strong>Faux amis dans les suggestions.</strong> Le seuil de distance d'édition proposait <code>foo</code> → <code>to</code> et <code>date</code> → <code>name</code>, avec un <code>fix</code> qui aurait écrasé une valeur correcte.</li>
+  <li><strong>Message YAML brut.</strong> L'erreur du parseur était recopiée en anglais, sans extrait de la ligne fautive ni indication du vrai piège (deux-points ou virgule dans un texte en notation <code>{ }</code>).</li>
+</ul></div>
+
+<h2 id="enseignements">6. Enseignements</h2>
+<h3>6.1 Le piège n° 1 n'est pas le DSL, c'est YAML</h3>
+<p>Mon propre premier <code>check</code> a renvoyé <strong>44 erreurs</strong>. Toutes avaient deux causes : des virgules dans des textes écrits en notation compacte <code>{ a: x, b: y }</code>, que YAML découpe en clés parasites, et des nombres lus comme des nombres là où un texte était attendu. Le validateur a tout attrapé, mais avec des messages génériques. Il a fallu un indice spécifique (<code>E_UNQUOTED_COMMA</code>) et une règle dans <code>CLAUDE.md</code>. Après cela, aucun des deux agents n'est tombé dedans. J'ai moi-même refait la même erreur dans six descriptions de manifestes, ce qui tronquait la doc de <code>contact.form</code> : un garde-fou refuse maintenant tout manifeste contenant une clé inattendue.</p>
+<p>Conséquence pour la proposition : le choix de YAML reste bon pour la densité, mais la notation compacte doit être découragée pour tout texte, et le compilateur doit nommer ce piège explicitement. JSON éliminerait le problème au prix de 20 à 30 % de tokens en plus.</p>
+
+<h3>6.2 La convergence en une itération tient</h3>
+<p>Le pari central est vérifié sur ce périmètre : zéro erreur au premier <code>check</code> pour les deux agents, sur un DSL qu'ils découvraient. Trois facteurs y contribuent, et il faut les préserver quand le catalogue grossira : la fiche <code>explain</code> donne les valeurs exactes acceptées, les exemples des manifestes sont copiables tels quels, et le mode d'emploi nomme les pièges plutôt que les règles générales.</p>
+
+<h3>6.3 Le code généré doit viser le PHP le plus pauvre</h3>
+<p>Le PHP installé pour le test n'a pas l'extension mbstring. Deux templates l'utilisaient, ce qui plantait une page. C'est précisément le cas d'un hébergement mutualisé bas de gamme. Règle adoptée : aucune extension optionnelle dans le code émis, des helpers avec repli, et un lint PHP de la sortie sur un binaire minimal fait partie du pipeline.</p>
+
+<h3>6.4 Ce que les agents ont fait d'eux-mêmes</h3>
+<ul>
+  <li>Lire tout le catalogue d'un coup plutôt qu'à la demande (2 863 tokens, négligeable).</li>
+  <li>Refuser d'inventer des témoignages pour un cabinet d'avocats, par déontologie, sans qu'on le leur ait demandé.</li>
+  <li>Détourner des composants quand il en manquait un : <code>stats</code> pour des horaires, <code>features</code> pour des villes d'intervention, quatre <code>richtext</code> pour une carte de produits. Le site reste valide mais plat. C'est le signal le plus utile pour prioriser le catalogue.</li>
+</ul>
+
+<h2 id="manques">7. Manques relevés par les agents</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Manque</th><th>Cité par</th><th>Contournement utilisé</th><th>Priorité</th></tr></thead>
+  <tbody>
+    <tr><td>Horaires d'ouverture structurés (<code>hours</code>)</td><td>défaut</td><td><code>stats</code> détourné + répétition dans footer, cta, richtext</td><td>Haute : central pour tout commerce</td></tr>
+    <tr><td>Liste de prix / carte / tarifs (<code>pricelist</code>, <code>table</code>)</td><td>les deux</td><td><code>features</code> + <code>richtext</code></td><td>Haute : honoraires, menus, prestations</td></tr>
+    <tr><td>Champs de formulaire supplémentaires (date, nombre, choix)</td><td>défaut</td><td>Demande dans le message libre</td><td>Haute : devis, réservations</td></tr>
+    <tr><td>Carte / itinéraire (<code>map</code>)</td><td>les deux</td><td>Adresse en texte</td><td>Moyenne</td></tr>
+    <tr><td>Étapes / déroulé (<code>steps</code>), frise (<code>timeline</code>)</td><td>les deux</td><td><code>richtext</code></td><td>Moyenne</td></tr>
+    <tr><td>Bandeau d'information ponctuelle (<code>notice</code>)</td><td>défaut</td><td><code>richtext</code></td><td>Basse</td></tr>
+    <tr><td>Icônes métier (balance, pain, four…)</td><td>les deux</td><td>Icône approchante</td><td>Basse : passer à un jeu d'icônes SVG nommées</td></tr>
+    <tr><td>Balisage léger dans <code>richtext</code> (gras, puces, liens)</td><td>défaut</td><td>Paragraphes bruts</td><td>Moyenne : sous-ensemble Markdown échappé</td></tr>
+    <tr><td><code>explain</code> pour <code>site.yaml</code></td><td>défaut</td><td>Déduit de l'exemple</td><td>Faite : liste des props ajoutée à <code>CLAUDE.md</code></td></tr>
+    <tr><td>Type « valeur » opaque pour les liens</td><td>les deux</td><td>Déduit de l'exemple</td><td>Faite : affiché <code>lien { label*, to* }</code></td></tr>
+    <tr><td>Énumération des <code>fields</code> du formulaire absente de la doc</td><td>les deux</td><td>Découvert par une erreur</td><td>Faite : <code>explain</code> liste les valeurs</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="correctifs">8. Correctifs appliqués pendant le test</h2>
+<ul>
+  <li><code>E_UNQUOTED_COMMA</code> : une clé inconnue qui ressemble à du texte est signalée comme virgule non protégée, avec la parade.</li>
+  <li><code>E_TYPE</code> nombre reçu pour un texte : indice « mettez entre guillemets » et <code>fix</code> automatique.</li>
+  <li><code>stats.value</code> accepte texte ou nombre.</li>
+  <li>Plus de <code>mb_*</code> dans le PHP émis : helpers <code>first_letter()</code> et <code>str_cut()</code> avec repli sans mbstring.</li>
+  <li>Erreur YAML : message en français, extrait de la ligne fautive, indice ciblé sur le piège <code>{ }</code>, et suppression des erreurs de route en cascade tant qu'une page n'est pas lisible.</li>
+  <li>Seuil de suggestion plus strict : distance 1 jusqu'à 4 caractères, 2 jusqu'à 8, 3 au-delà. Plus de <code>date</code> → <code>name</code>.</li>
+  <li><code>explain</code> : affiche <code>lien { label*, to* }</code>, <code>liste parmi : a | b | c</code>, et les types multiples.</li>
+  <li>Garde-fou de manifeste : toute clé inattendue dans un schéma fait échouer le chargement du catalogue avec un message explicite. Six descriptions fautives corrigées.</li>
+  <li><code>CLAUDE.md</code> : piège YAML, format des liens, props de <code>site.yaml</code>, format <code>tel:</code>.</li>
+</ul>
+
+<h2 id="limites">9. Limites de ce test</h2>
+<div class="box warn">
+<ul>
+  <li><strong>Pas de baseline.</strong> On ne sait pas combien de tokens et d'itérations un agent aurait mis pour produire le même site en PHP/JS direct avec une bibliothèque de composants. C'est la phase 0 de la proposition, toujours à faire. Sans elle, le gain de la couche DSL n'est pas démontré, seulement rendu plausible.</li>
+  <li><strong>Un seul essai par modèle.</strong> Deux agents, un site chacun. La variance n'est pas mesurée.</li>
+  <li><strong>Périmètre vitrine minimal.</strong> Pas de e-commerce, pas de personnalisation, pas de données externes, pas de multilingue. Les hypothèses de la proposition sur ces points restent non testées.</li>
+  <li><strong>Qualité éditoriale et visuelle non évaluée.</strong> Les sites sont valides et s'affichent correctement, mais personne n'a jugé les textes ni le design.</li>
+  <li><strong>Le formulaire envoie par <code>mail()</code>.</strong> Testé seulement pour le stockage JSONL et la validation. Aucun envoi réel vérifié.</li>
+  <li><strong>Le tokenizer</strong> utilisé pour les mesures n'est pas celui de Claude. Les écarts relatifs sont fiables, les valeurs absolues approximatives.</li>
+</ul>
+</div>
+
+<h2 id="suites">10. Suites proposées</h2>
+<ol>
+  <li><strong>Faire la baseline</strong> : donner les trois mêmes briefs à des agents sans DSL, avec pour seule aide une bibliothèque de composants PHP, et mesurer tokens, itérations, erreurs PHP à l'exécution. C'est la mesure qui manque pour décider.</li>
+  <li><strong>Trois composants</strong> issus des détournements observés : <code>hours</code>, <code>pricelist</code>, et des champs de formulaire typés (date, nombre, choix). Puis <code>map</code> et <code>steps</code>.</li>
+  <li><strong>Balisage léger dans <code>richtext</code></strong> : gras, italique, liens, listes, via un sous-ensemble Markdown échappé.</li>
+  <li><strong>Répéter le test</strong> sur 5 briefs et 2 modèles, pour avoir une variance et vérifier que la convergence en une itération tient avec un catalogue de 15 composants.</li>
+  <li><strong>Décider YAML strict ou JSON</strong> à la lumière du piège des virgules. Mon avis : garder YAML, interdire la notation compacte pour les textes dans le mode d'emploi, et détecter le cas au compilateur, ce qui est fait.</li>
+</ol>
+
+<h2 id="annexe">11. Annexe : reproduire</h2>
+<pre><code># depuis C:\Users\sergi\nodeLanguage
+npm install
+node bin/sitec.js catalog
+node bin/sitec.js explain hero
+node bin/sitec.js check examples/le-fournil
+node bin/sitec.js build examples/le-fournil
+node scripts/measure.mjs examples/plomberie-martin examples/garnier-associes examples/le-fournil
+
+# prévisualiser (PHP 8.3 installé via winget, hors PATH)
+"C:/Users/sergi/AppData/Local/Microsoft/WinGet/Packages/PHP.PHP.8.3_Microsoft.Winget.Source_8wekyb3d8bbwe/php.exe" -S localhost:8767 -t examples/le-fournil/dist examples/le-fournil/dist/index.php</code></pre>
+<p>Les trois configurations de prévisualisation sont aussi dans <code>.claude/launch.json</code>. Le mode d'emploi donné aux agents est <code>CLAUDE.md</code> ; le brief des agents et leur protocole sont décrits en section 2.</p>
+
+</div>
+</body>
+</html>

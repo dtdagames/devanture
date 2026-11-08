@@ -1,0 +1,50 @@
+page: a-propos
+route: /a-propos
+seo:
+  title: À propos · Plomberie Martin
+  description: Entreprise familiale de plomberie à Lyon depuis 1999. Équipe de 6 artisans certifiés.
+sections:
+  - richtext:
+      title: Une entreprise familiale depuis 1999
+      image: equipe.svg
+      image_position: right
+      text: |
+        Fondée par Jean-Pierre Martin à la Croix-Rousse, l'entreprise est aujourd'hui dirigée par sa fille Claire. Six artisans, tous salariés et formés en continu, interviennent sur Lyon et sa métropole.
+
+        Nous ne sous-traitons jamais. La personne qui établit le devis est celle qui réalise les travaux, et elle reste votre interlocutrice jusqu'à la fin du chantier.
+
+        Certifiés **RGE Qualibat** et **Qualigaz**, nous vous faisons bénéficier des aides à la rénovation énergétique :
+
+        - MaPrimeRénov' et certificats d'économies d'énergie
+        - TVA réduite sur la rénovation
+        - éco-prêt à taux zéro, voir [les conditions sur service-public.fr](https://www.service-public.fr/particuliers/vosdroits/F19905)
+      keywords: [ entreprise familiale, plombier croix-rousse, depuis combien de temps, artisan plombier lyon, sans sous-traitance, aides rénovation énergétique, certification rge, qualibat, qualigaz, maprimerénov ]
+  - timeline:
+      id: histoire
+      title: Les dates clés
+      items:
+        - { date: 1999, title: Création à la Croix-Rousse, text: "Jean-Pierre Martin s'installe seul, avec une camionnette." }
+        - { date: 2008, title: Chauffage, text: "L'entreprise devient plombier-chauffagiste et passe à quatre salariés." }
+        - { date: 2018, title: Claire reprend, text: "Deuxième génération, certification RGE la même année." }
+        - { date: 2024, title: Six artisans, text: "Recrutement d'un apprenti chaque année depuis." }
+  - team:
+      title: L'équipe
+      members:
+        - { name: Claire Martin, role: Dirigeante, bio: "Plombière-chauffagiste, reprend l'entreprise en 2018." }
+        - { name: Jean-Pierre Martin, role: Fondateur, bio: "40 ans de métier, toujours sur les chantiers complexes." }
+        - { name: Yanis Benali, role: Chef d'équipe chauffage, bio: "Spécialiste pompes à chaleur, certifié QualiPAC." }
+        - { name: Lucie Fournier, role: Plombière, bio: Rénovation de salles de bain. }
+      keywords: [ qui va venir chez moi, vos plombiers, chef d'équipe, spécialiste pompe à chaleur, dirigeante, fondateur, combien d'artisans ]
+  - stats:
+      title: En chiffres
+      items:
+        - { value: 1999, label: année de création }
+        - { value: 6, label: artisans salariés }
+        - { value: 0, label: sous-traitant }
+      keywords: [ année de création, nombre de salariés, taille de l'entreprise, ancienneté ]
+  - cta:
+      title: Envie de travailler avec nous ?
+      text: Nous recrutons un apprenti plombier pour la rentrée.
+      button: { label: Nous écrire, to: /contact }
+      style: surface
+      keywords: [ recrutement, offre d'emploi, apprenti plombier, candidature, alternance, embauche, postuler, je cherche un apprentissage ]

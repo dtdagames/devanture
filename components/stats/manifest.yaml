@@ -1,0 +1,25 @@
+name: stats
+order: 90
+description: "Chiffres clés en ligne (valeur, libellé). Exemple : 25 ans d'expérience, 300 chantiers."
+props:
+  type: object
+  required: [items]
+  properties:
+    title: { type: string }
+    items:
+      type: array
+      minItems: 2
+      items:
+        type: object
+        additionalProperties: false
+        required: [value, label]
+        properties:
+          value: { type: [string, number], description: "le chiffre tel qu'affiché (ex : 25+, 98 %). Entre guillemets si décimal (\"4,9\")." }
+          label: { type: string }
+example: |
+  - stats:
+      items:
+        - { value: 25 ans, label: d'expérience }
+        - { value: 300+, label: chantiers réalisés }
+        - { value: 98 %, label: de clients satisfaits }
+intents: [chiffres, expérience, depuis quand]

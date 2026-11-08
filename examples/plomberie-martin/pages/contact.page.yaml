@@ -1,0 +1,52 @@
+page: contact
+route: /contact
+seo:
+  title: Contact · Plomberie Martin
+  description: Demandez un devis ou une intervention. Réponse sous 2 h ouvrées.
+sections:
+  - contact.form:
+      title: Contactez-nous
+      intro: Urgence ? Appelez directement le 04 72 00 11 22. Sinon, décrivez votre besoin ci-dessous.
+      to: contact@plomberie-martin.fr
+      fields:
+        - name
+        - email
+        - phone
+        - { name: company, label: Entreprise (facultatif) }
+        - { name: kind, label: Type de demande, type: select, options: [ Dépannage, Devis travaux, Entretien chaudière, Autre ], required: true }
+        - { name: wished_date, label: Date souhaitée, type: date, when: { kind: [ Devis travaux, Entretien chaudière ] } }
+        - { name: urgency, label: Nature de l'urgence, type: select, options: [ Fuite d'eau, Canalisation bouchée, Plus d'eau chaude, Autre ], required: true, when: { kind: Dépannage } }
+        - message
+      required: [ name, phone, message ]
+      success: Merci, nous vous rappelons sous 2 h ouvrées.
+      keywords: [ prendre rendez-vous, demander un devis gratuit, nous écrire, formulaire de contact, envoyer une demande, être rappelé, demande de dépannage, date d'intervention, nature de l'urgence, joindre le plombier ]
+  - map:
+      id: acces
+      title: Venir à l'atelier
+      lat: 45.7745
+      lon: 4.8320
+      access: |
+        Métro C, arrêt Croix-Rousse, puis trois minutes à pied par la rue des Canuts.
+
+        Stationnement : parking Gros Caillou à 200 m. Atelier au rez-de-chaussée, accessible en fauteuil.
+  - hours:
+      title: Horaires de l'atelier
+      intro: Dépannage urgent 7j/7 par téléphone, de 7 h à 22 h.
+      note: Fermé les jours fériés. Permanence téléphonique maintenue.
+      days:
+        - { day: lundi, slots: [ "08:00-12:00", "14:00-18:00" ] }
+        - { day: mardi, slots: [ "08:00-12:00", "14:00-18:00" ] }
+        - { day: mercredi, slots: [ "08:00-12:00", "14:00-18:00" ] }
+        - { day: jeudi, slots: [ "08:00-12:00", "14:00-18:00" ] }
+        - { day: vendredi, slots: [ "08:00-12:00", "14:00-17:00" ] }
+        - { day: samedi, slots: [ "09:00-12:00" ] }
+        - { day: dimanche, closed: true }
+      keywords: [ ouvert le samedi, ouvert le dimanche, jours fériés, heures d'ouverture, permanence téléphonique, ouvert maintenant, à quelle heure, jusqu'à quelle heure, urgence la nuit, astreinte ]
+  - faq:
+      title: Avant de nous écrire
+      items:
+        - q: Quelle zone couvrez-vous ?
+          a: Lyon et toute la métropole, jusqu'à 25 km autour de la Croix-Rousse.
+        - q: Quels documents préparer pour un devis ?
+          a: Quelques photos et, si possible, les dimensions de la pièce suffisent pour une première estimation.
+      keywords: [ zone d'intervention, vous déplacez-vous, villes couvertes, rayon d'intervention, documents pour un devis, photos à envoyer, banlieue de lyon, villeurbanne, caluire ]

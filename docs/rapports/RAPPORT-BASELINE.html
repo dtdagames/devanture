@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baseline Sitelang</title>
+<style>
+  :root {
+    --bg: #ffffff; --bg-soft: #f6f7f9; --fg: #1b1f24; --fg-muted: #5b6470;
+    --accent: #1f3a5f; --accent-soft: #e8eef6; --border: #d9dee5;
+    --code-bg: #f1f3f6; --code-fg: #1b1f24;
+    --ok-bg: #e7f5ec; --ok-border: #5aa36f; --warn-bg: #fff6e0; --warn-border: #e8c46a; --bad-bg: #fdecea; --bad-border: #d9534f;
+    --bar: #1f3a5f; --bar2: #8aa3c4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1216; --bg-soft: #161b22; --fg: #e6e9ee; --fg-muted: #9aa4b1;
+      --accent: #8fb4e3; --accent-soft: #1b2a3f; --border: #2a323d;
+      --code-bg: #161b22; --code-fg: #e6e9ee;
+      --ok-bg: #12301c; --ok-border: #3c8a52; --warn-bg: #2b2410; --warn-border: #8a6d1f; --bad-bg: #3a1716; --bad-border: #b23b36;
+      --bar: #8fb4e3; --bar2: #3b5676;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1216; --bg-soft: #161b22; --fg: #e6e9ee; --fg-muted: #9aa4b1;
+    --accent: #8fb4e3; --accent-soft: #1b2a3f; --border: #2a323d;
+    --code-bg: #161b22; --code-fg: #e6e9ee;
+    --ok-bg: #12301c; --ok-border: #3c8a52; --warn-bg: #2b2410; --warn-border: #8a6d1f; --bad-bg: #3a1716; --bad-border: #b23b36;
+    --bar: #8fb4e3; --bar2: #3b5676;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 32px 16px 80px; }
+  header { border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 28px; }
+  header h1 { font-size: 1.8rem; line-height: 1.25; margin: 0 0 8px; }
+  header p.meta { color: var(--fg-muted); margin: 0; }
+  nav.toc { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; margin-bottom: 32px; }
+  nav.toc h2 { margin: 0 0 6px; font-size: .9rem; text-transform: uppercase; letter-spacing: .05em; color: var(--fg-muted); border: 0; padding: 0; }
+  nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 32px; }
+  nav.toc a { color: var(--accent); text-decoration: none; }
+  h2 { font-size: 1.4rem; margin: 44px 0 12px; padding-top: 8px; border-top: 1px solid var(--border); }
+  h3 { font-size: 1.08rem; margin: 26px 0 8px; }
+  p { margin: 0 0 14px; }
+  ul, ol { margin: 0 0 14px; padding-left: 24px; }
+  li { margin-bottom: 5px; }
+  code { font: .9em/1.5 ui-monospace, "Cascadia Code", Consolas, monospace; background: var(--code-bg); color: var(--code-fg); padding: 1px 5px; border-radius: 4px; }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; overflow-x: auto; margin: 0 0 18px; }
+  pre code { background: none; padding: 0; font-size: .82rem; }
+  table { width: 100%; border-collapse: collapse; margin: 0 0 20px; font-size: .93rem; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border: 1px solid var(--border); }
+  th { background: var(--bg-soft); font-weight: 600; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.dsl td { background: var(--accent-soft); }
+  .table-wrap { overflow-x: auto; margin-bottom: 20px; }
+  .verdict { background: var(--accent-soft); border-left: 4px solid var(--accent); padding: 14px 18px; border-radius: 0 8px 8px 0; margin-bottom: 18px; }
+  .box { border-radius: 8px; padding: 12px 16px; margin: 0 0 18px; border: 1px solid; }
+  .ok { background: var(--ok-bg); border-color: var(--ok-border); }
+  .warn { background: var(--warn-bg); border-color: var(--warn-border); }
+  .bad { background: var(--bad-bg); border-color: var(--bad-border); }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 0 0 22px; }
+  .kpi { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .kpi .v { font-size: 1.6rem; font-weight: 700; color: var(--accent); line-height: 1.1; }
+  .kpi .l { color: var(--fg-muted); font-size: .9rem; margin-top: 4px; }
+  .bars { margin: 0 0 22px; }
+  .bar-row { display: grid; grid-template-columns: 220px 1fr 70px; gap: 10px; align-items: center; margin-bottom: 6px; font-size: .92rem; }
+  .bar-row .track { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 4px; height: 18px; overflow: hidden; }
+  .bar-row .fill { height: 100%; background: var(--bar2); }
+  .bar-row.dsl .fill { background: var(--bar); }
+  .bar-row .n { text-align: right; font-variant-numeric: tabular-nums; }
+  .legend { font-size: .85rem; color: var(--fg-muted); margin: -10px 0 18px; }
+  @media (max-width: 640px) { nav.toc ol { columns: 1; } header h1 { font-size: 1.45rem; } .bar-row { grid-template-columns: 1fr; gap: 2px; } .bar-row .n { text-align: left; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Baseline : le même site écrit à la main, avec et sans bibliothèque, contre le DSL</h1>
+  <p class="meta">Réalisé le 7 novembre 2026 · Complète <a href="RAPPORT-TEST-VITRINE.html">RAPPORT-TEST-VITRINE.html</a> (phase 0 de <a href="PROPOSITION.html">la proposition</a>)</p>
+</header>
+
+<nav class="toc">
+  <h2>Sommaire</h2>
+  <ol>
+    <li><a href="#verdict">Verdict</a></li>
+    <li><a href="#protocole">Protocole</a></li>
+    <li><a href="#resultats">Résultats</a></li>
+    <li><a href="#lecture">Lecture des résultats</a></li>
+    <li><a href="#qualite">Qualité et sécurité</a></li>
+    <li><a href="#enseignements">Enseignements pour la décision</a></li>
+    <li><a href="#correctifs">Correctifs appliqués au générateur</a></li>
+    <li><a href="#limites">Limites</a></li>
+    <li><a href="#suites">Suites</a></li>
+    <li><a href="#annexe">Annexe : reproduire</a></li>
+  </ol>
+</nav>
+
+<h2 id="verdict">1. Verdict</h2>
+<div class="verdict">
+Sur un site vitrine de 6 pages produit en une passe, le DSL <strong>divise par 3,6 à 4,6 le volume écrit</strong> par le modèle et <strong>réduit de 18 à 32 % la consommation totale de tokens</strong>, pour un temps divisé par 1,5 à 2. En revanche, <strong>l'hypothèse « le compilateur fait converger là où le PHP direct échoue » n'est pas démontrée</strong> : les quatre sites écrits à la main sont sortis sans la moindre erreur PHP, du premier coup, et passent exactement le même banc de 46 contrôles que les sites générés. Avec les modèles actuels, un site de cette taille n'est pas un problème de correction, c'est un problème de volume, de temps et d'homogénéité.
+</div>
+<div class="kpis">
+  <div class="kpi"><div class="v">6 / 6</div><div class="l">sites qui passent les 46 contrôles (2 DSL, 4 à la main)</div></div>
+  <div class="kpi"><div class="v">× 3,6 – 4,6</div><div class="l">volume écrit à la main sans bibliothèque / DSL</div></div>
+  <div class="kpi"><div class="v">− 18 à − 32 %</div><div class="l">tokens totaux consommés avec le DSL</div></div>
+  <div class="kpi"><div class="v">0</div><div class="l">erreur PHP réelle chez les quatre agents « à la main »</div></div>
+</div>
+<div class="box warn"><strong>Surprise de ce test :</strong> fournir la bibliothèque de composants aux agents a <em>augmenté</em> leur consommation de tokens par rapport à l'écriture sans bibliothèque, parce qu'ils ont lu les sources des composants pour en comprendre l'usage. La valeur du DSL tient moins aux composants qu'à la documentation compacte (<code>catalog</code>, <code>explain</code>) et à l'oracle de validation (<code>check</code>).</div>
+
+<h2 id="protocole">2. Protocole</h2>
+<p>Mêmes deux briefs que dans le premier test, mêmes modèles par brief (Sonnet pour le cabinet d'avocats, modèle par défaut pour la boulangerie). Quatre agents sans contexte, deux variantes :</p>
+<ul>
+  <li><strong>Sans bibliothèque</strong> : PHP, JS et CSS écrits de zéro à partir d'un cahier des charges technique (<code>baseline/SPEC.md</code>) qui liste tout ce que le DSL produit : routeur compatible <code>php -S</code>, 404 réel, SEO par page, nav avec <code>aria-current</code>, menu mobile, variables CSS, dix types de blocs, formulaire avec CSRF, pot de miel, validation serveur, JSONL et <code>mail()</code>, échappement systématique.</li>
+  <li><strong>Avec bibliothèque</strong> : même cahier des charges, plus le dossier <code>baseline/lib-composants/</code> contenant exactement les templates PHP, helpers, CSS et JS que le compilateur émet, avec un README et les fiches de composants. Il reste à écrire le routeur, la mise en page et les pages.</li>
+</ul>
+<p>Pour la vérification, les agents à la main avaient <code>php -l</code> et l'exécution CLI, pas de serveur. Les agents DSL avaient <code>check</code>. Chaque agent a tenu un journal. J'ai ensuite passé les six sites au même banc automatique (<code>scripts/verify-php-site.mjs</code>) : serveur PHP réel, toutes les routes, titres et descriptions, nav, 404, assets, menu mobile, variables CSS, CSRF, pot de miel, POST vide, POST rempli, stockage du message.</p>
+<p>Interdictions : lire le code du compilateur, les exemples DSL, ou, pour la variante sans bibliothèque, la bibliothèque. Les tokens « écrits » excluent les fichiers copiés à l'identique depuis la bibliothèque (comparaison par empreinte).</p>
+
+<h2 id="resultats">3. Résultats</h2>
+<h3>3.1 Tableau complet</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Brief / modèle</th><th>Variante</th><th class="num">Écrit par l'agent (tokens)</th><th class="num">Lignes écrites</th><th class="num">Tokens consommés</th><th class="num">Appels d'outils</th><th class="num">Durée</th><th class="num">Erreurs PHP réelles</th><th class="num">Banc</th></tr></thead>
+  <tbody>
+    <tr class="dsl"><td rowspan="3">Garnier &amp; Associés<br>Sonnet</td><td><strong>DSL</strong></td><td class="num"><strong>2 691</strong></td><td class="num">231</td><td class="num"><strong>70 262</strong></td><td class="num">15</td><td class="num"><strong>1 min 40</strong></td><td class="num">0</td><td class="num">46/46</td></tr>
+    <tr><td>À la main, sans bibliothèque</td><td class="num">12 493</td><td class="num">821</td><td class="num">85 390</td><td class="num">17</td><td class="num">3 min 26</td><td class="num">0</td><td class="num">46/46</td></tr>
+    <tr><td>À la main, avec bibliothèque</td><td class="num">5 749</td><td class="num">397</td><td class="num">103 175</td><td class="num">31</td><td class="num">3 min 47</td><td class="num">0</td><td class="num">46/46</td></tr>
+    <tr class="dsl"><td rowspan="3">Le Fournil<br>modèle par défaut</td><td><strong>DSL</strong></td><td class="num"><strong>5 800</strong></td><td class="num">397</td><td class="num"><strong>88 661</strong></td><td class="num">18</td><td class="num"><strong>7 min 17</strong></td><td class="num">0</td><td class="num">46/46</td></tr>
+    <tr><td>À la main, sans bibliothèque</td><td class="num">20 907</td><td class="num">1 655</td><td class="num">108 878</td><td class="num">23</td><td class="num">11 min 05</td><td class="num">0</td><td class="num">46/46</td></tr>
+    <tr><td>À la main, avec bibliothèque</td><td class="num">10 116 <span title="dont 2 399 tokens d'une copie retouchée de la feuille de style">(net ≈ 7 700)</span></td><td class="num">624</td><td class="num">116 471</td><td class="num">25</td><td class="num">8 min 32</td><td class="num">0</td><td class="num">46/46</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="legend">Tokens : tokenizer cl100k. « Consommés » : cumul entrée + sortie de tous les appels de l'agent, contexte recompté à chaque tour. La durée DSL du Fournil inclut une sonde volontaire de l'agent sur les messages d'erreur (2 exécutions de <code>check</code> supplémentaires). Pour la variante avec bibliothèque du Fournil, l'agent a retouché 7 couleurs de la feuille de style copiée ; le fichier entier compte donc comme « écrit » (2 399 tokens), le net est d'environ 7 700.</p>
+
+<h3>3.2 Volume écrit par l'agent</h3>
+<div class="bars">
+  <div class="bar-row dsl"><span>Garnier · DSL</span><div class="track"><div class="fill" style="width:12.9%"></div></div><span class="n">2 691</span></div>
+  <div class="bar-row"><span>Garnier · avec bibliothèque</span><div class="track"><div class="fill" style="width:27.5%"></div></div><span class="n">5 749</span></div>
+  <div class="bar-row"><span>Garnier · sans bibliothèque</span><div class="track"><div class="fill" style="width:59.8%"></div></div><span class="n">12 493</span></div>
+  <div class="bar-row dsl"><span>Fournil · DSL</span><div class="track"><div class="fill" style="width:27.7%"></div></div><span class="n">5 800</span></div>
+  <div class="bar-row"><span>Fournil · avec bibliothèque</span><div class="track"><div class="fill" style="width:48.4%"></div></div><span class="n">10 116</span></div>
+  <div class="bar-row"><span>Fournil · sans bibliothèque</span><div class="track"><div class="fill" style="width:100%"></div></div><span class="n">20 907</span></div>
+</div>
+
+<h3>3.3 Tokens consommés au total</h3>
+<div class="bars">
+  <div class="bar-row dsl"><span>Garnier · DSL</span><div class="track"><div class="fill" style="width:60.3%"></div></div><span class="n">70 262</span></div>
+  <div class="bar-row"><span>Garnier · sans bibliothèque</span><div class="track"><div class="fill" style="width:73.3%"></div></div><span class="n">85 390</span></div>
+  <div class="bar-row"><span>Garnier · avec bibliothèque</span><div class="track"><div class="fill" style="width:88.6%"></div></div><span class="n">103 175</span></div>
+  <div class="bar-row dsl"><span>Fournil · DSL</span><div class="track"><div class="fill" style="width:76.1%"></div></div><span class="n">88 661</span></div>
+  <div class="bar-row"><span>Fournil · sans bibliothèque</span><div class="track"><div class="fill" style="width:93.5%"></div></div><span class="n">108 878</span></div>
+  <div class="bar-row"><span>Fournil · avec bibliothèque</span><div class="track"><div class="fill" style="width:100%"></div></div><span class="n">116 471</span></div>
+</div>
+
+<h3>3.4 Rapports DSL / à la main</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Mesure</th><th class="num">Garnier (Sonnet)</th><th class="num">Fournil (défaut)</th></tr></thead>
+  <tbody>
+    <tr><td>Volume écrit : sans bibliothèque / DSL</td><td class="num">× 4,6</td><td class="num">× 3,6</td></tr>
+    <tr><td>Volume écrit : avec bibliothèque / DSL</td><td class="num">× 2,1</td><td class="num">× 1,3 (net)</td></tr>
+    <tr><td>Tokens consommés : DSL vs sans bibliothèque</td><td class="num">− 18 %</td><td class="num">− 19 %</td></tr>
+    <tr><td>Tokens consommés : DSL vs avec bibliothèque</td><td class="num">− 32 %</td><td class="num">− 24 %</td></tr>
+    <tr><td>Durée : DSL vs sans bibliothèque</td><td class="num">÷ 2,1</td><td class="num">÷ 1,5</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="lecture">4. Lecture des résultats</h2>
+<h3>4.1 Pourquoi l'écart de consommation est plus faible que l'écart de volume</h3>
+<p>Un agent relit son contexte à chaque appel d'outil. Sur 15 à 30 appels, le contexte accumulé (cahier des charges, fichiers lus, sorties de commandes, propres écritures) pèse beaucoup plus que ce qui est écrit une fois. Le DSL réduit l'écriture par 4 mais ne réduit que modestement le nombre d'appels. Pour gagner davantage, il faut réduire les tours : par exemple écrire tout le site en un seul appel, ou fournir un retour de <code>check</code> si fiable que l'agent n'a pas besoin de relire ses fichiers.</p>
+
+<h3>4.2 Pourquoi la bibliothèque a coûté plus cher que rien</h3>
+<p>Les deux agents « avec bibliothèque » ont lu les templates PHP et les helpers pour comprendre les props et les variables globales attendues, malgré le README et les fiches. L'un d'eux l'écrit : les fiches étaient en YAML, pas en PHP, il a dû lire le code pour traduire. Une bibliothèque n'économise des tokens que si sa documentation suffit et si elle est plus courte que le code. C'est exactement ce que font <code>catalog</code> et <code>explain</code> dans le DSL, et c'est là que se situe le gain, pas dans les composants eux-mêmes.</p>
+
+<h3>4.3 L'oracle de validation</h3>
+<p>Aucun agent n'a fait d'erreur PHP, mais trois des quatre agents « à la main » ont <strong>perdu une passe de test entière</strong> à cause de leur propre harnais : conversion de chemins par Git Bash, inclusion du routeur depuis une fonction, sortie standard qui déclenchait « headers already sent ». Ils ont dû construire eux-mêmes leur moyen de vérifier, et ce moyen était faux au premier essai. Les agents DSL avaient <code>check</code> et n'ont rien eu à construire. Ce coût ne se voit pas dans la colonne « erreurs », il se voit dans les colonnes « appels », « tokens » et « durée ».</p>
+
+<h3>4.4 Ce qui n'est pas mesuré mais visible</h3>
+<ul>
+  <li><strong>Homogénéité.</strong> Les deux sites DSL ont exactement la même structure de fichiers, le même balisage, les mêmes classes. Les quatre sites à la main ont quatre architectures différentes (<code>inc/blocks.php</code>, <code>lib/blocks.php</code>, <code>site.php</code>, <code>config.php</code>…), quatre nommages du pot de miel, quatre routeurs. Pour maintenir un parc de sites, c'est l'écart le plus important.</li>
+  <li><strong>Propagation des correctifs.</strong> Les deux failles de sécurité trouvées pendant ce test (section 5) ont été corrigées une fois dans le générateur et appliquées aux trois sites DSL par une recompilation. Les mêmes failles dans des sites écrits à la main demanderaient une intervention par site.</li>
+</ul>
+
+<h2 id="qualite">5. Qualité et sécurité</h2>
+<div class="box bad"><strong>Deux failles dans le code que le générateur émettait</strong>, trouvées par les agents « avec bibliothèque » en lisant les helpers copiés, corrigées depuis :
+<ul>
+  <li>Le destinataire du formulaire (<code>_to</code>) et la liste des champs obligatoires (<code>_required</code>) étaient lus depuis des champs cachés du POST, donc modifiables par le client : relais de spam possible et validation contournable. Ils sont désormais fixés côté serveur dans la table des routes.</li>
+  <li>Le routeur servait tout fichier existant, donc <code>/data/messages.jsonl</code> était téléchargeable. Seuls les assets sont servis maintenant, et <code>data/</code>, <code>lib/</code>, <code>pages/</code>, <code>components/</code> reçoivent un <code>.htaccess</code> de refus.</li>
+</ul></div>
+<p>À l'inverse, l'agent qui a écrit le Fournil sans bibliothèque avait confiné les fichiers statiques avec <code>realpath</code> dès sa première version. La qualité d'un générateur est un coût fixe payé une fois et audité une fois ; la qualité d'un site écrit à la main varie à chaque exécution et n'est auditée que si quelqu'un le fait. Aucun des quatre sites à la main n'a été audité au-delà du banc automatique.</p>
+<p>Autres observations des agents sur la bibliothèque, non traitées : pas de prop <code>id</code> pour poser une ancre, <code>hero</code> sans variante compacte documentée, pas de lien d'évitement, CSS du menu mobile qui suppose un en-tête de 64 px, absence de limitation de débit sur le formulaire.</p>
+
+<h2 id="enseignements">6. Enseignements pour la décision</h2>
+<ol>
+  <li><strong>Le gain en tokens existe mais il est modeste sur une création unique</strong> : environ 20 % de la consommation totale, 4 fois moins de code écrit, 2 fois moins de temps. Il ne justifie pas à lui seul un compilateur si l'usage est « un site de temps en temps ».</li>
+  <li><strong>Le pari « convergence » doit être reformulé.</strong> Sur cette taille, les modèles actuels écrivent du PHP correct du premier coup. La valeur de <code>check</code> n'est pas de rattraper des erreurs de syntaxe, c'est de fournir un oracle prêt à l'emploi, ce qui évite à l'agent de construire et de déboguer son propre harnais. Il faudrait tester sur des modèles plus petits ou des sites plus complexes pour voir des erreurs réelles apparaître.</li>
+  <li><strong>La valeur se déplace vers la maintenance et le parc.</strong> Homogénéité, correctifs propagés par recompilation, modifications exprimées en quelques lignes de YAML. Rien de cela n'a été mesuré ici, et c'est pourtant le cœur de l'argument économique pour un éditeur de sites.</li>
+  <li><strong>La documentation compacte vaut plus que la bibliothèque.</strong> Si l'on ne construisait pas le DSL, il faudrait au minimum une bibliothèque documentée en PHP avec un exemple d'appel par composant et un script de vérification fourni, pour récupérer une partie du gain.</li>
+</ol>
+
+<h2 id="correctifs">7. Correctifs appliqués au générateur pendant ce test</h2>
+<ul>
+  <li>Destinataire et champs obligatoires du formulaire fixés côté serveur par route ; champs cachés <code>_to</code> et <code>_required</code> supprimés.</li>
+  <li>Service des fichiers statiques limité à <code>/assets/</code> sous <code>php -S</code> et dans <code>.htaccess</code> ; <code>.htaccess</code> de refus dans les dossiers internes.</li>
+  <li>Méta description de repli sur l'accroche du site quand une page n'en déclare pas (trouvé par le banc sur mon propre site).</li>
+  <li>Lightbox : l'écouteur clavier est retiré à la fermeture par clic, pas seulement par Échap.</li>
+</ul>
+<p>Le dossier <code>baseline/lib-composants/</code> conserve volontairement la version <em>avant</em> correctifs, telle que les agents l'ont reçue.</p>
+
+<h2 id="limites">8. Limites</h2>
+<ul>
+  <li>Un essai par case : six agents, pas de variance. Un écart de 18 % peut être du bruit entre deux exécutions.</li>
+  <li>Les agents à la main n'avaient pas de serveur ; les agents DSL n'avaient pas <code>build</code>. Les deux côtés ont vérifié « à l'aveugle » du rendu réel. Le banc automatique a été appliqué après coup, à égalité.</li>
+  <li>Le cahier des charges a été écrit par moi à partir de ce que le DSL produit. Il est détaillé, ce qui avantage la variante à la main (pas d'ambiguïté) et la désavantage (beaucoup à implémenter). Un vrai client n'écrit pas un tel cahier des charges.</li>
+  <li>Qualité éditoriale et visuelle non évaluées, comme dans le premier test.</li>
+  <li>Tokens comptés avec un tokenizer approchant ; durées sensibles à la charge des serveurs au moment du test.</li>
+</ul>
+
+<div class="box ok"><strong>Mise à jour.</strong> Le test de maintenance (quatre modifications identiques sur les six sites) a été réalisé ensuite : voir <a href="RAPPORT-MAINTENANCE.html">RAPPORT-MAINTENANCE.html</a>. Résumé : 25 à 36 % de tokens en moins et temps divisé par 2,3 à 2,7 avec le DSL, aucune régression, mais une modification sur quatre impossible faute de porte de sortie.</div>
+<h2 id="suites">9. Suites</h2>
+<ol>
+  <li><strong>Mesurer la maintenance</strong>, là où le DSL devrait creuser l'écart : sur chacun des six sites, demander à un agent trois modifications identiques (ajouter une section, changer le thème, ajouter un champ au formulaire) et comparer tokens, temps et régressions au banc.</li>
+  <li><strong>Tester un modèle plus petit</strong> (Haiku) sur les deux variantes : c'est là que des erreurs PHP réelles devraient apparaître et que <code>check</code> devrait faire la différence.</li>
+  <li><strong>Réduire les tours</strong> côté DSL : viser un site écrit en un seul appel, <code>check</code> compris, pour attaquer la part dominante du coût.</li>
+  <li><strong>Traiter les manques</strong> déjà listés dans le premier rapport : horaires, liste de prix, champs de formulaire typés, ancre par section.</li>
+</ol>
+
+<h2 id="annexe">10. Annexe : reproduire</h2>
+<pre><code># banc de vérification (démarre php -S, teste, arrête) : un port libre par site
+node scripts/verify-php-site.mjs baseline/sans-lib/garnier-associes 8801
+node scripts/verify-php-site.mjs baseline/avec-lib/le-fournil 8803
+node scripts/verify-php-site.mjs examples/le-fournil/dist 8790
+
+# mesure de ce que l'agent a écrit (copies identiques de la bibliothèque exclues)
+node scripts/measure-baseline.mjs baseline/sans-lib/le-fournil baseline/avec-lib/le-fournil
+
+# mesure DSL vs généré
+node scripts/measure.mjs examples/garnier-associes examples/le-fournil</code></pre>
+<p>Dossiers : <code>baseline/SPEC.md</code> (cahier des charges), <code>baseline/lib-composants/</code> (bibliothèque fournie), <code>baseline/sans-lib/*</code> et <code>baseline/avec-lib/*</code> (sites produits), journaux des agents résumés dans ce rapport.</p>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,31 @@
+page: la-boulangerie
+route: /la-boulangerie
+seo:
+  title: La boulangerie et son histoire | Le Fournil Nantes
+  description: Fondée en 2009 par Anne et Marc Lefèvre, la boulangerie Le Fournil travaille le levain naturel dans le quartier Bouffay.
+sections:
+  - hero:
+      title: La boulangerie
+      subtitle: Une histoire de famille au cœur de Nantes
+      align: left
+  - richtext:
+      title: Notre histoire
+      image: atelier.svg
+      image_position: right
+      text: |
+        Anne et Marc Lefèvre ouvrent Le Fournil en 2009, rue de la Juiverie, dans le quartier Bouffay à Nantes. Ils font le choix du levain naturel et d'une fabrication faite sur place, chaque matin.
+
+        Notre baguette tradition a reçu la médaille d'argent au concours de la Loire-Atlantique en 2024. Nous continuons de travailler avec la même exigence sur chaque pain, chaque viennoiserie et chaque pâtisserie de saison.
+      cta: { label: Voir nos produits, to: /produits }
+  - team:
+      title: L'équipe
+      intro: Les deux fondateurs et les trois salariés qui font vivre la boutique.
+      members:
+        - { name: Anne Lefèvre, role: Co-fondatrice, photo: fondateurs.svg, bio: Elle supervise la fabrication et l'accueil en boutique. }
+        - { name: Marc Lefèvre, role: Co-fondateur, bio: Il pilote la production et les pétrissages du matin. }
+  - features:
+      title: Nos engagements
+      columns: 2
+      items:
+        - { icon: leaf, title: Levain naturel, text: "Nos pains sont au levain, sans levure ajoutée." }
+        - { icon: heart, title: Un circuit local, text: Nous travaillons avec des fournisseurs de la région nantaise. }

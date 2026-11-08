@@ -1,0 +1,17 @@
+name: custom
+order: 999
+description: "Porte de sortie : inclut un fichier PHP du projet (et CSS / JS optionnels) quand aucun composant ne convient. Non validé par check (avertissement W_CUSTOM)."
+props:
+  type: object
+  required: [php]
+  properties:
+    php: { type: string, format: file, description: "fichier PHP du projet, chemin relatif à la racine (ex. custom/promo.php). Il reçoit $p (props) et les helpers e(), asset(), url(), paragraphs()" }
+    css: { type: string, format: file, description: feuille de style ajoutée à site.css }
+    js: { type: string, format: file, description: script ajouté à site.js }
+    props: { type: object, description: valeurs libres transmises au fichier PHP dans $p }
+example: |
+  - custom:
+      php: custom/promo-banner.php
+      css: custom/promo-banner.css
+      props: { code: ETE2026, until: 31 août }
+intents: []

@@ -1,0 +1,27 @@
+name: timeline
+order: 99
+description: "Frise chronologique : dates clés avec titre et texte (histoire d'une entreprise, parcours)."
+props:
+  type: object
+  required: [items]
+  properties:
+    title: { type: string }
+    intro: { type: string }
+    items:
+      type: array
+      minItems: 2
+      items:
+        type: object
+        additionalProperties: false
+        required: [date, title]
+        properties:
+          date: { type: [string, number], description: "année ou date affichée (ex. 1987, « mars 2015 »)" }
+          title: { type: string }
+          text: { type: string }
+example: |
+  - timeline:
+      title: Notre histoire
+      items:
+        - { date: 1987, title: Ouverture de l'atelier, text: Jeanne Dubois s'installe rue des Lilas. }
+        - { date: 2015, title: Camille reprend, text: Les cosmétiques solides rejoignent la gamme. }
+intents: [histoire, dates, chronologie, depuis quand, parcours]

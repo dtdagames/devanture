@@ -1,0 +1,48 @@
+page: domaines
+route: /domaines
+seo:
+  title: "Domaines d'intervention, Cabinet Garnier & Associés"
+  description: "Droit du travail, droit des affaires et droit de la famille à Bordeaux, Libourne et Arcachon."
+sections:
+  - hero:
+      title: Nos domaines d'intervention
+      subtitle: "Trois associés, trois spécialités, un même objectif : un dossier traité avec rigueur."
+      align: left
+      cta: { label: Demander une consultation, to: /contact }
+  - richtext:
+      id: travail
+      title: Droit du travail
+      keywords: ["licenciement", "rupture conventionnelle", "prud'hommes", "salarié", "employeur"]
+      text: |
+        Me Hélène Garnier conseille salariés et employeurs sur la rupture du contrat de travail, les sanctions disciplinaires et le contentieux prud'homal.
+
+        Elle privilégie la négociation amiable lorsqu'elle est possible, et chiffre les enjeux dès la première consultation.
+  - richtext:
+      id: affaires
+      title: Droit des affaires
+      keywords: ["société", "contrat", "dirigeant", "recouvrement", "entreprise"]
+      text: |
+        Me Thomas Ruiz accompagne les dirigeants dans la création et la vie des sociétés, la rédaction et la négociation de contrats commerciaux, ainsi que le recouvrement de créances.
+
+        Son rôle est d'anticiper les risques juridiques avant qu'ils ne deviennent des litiges.
+  - richtext:
+      id: famille
+      title: Droit de la famille
+      keywords: ["divorce", "séparation", "garde", "pension alimentaire", "enfant"]
+      text: |
+        Me Inès Kaddour intervient en matière de divorce, de séparation, d'autorité parentale et de pensions alimentaires.
+
+        Elle accorde une attention particulière à l'intérêt des enfants et à la recherche de solutions praticables pour la famille.
+  - faq:
+      title: Questions fréquentes
+      intro: "Les réponses ci-dessous sont générales. Chaque situation mérite un examen personnel."
+      items:
+        - { q: "Combien de temps dure une procédure prud'homale ?", a: "Cela dépend de la complexité du dossier. Nous vous indiquons une estimation lors de la première consultation." }
+        - q: Quels dossiers peuvent être confiés au cabinet ?
+          a: Tous les dossiers relevant des trois domaines ci-dessus, pour des particuliers comme pour des entreprises.
+        - q: Intervenez-vous hors de Bordeaux ?
+          a: "Oui, nous intervenons à Libourne et à Arcachon."
+  - cta:
+      title: Un litige ou une question en cours ?
+      text: "Prenez rendez-vous pour une première consultation de 30 minutes, offerte."
+      button: { label: Nous contacter, to: /contact }

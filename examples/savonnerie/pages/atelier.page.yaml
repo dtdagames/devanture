@@ -1,0 +1,40 @@
+page: atelier
+route: /atelier
+seo:
+  title: L'atelier · Maison Dubois
+  description: L'histoire de la savonnerie, la saponification à froid et l'équipe.
+sections:
+  - richtext:
+      title: Une savonnerie familiale depuis 1987
+      image: atelier.svg
+      text: |
+        Jeanne Dubois ouvre l'atelier en 1987 dans une ancienne boulangerie de la rue des Lilas. Sa fille Camille le reprend en 2015 et y ajoute les cosmétiques solides.
+
+        Nous saponifions à froid : les huiles ne sont jamais chauffées au-delà de 40 °C, ce qui préserve leurs propriétés et la glycérine naturelle. Chaque pain sèche quatre semaines avant la vente.
+  - stats:
+      items:
+        - { value: 1987, label: année de création }
+        - { value: 4 semaines, label: de séchage }
+        - { value: 12, label: références }
+  - timeline:
+      title: Depuis 1987
+      items:
+        - { date: 1987, title: Ouverture de l'atelier, text: Jeanne Dubois s'installe dans une ancienne boulangerie de la rue des Lilas. }
+        - { date: 2015, title: Camille reprend, text: Les cosmétiques solides rejoignent les savons. }
+        - { date: 2024, title: Vente en ligne, text: La boutique s'ouvre à toute la France. }
+  - map:
+      title: Venir à l'atelier
+      lat: 43.2965
+      lon: 5.3698
+      access: Métro Vieux-Port puis cinq minutes à pied. Retrait des commandes aux heures d'ouverture.
+  - hours:
+      title: Horaires de l'atelier
+      note: Retrait des commandes aux heures d'ouverture.
+      days:
+        - { day: lundi, closed: true }
+        - { day: mardi, slots: ["10:00-13:00", "14:30-19:00"] }
+        - { day: mercredi, slots: ["10:00-13:00", "14:30-19:00"] }
+        - { day: jeudi, slots: ["10:00-13:00", "14:30-19:00"] }
+        - { day: vendredi, slots: ["10:00-13:00", "14:30-19:00"] }
+        - { day: samedi, slots: ["10:00-19:00"] }
+        - { day: dimanche, closed: true }

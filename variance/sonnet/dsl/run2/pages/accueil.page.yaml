@@ -1,0 +1,28 @@
+page: accueil
+route: /
+seo:
+  title: Garnier & Associés, avocats à Bordeaux
+  description: Cabinet d'avocats à Bordeaux, Libourne et Arcachon. Droit du travail, droit des affaires, droit de la famille. Première consultation de 30 minutes offerte.
+sections:
+  - hero:
+      title: Des avocats à vos côtés, à Bordeaux et en Gironde
+      subtitle: Droit du travail, droit des affaires, droit de la famille. Première consultation de 30 minutes offerte.
+      image: cabinet.svg
+      cta: { label: Prendre rendez-vous, to: /contact }
+      secondary: { label: Nos domaines, to: /domaines }
+  - stats:
+      items:
+        - { value: "2011", label: Année de fondation }
+        - { value: "3", label: Avocats associés }
+        - { value: "6", label: Personnes au cabinet }
+        - { value: "30 min", label: De première consultation offerte }
+  - features:
+      title: Notre manière de travailler
+      items:
+        - { icon: shield, title: Convention d'honoraires systématique, text: Le coût de votre dossier est fixé par écrit avant toute intervention. }
+        - { icon: clock, title: Une première écoute offerte, text: Trente minutes pour exposer votre situation et connaître vos options. }
+        - { icon: check, title: Un interlocuteur identifié, text: Chaque dossier est suivi par l'avocat associé compétent. }
+  - cta:
+      title: Une question juridique ?
+      text: Appelez-nous au 05 56 00 00 00 ou écrivez-nous, nous vous répondons rapidement.
+      button: { label: Nous contacter, to: /contact }

@@ -1,0 +1,23 @@
+{
+  "a-propos:0": ["entreprise familiale", "plombier croix-rousse", "depuis combien de temps", "artisan plombier lyon", "sans sous-traitance", "aides rénovation énergétique", "certification rge", "qualibat", "qualigaz", "maprimerénov"],
+  "a-propos:1": ["qui va venir chez moi", "vos plombiers", "chef d'équipe", "spécialiste pompe à chaleur", "dirigeante", "fondateur", "combien d'artisans"],
+  "a-propos:2": ["année de création", "nombre de salariés", "taille de l'entreprise", "ancienneté"],
+  "a-propos:3": ["recrutement", "offre d'emploi", "apprenti plombier", "candidature", "alternance", "embauche", "postuler", "je cherche un apprentissage"],
+  "accueil:0": ["plombier lyon", "chauffagiste lyon", "dépanneur plomberie", "numéro de téléphone", "appeler un plombier", "plombier pas cher lyon", "intervention rapide"],
+  "accueil:2": ["robinet qui goutte", "tuyau cassé", "tuyau percé", "canalisation bouchée", "wc bouché", "évier bouché", "plus d'eau chaude", "ballon d'eau chaude", "pompe à chaleur", "radiateur froid", "installation chaudière", "rénovation salle de bain", "dégât des eaux"],
+  "accueil:3": ["nombre d'interventions", "avis google", "note clients", "délai moyen", "années d'expérience"],
+  "accueil:4": ["avis clients", "retours clients", "recommandations", "satisfaction", "ce que disent les clients", "fiable", "sérieux"],
+  "accueil:5": ["nous joindre", "poser une question", "être rappelé", "délai de réponse", "demander une intervention"],
+  "contact:0": ["prendre rendez-vous", "demander un devis gratuit", "nous écrire", "formulaire de contact", "envoyer une demande", "être rappelé", "demande de dépannage", "date d'intervention", "nature de l'urgence", "joindre le plombier"],
+  "contact:1": ["ouvert le samedi", "ouvert le dimanche", "jours fériés", "heures d'ouverture", "permanence téléphonique", "ouvert maintenant", "à quelle heure", "jusqu'à quelle heure", "urgence la nuit", "astreinte"],
+  "contact:2": ["zone d'intervention", "vous déplacez-vous", "villes couvertes", "rayon d'intervention", "documents pour un devis", "photos à envoyer", "banlieue de lyon", "villeurbanne", "caluire"],
+  "mentions-legales:0": ["mentions légales", "siret", "raison sociale", "éditeur du site", "hébergeur", "données personnelles", "rgpd", "confidentialité", "suppression de mes données", "directeur de publication"],
+  "realisations:0": ["exemples de chantiers", "travaux réalisés", "avant après", "nos chantiers", "références"],
+  "realisations:1": ["photos salle de bain", "douche italienne", "chaudière à condensation", "chauffe-eau thermodynamique", "wc suspendu", "cuisine", "rénovation complète", "chantier récent", "voir des exemples"],
+  "realisations:2": ["lancer mon projet", "discuter de mon projet", "me faire conseiller", "étude de projet"],
+  "services:0": ["ce que vous faites", "liste des prestations", "quels travaux", "domaines d'intervention", "plomberie et chauffage"],
+  "services:1": ["débouchage", "chasse d'eau qui fuit", "robinetterie", "douche à l'italienne", "meuble vasque", "raccordement lave-vaisselle", "chaudière gaz", "pompe à chaleur air eau", "plancher chauffant", "entretien chaudière annuel", "remplacement chauffe-eau", "recherche de fuite", "caméra thermique", "attestation d'entretien"],
+  "services:2": ["prix dépannage", "tarif horaire", "frais de déplacement", "combien ça coûte", "majoration dimanche", "prix entretien chaudière", "prix remplacement chauffe-eau", "grille tarifaire", "tarifs ttc", "coût d'une recherche de fuite", "devis gratuit"],
+  "services:3": ["délai d'intervention", "devis gratuit ou payant", "ouvert le week-end", "majoration férié", "paiement en plusieurs fois", "facilités de paiement", "en combien de temps", "rendez-vous travaux"],
+  "services:4": ["obtenir un devis", "estimation gratuite", "chiffrer mon projet", "demande de prix", "réponse rapide"]
+}

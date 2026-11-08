@@ -1,0 +1,48 @@
+page: produits
+route: /produits
+seo:
+  title: Nos produits, pains et viennoiseries | Le Fournil Nantes
+  description: Pains au levain, viennoiseries pur beurre, pâtisseries de saison et sandwichs au Fournil, Nantes.
+sections:
+  - hero:
+      title: Nos produits
+      subtitle: Fabriqués sur place chaque matin
+      align: center
+  - gallery:
+      title: En images
+      intro: Une sélection de nos fabrications du jour.
+      columns: 3
+      images:
+        - { src: pains.svg, alt: Pains au levain, caption: Pains au levain }
+        - { src: viennoiseries.svg, alt: Viennoiseries, caption: Viennoiseries pur beurre }
+  - pricelist:
+      title: Notre carte
+      intro: Les prix sont indicatifs et peuvent évoluer selon la saison.
+      note: Prix TTC. Liste non exhaustive, demandez la carte du jour en boutique.
+      columns: 2
+      groups:
+        - title: Pains
+          text: Cuits au levain naturel, pétris et façonnés à la main.
+          items:
+            - { name: Baguette tradition, price: "1,30 €", description: Médaillée d'argent 2024 }
+            - { name: Pain au levain, price: "3,80 €", description: "Pain de 500 g, mie alvéolée" }
+            - { name: Pain complet, price: "4,20 €", description: "Farine de meule, pain de 500 g" }
+        - title: Viennoiseries
+          text: Pur beurre, feuilletées sur place.
+          items:
+            - { name: Croissant, price: "1,20 €", description: Pur beurre }
+            - { name: Pain au chocolat, price: "1,30 €", description: Pur beurre }
+            - { name: Chausson aux pommes, price: "1,50 €", description: Pur beurre }
+        - title: Pâtisseries de saison
+          text: Selon les fruits du moment.
+          items:
+            - { name: Tarte de saison, price: "à partir de 5,50 €", description: Part individuelle }
+            - { name: Gâteau entier, price: sur devis, description: Pour vos réunions et anniversaires }
+        - title: Sandwichs du midi
+          text: Préparés chaque matin, à emporter.
+          items:
+            - { name: Sandwich jambon-beurre, price: "4,90 €", description: Baguette tradition }
+            - { name: Sandwich du jour, price: "5,90 €", description: Composition changeante }
+      cta:
+        label: Passer commande
+        to: /commandes

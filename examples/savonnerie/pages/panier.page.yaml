@@ -1,0 +1,9 @@
+page: panier
+route: /panier
+seo:
+  title: Panier · Maison Dubois
+  description: Votre panier Maison Dubois.
+sections:
+  - cart.page:
+      continue: { label: Continuer mes achats, to: /boutique }
+      empty_text: Votre panier est vide. Nos savons n'attendent que vous.

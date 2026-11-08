@@ -1,0 +1,31 @@
+name: features
+order: 20
+description: Grille de 2 à 6 points forts (icône, titre, texte court). Pour services, avantages, valeurs.
+props:
+  type: object
+  required: [items]
+  properties:
+    title: { type: string, description: titre de la section }
+    intro: { type: string, description: texte d'introduction sous le titre }
+    columns: { type: integer, enum: [2, 3, 4], description: nombre de colonnes (défaut 3) }
+    items:
+      type: array
+      minItems: 2
+      items:
+        type: object
+        additionalProperties: false
+        required: [title]
+        properties:
+          icon: { type: string, enum: [leaf, truck, star, heart, shield, clock, phone, tools, wrench, home, check, sun, gift, scale, bread, croissant, cake, drop, flame, car, calendar, pin, scissors, brush, camera, book, coffee, euro, users, lock, mail, globe], description: "pictogramme SVG (scale = justice, bread/croissant/cake = boulangerie, drop/flame/wrench = plomberie-chauffage, users = équipe, euro = tarifs)" }
+          title: { type: string }
+          text: { type: string }
+          link: { $ref: "#/$defs/link", description: lien « en savoir plus » optionnel }
+example: |
+  - features:
+      title: Pourquoi nous choisir
+      columns: 3
+      items:
+        - { icon: leaf, title: 100 % naturel, text: Huiles bio et locales }
+        - { icon: truck, title: Livraison 48 h, text: Offerte dès 40 € }
+        - { icon: heart, title: Fait main, text: Chaque pièce est unique }
+intents: [services, prestations, avantages, pourquoi]

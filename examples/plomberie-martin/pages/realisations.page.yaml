@@ -1,0 +1,24 @@
+page: realisations
+route: /realisations
+seo:
+  title: Réalisations · Plomberie Martin
+  description: Quelques chantiers récents à Lyon et dans la métropole.
+sections:
+  - hero:
+      title: Nos réalisations
+      subtitle: Un aperçu de chantiers récents, du dépannage à la rénovation complète.
+      keywords: [ exemples de chantiers, travaux réalisés, avant après, nos chantiers, références ]
+  - gallery:
+      columns: 3
+      images:
+        - { src: chantier-1.svg, alt: Salle de bain rénovée, caption: "Salle de bain complète, Lyon 3e" }
+        - { src: chantier-2.svg, alt: Chaudière gaz à condensation, caption: "Chaudière à condensation, Villeurbanne" }
+        - { src: chantier-3.svg, alt: Plomberie de cuisine, caption: "Cuisine, Caluire" }
+        - { src: chantier-4.svg, alt: Chauffe-eau thermodynamique, caption: "Chauffe-eau thermodynamique, Bron" }
+        - { src: chantier-5.svg, alt: WC suspendu, caption: "WC suspendu, Lyon 7e" }
+        - { src: chantier-6.svg, alt: Douche à l'italienne, caption: "Douche à l'italienne, Vaulx-en-Velin" }
+      keywords: [ photos salle de bain, douche italienne, chaudière à condensation, chauffe-eau thermodynamique, wc suspendu, cuisine, rénovation complète, chantier récent, voir des exemples ]
+  - cta:
+      title: Votre projet mérite le même soin
+      button: { label: Parlons-en, to: /contact }
+      keywords: [ lancer mon projet, discuter de mon projet, me faire conseiller, étude de projet ]

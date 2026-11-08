@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Créer autrement Sitelang</title>
+<style>
+  :root { --bg:#fff; --bg-soft:#f6f7f9; --fg:#1b1f24; --fg-muted:#5b6470; --accent:#1f3a5f; --accent-soft:#e8eef6; --border:#d9dee5; --code-bg:#f1f3f6; --ok-bg:#e7f5ec; --ok-border:#5aa36f; --warn-bg:#fff6e0; --warn-border:#e8c46a; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0f1216; --bg-soft:#161b22; --fg:#e6e9ee; --fg-muted:#9aa4b1; --accent:#8fb4e3; --accent-soft:#1b2a3f; --border:#2a323d; --code-bg:#161b22; --ok-bg:#12301c; --ok-border:#3c8a52; --warn-bg:#2b2410; --warn-border:#8a6d1f; } }
+  :root[data-theme="dark"] { --bg:#0f1216; --bg-soft:#161b22; --fg:#e6e9ee; --fg-muted:#9aa4b1; --accent:#8fb4e3; --accent-soft:#1b2a3f; --border:#2a323d; --code-bg:#161b22; --ok-bg:#12301c; --ok-border:#3c8a52; --warn-bg:#2b2410; --warn-border:#8a6d1f; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  .wrap { max-width:960px; margin:0 auto; padding:32px 16px 80px; }
+  header { border-bottom:1px solid var(--border); padding-bottom:20px; margin-bottom:28px; }
+  header h1 { font-size:1.8rem; line-height:1.25; margin:0 0 8px; }
+  header p.meta { color:var(--fg-muted); margin:0; }
+  h2 { font-size:1.4rem; margin:44px 0 12px; padding-top:8px; border-top:1px solid var(--border); }
+  h3 { font-size:1.08rem; margin:26px 0 8px; }
+  p { margin:0 0 14px; } ul, ol { margin:0 0 14px; padding-left:24px; } li { margin-bottom:5px; }
+  code { font:.9em/1.5 ui-monospace,"Cascadia Code",Consolas,monospace; background:var(--code-bg); padding:1px 5px; border-radius:4px; }
+  pre { background:var(--code-bg); border:1px solid var(--border); border-radius:8px; padding:12px 14px; overflow-x:auto; margin:0 0 18px; }
+  pre code { background:none; padding:0; font-size:.82rem; }
+  table { width:100%; border-collapse:collapse; margin:0 0 20px; font-size:.93rem; }
+  th, td { text-align:left; vertical-align:top; padding:8px 10px; border:1px solid var(--border); }
+  th { background:var(--bg-soft); font-weight:600; }
+  .table-wrap { overflow-x:auto; margin-bottom:20px; }
+  .verdict { background:var(--accent-soft); border-left:4px solid var(--accent); padding:14px 18px; border-radius:0 8px 8px 0; margin-bottom:18px; }
+  .box { border-radius:8px; padding:12px 16px; margin:0 0 18px; border:1px solid; }
+  .ok { background:var(--ok-bg); border-color:var(--ok-border); } .warn { background:var(--warn-bg); border-color:var(--warn-border); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Relecture éditoriale, assemblage par segment, mémoire du visiteur, version texte, micro-sites</h1>
+  <p class="meta">Implémentés le 7 novembre 2026 dans le prototype Sitelang · Suite de <a href="RAPPORT-OBJECTIFS.html">RAPPORT-OBJECTIFS.html</a> et de <a href="RAPPORT-NAVIGATION.html">RAPPORT-NAVIGATION.html</a></p>
+</header>
+
+<h2>1. Où en est la liste « créer et naviguer autrement »</h2>
+<div class="verdict">
+Sur les dix idées de la réflexion initiale, <strong>huit sont désormais implémentées</strong> et deux restent à l'état de piste : le préremplissage du formulaire depuis l'intention, et l'assistant qui répond sur les données du site. Cette passe a livré les cinq de la liste priorisée, dans l'ordre : relecture éditoriale à la compilation, pages qui s'assemblent par segment, mémoire du visiteur, version texte simplifié avec lecture à voix haute, pages dérivées pour les micro-sites. Le catalogue compte dix-neuf composants.
+</div>
+
+<h2>2. Relecture éditoriale à la compilation</h2>
+<p>Le risque le plus concret observé dans les tests était l'invention de prix, de délais et de distinctions par les agents. La commande <code>sitec review</code> y répond sans modèle de langage, à partir d'un fichier <code>brief.md</code> déposé à la racine du site, qui tient lieu de seule source de vérité :</p>
+<ul>
+  <li><strong>Textes à compléter</strong> : crochets « à compléter », « à valider », « TODO », lorem ipsum. Ils apparaissent en avertissement dans <code>check</code> et <strong>font échouer <code>build</code></strong>, sauf avec <code>--draft</code>. Un site ne part plus en ligne avec un SIRET en pointillé.</li>
+  <li><strong>Faits chiffrés absents du brief</strong> : montants, pourcentages, durées, années, téléphones, SIRET, nombres d'avis ou d'interventions. Chaque valeur est cherchée dans le brief, textuellement puis numériquement ; ce qui n'y est pas est signalé avec la phrase qui le contient. Sans brief, tout fait chiffré est listé à valider.</li>
+  <li><strong>Engagements</strong> : garanties, délais, gratuité, remboursement, disponibilité 7j/7, supériorité, certifications et distinctions, absolus. Signalés avec leur nature, sauf s'ils figurent dans le brief.</li>
+  <li><strong>Relecteur LLM optionnel</strong> (<code>--llm</code>, ou <code>--export</code> / <code>--import</code> comme pour les mots-clés) : les passages signalés sont soumis au modèle avec le brief, qui rend un verdict ok, à vérifier ou à retirer, avec une raison.</li>
+</ul>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Site</th><th>Brief</th><th>Constats</th><th>Exemples</th></tr></thead>
+  <tbody>
+    <tr><td>Plomberie Martin</td><td>oui, 9 lignes</td><td>13 : 5 faits absents, 8 engagements</td><td>la promotion « -15 % » du bandeau, « 40 minutes » dans un témoignage, « capital social 20 000 € », « remplacement sous 24 h », « certifié QualiPAC » : aucun n'est dans le brief</td></tr>
+    <tr><td>Savonnerie</td><td>non</td><td>45 : 34 faits, 11 engagements</td><td>tous les prix, « 72 % d'huile d'olive », « livraison offerte dès 50 € »</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Le mode d'emploi des agents dit désormais explicitement : si le brief ne le dit pas, écrire « à compléter » plutôt qu'inventer.</p>
+
+<h2>3. Pages qui s'assemblent</h2>
+<p>Les variantes de section changeaient le contenu ; une page accepte maintenant ses propres variantes, qui changent l'ordre et la présence des sections selon le premier segment actif : <code>variants: { segment: { first: [ids], hide: [ids] } }</code>. Les sections visées doivent porter un identifiant, et le compilateur vérifie segments et identifiants avec suggestion. Les URL ne changent pas, le rendu reste serveur.</p>
+<p>Vérifié sur la savonnerie : après un ajout au panier non suivi d'achat, le segment « panier abandonné » s'active ; l'accueil passe de l'ordre bandeau, reprise, pourquoi, best-sellers, avis, contact à bandeau, reprise, best-sellers, pourquoi, contact, les avis disparaissent, et le bandeau prend sa variante « Votre panier vous attend » avec le bouton « Reprendre mon panier ».</p>
+
+<h2>4. Mémoire du visiteur</h2>
+<p>Le composant <code>recent</code> affiche « Reprendre où vous en étiez » : les produits consultés et les sections identifiées vues récemment, d'après un historique court tenu dans le profil du navigateur, sous consentement. Le compilateur n'active le suivi des vues de produits et de sections que si le composant est présent. Sans historique, la section ne s'affiche pas du tout. Vérifié : après deux fiches produit, l'accueil montre les deux, nom, image et prix, puis trois après un ajout au panier.</p>
+
+<h2>5. Version texte simplifié et lecture à voix haute</h2>
+<p>Chaque page statique est aussi émise en version texte sous <code>/lisible&lt;route&gt;</code>, avec un lien « Version texte » dans le pied de page et un lien <code>rel="alternate"</code> dans l'en-tête. Cette version est construite depuis le DSL, pas depuis le HTML : titres hiérarchisés, listes pour les points forts, l'équipe, les tarifs et les horaires, définitions pour les questions fréquentes, lien d'évitement, typographie large, contraste élevé, pas de script de suivi. Un bouton « Écouter cette page » lit le contenu avec la synthèse vocale du navigateur, dans la langue du site, et s'arrête d'un clic. Les pages dynamiques et les pages de panier et de commande renvoient vers la version complète. Testé : les pages répondent, une route inconnue donne 404, et la version texte de l'atelier restitue l'histoire, les chiffres et les horaires jour par jour.</p>
+
+<h2>6. Micro-sites par dérivation</h2>
+<p>Une page peut dériver d'une autre : <code>extends: accueil</code>, puis <code>override</code> par identifiant de section, <code>remove</code>, <code>prepend</code>, <code>append</code>, avec sa route et son référencement propres. La page est matérialisée avant validation, donc tout le reste s'applique : index d'intention, version texte, jumeau, relecture. Le compilateur refuse une base inconnue, une dérivation de dérivation, des sections propres sur une page dérivée, et un identifiant absent de la base, avec suggestion.</p>
+<p>Exemple livré : <code>/savons-marseille</code>, page d'atterrissage « savon de Marseille » dérivée de l'accueil de la savonnerie en quinze lignes : bandeau réécrit vers le savon pur olive, grille recentrée sur les savons, avis et reprise retirés, trois questions ajoutées.</p>
+
+<h2>7. Vérification</h2>
+<ul>
+  <li>Les quatre sites d'exemple compilent ; le banc général passe sur la savonnerie (66 contrôles, versions texte comprises) et le plombier (49) ; le banc d'achat reste à 48.</li>
+  <li>Les erreurs de validation des nouveautés ont été provoquées une à une : segment inconnu, section inconnue avec suggestion, propriété inconnue dans une règle de page, page de base inconnue, texte à compléter bloquant.</li>
+  <li>Les comportements de navigation ont été vérifiés dans le navigateur, consentement compris.</li>
+</ul>
+
+<h2>8. Limites et suites</h2>
+<ul>
+  <li>La relecture repose sur des motifs : elle ne comprend pas une promesse formulée sans mot déclencheur. Le relecteur LLM comble ce trou mais n'a pas été exercé ici faute de clé.</li>
+  <li>L'historique du visiteur ne retient que les sections qui portent un identifiant explicite et un titre, pour rester lisible.</li>
+  <li>La version texte n'a pas de rendu audio préenregistré : la lecture dépend de la synthèse vocale du navigateur.</li>
+  <li>Une page dérivée ne peut pas insérer une section au milieu de la base ; seulement remplacer, retirer, ajouter avant ou après.</li>
+  <li>Les deux idées restantes, préremplissage du formulaire depuis l'intention et assistant sur les données du site, sont possibles sur l'existant ; la seconde réintroduirait un modèle de langage à la visite, ce que la méthode a évité jusqu'ici.</li>
+</ul>
+
+<div class="box ok"><strong>Mise à jour du 8 novembre.</strong> Les deux dernières idées sont implémentées : <strong>la recherche qui répond</strong> affiche en tête des résultats une carte de réponse tirée des données compilées (horaires calculés à la visite dans le fuseau du site, prix, coordonnées, réponse de FAQ), sans aucun modèle de langage à la visite ; un résultat « contact » envoie vers le <strong>formulaire prérempli</strong> avec la question, et choisit l'option de liste qui correspond. S'y ajoutent les composants <code>map</code> (carte OpenStreetMap chargée au clic), <code>steps</code> et <code>timeline</code>, 32 icônes SVG inline à la place des émojis, et un balisage léger (gras, italique, lien, liste) dans les textes. La mesure de variance est dans <a href="RAPPORT-VARIANCE.html">RAPPORT-VARIANCE.html</a>.</div>
+<h2>9. Reproduire</h2>
+<pre><code>node bin/sitec.js review examples/plomberie-martin        # avec brief.md
+node bin/sitec.js review examples/savonnerie              # sans brief
+node bin/sitec.js build examples/savonnerie
+node scripts/verify-php-site.mjs examples/savonnerie/dist 8953
+node scripts/verify-shop.mjs examples/savonnerie/dist 8950
+# puis : /lisible/atelier, /savons-marseille, et l'accueil après un ajout au panier</code></pre>
+
+</div>
+</body>
+</html>

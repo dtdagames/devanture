@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Navigation Sitelang</title>
+<style>
+  :root { --bg:#fff; --bg-soft:#f6f7f9; --fg:#1b1f24; --fg-muted:#5b6470; --accent:#1f3a5f; --accent-soft:#e8eef6; --border:#d9dee5; --code-bg:#f1f3f6; --ok-bg:#e7f5ec; --ok-border:#5aa36f; --warn-bg:#fff6e0; --warn-border:#e8c46a; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0f1216; --bg-soft:#161b22; --fg:#e6e9ee; --fg-muted:#9aa4b1; --accent:#8fb4e3; --accent-soft:#1b2a3f; --border:#2a323d; --code-bg:#161b22; --ok-bg:#12301c; --ok-border:#3c8a52; --warn-bg:#2b2410; --warn-border:#8a6d1f; } }
+  :root[data-theme="dark"] { --bg:#0f1216; --bg-soft:#161b22; --fg:#e6e9ee; --fg-muted:#9aa4b1; --accent:#8fb4e3; --accent-soft:#1b2a3f; --border:#2a323d; --code-bg:#161b22; --ok-bg:#12301c; --ok-border:#3c8a52; --warn-bg:#2b2410; --warn-border:#8a6d1f; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  .wrap { max-width:960px; margin:0 auto; padding:32px 16px 80px; }
+  header { border-bottom:1px solid var(--border); padding-bottom:20px; margin-bottom:28px; }
+  header h1 { font-size:1.8rem; line-height:1.25; margin:0 0 8px; }
+  header p.meta { color:var(--fg-muted); margin:0; }
+  h2 { font-size:1.4rem; margin:44px 0 12px; padding-top:8px; border-top:1px solid var(--border); }
+  h3 { font-size:1.08rem; margin:26px 0 8px; }
+  p { margin:0 0 14px; } ul, ol { margin:0 0 14px; padding-left:24px; } li { margin-bottom:5px; }
+  code { font:.9em/1.5 ui-monospace,"Cascadia Code",Consolas,monospace; background:var(--code-bg); padding:1px 5px; border-radius:4px; }
+  pre { background:var(--code-bg); border:1px solid var(--border); border-radius:8px; padding:12px 14px; overflow-x:auto; margin:0 0 18px; }
+  pre code { background:none; padding:0; font-size:.82rem; }
+  table { width:100%; border-collapse:collapse; margin:0 0 20px; font-size:.93rem; }
+  th, td { text-align:left; vertical-align:top; padding:8px 10px; border:1px solid var(--border); }
+  th { background:var(--bg-soft); font-weight:600; }
+  .table-wrap { overflow-x:auto; margin-bottom:20px; }
+  .verdict { background:var(--accent-soft); border-left:4px solid var(--accent); padding:14px 18px; border-radius:0 8px 8px 0; margin-bottom:18px; }
+  .box { border-radius:8px; padding:12px 16px; margin:0 0 18px; border:1px solid; }
+  .ok { background:var(--ok-bg); border-color:var(--ok-border); } .warn { background:var(--warn-bg); border-color:var(--warn-border); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Navigation par intention, formulaire conditionnel, jumeau pour agents</h1>
+  <p class="meta">Implémentés le 7 novembre 2026 dans le prototype Sitelang · Suite des rapports <a href="RAPPORT-TEST-VITRINE.html">vitrine</a>, <a href="RAPPORT-BASELINE.html">baseline</a>, <a href="RAPPORT-MAINTENANCE.html">maintenance</a> et <a href="RAPPORT-HAIKU.html">Haiku</a></p>
+</header>
+
+<h2>1. Principe</h2>
+<div class="verdict">
+Les trois chantiers appliquent la même règle : <strong>générer à la compilation, choisir à l'exécution</strong>. Le compilateur, qui connaît la structure complète du site, produit un index des sections, des règles d'affichage des champs et une description lisible par les machines. Au moment de la visite, un JavaScript de quelques kilo-octets et du PHP déterministe font le reste. Aucun appel à un LLM à la requête, aucune donnée envoyée à un tiers, des réponses exactes parce qu'elles viennent des données déclarées.
+</div>
+
+<h2>2. Navigation par intention</h2>
+<h3>Ce que voit le visiteur</h3>
+<p>Un champ « Que cherchez-vous ? » dans l'en-tête de chaque page. Il tape une question en langage courant ; une liste de sections s'affiche, avec le nom de la page ; Entrée ou un clic mène à la section exacte, sur la même page ou sur une autre, en ouvrant la question de FAQ visée s'il y a lieu.</p>
+<h3>Comment c'est fait</h3>
+<ul>
+  <li><strong>À la compilation</strong> : toute section reçoit une ancre (déclarée par <code>id</code> ou générée) ; le compilateur produit <code>assets/intent-index.json</code>, une entrée par section et une par question de FAQ, avec le titre, les mots d'intention du composant (le composant horaires sait qu'on le cherche avec « ouvert », « dimanche », « heures »), les <code>keywords</code> éventuels de l'auteur et un extrait du texte, le tout normalisé sans accents.</li>
+  <li><strong>À la visite</strong> : le script charge l'index au premier caractère tapé, découpe la question, retire les mots vides, racinise légèrement (« coûte » et « coût », « ouverts » et « ouvert »), et note chaque entrée : mots d'intention, titre, texte, par poids décroissant. Six résultats au plus, navigation au clavier, lecteur d'écran pris en charge par les rôles ARIA.</li>
+  <li><strong>Réglage</strong> : <code>site.intent: { enabled, placeholder }</code> ; <code>keywords: [...]</code> sur n'importe quelle section pour ajouter le vocabulaire des visiteurs.</li>
+</ul>
+<h3>Vérifié sur le site exemple</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Question tapée</th><th>Premier résultat</th><th>Page</th></tr></thead>
+  <tbody>
+    <tr><td>vous êtes ouverts dimanche ?</td><td>Horaires de l'atelier</td><td>Contact</td></tr>
+    <tr><td>combien coûte une fuite</td><td>Nos tarifs</td><td>Services</td></tr>
+    <tr><td>intervenez-vous le week-end</td><td>Intervenez-vous le week-end ? (question de FAQ, ouverte à l'arrivée)</td><td>Services</td></tr>
+    <tr><td>je veux un devis</td><td>Besoin d'un devis ?</td><td>Services</td></tr>
+    <tr><td>photos de vos chantiers</td><td>Galerie</td><td>Réalisations</td></tr>
+    <tr><td>qui est dans votre équipe</td><td>L'équipe</td><td>À propos</td></tr>
+  </tbody>
+</table>
+</div>
+<p>L'index du site exemple pèse 27 entrées pour 6 pages. Le défilement vers la section tient compte de l'en-tête collant.</p>
+
+<h2>3. Formulaire conditionnel</h2>
+<h3>Ce que voit le visiteur</h3>
+<p>Le formulaire se déplie au fil des réponses. Sur le site exemple : « Type de demande » en liste ; choisir « Dépannage » fait apparaître « Nature de l'urgence », obligatoire ; choisir « Devis travaux » ou « Entretien chaudière » fait apparaître « Date souhaitée ».</p>
+<h3>Comment c'est fait</h3>
+<ul>
+  <li>Une clause <code>when: { champ: valeur }</code> ou <code>when: { champ: [v1, v2] }</code> sur un champ libre. Le compilateur vérifie que le champ conditionnant existe, est déclaré avant, et que les valeurs citées font partie de ses options.</li>
+  <li>Le même objet de champs normalisé sert au rendu et au serveur. Côté client, un champ non concerné est masqué et désactivé, donc non envoyé. Côté serveur, un champ dont la condition n'est pas remplie est ignoré, ni lu ni exigé. L'état initial est calculé en PHP, le formulaire reste correct sans JavaScript.</li>
+</ul>
+<h3>Vérifié</h3>
+<ul>
+  <li>Client : les quatre états testés (initial, Dépannage, Devis, Autre) masquent et désactivent exactement les bons champs.</li>
+  <li>Serveur : « Dépannage » sans urgence est refusé avec le message « Nature de l'urgence est obligatoire » ; « Dépannage » avec une date invalide est accepté, la date n'étant pas concernée ; « Devis travaux » avec une date invalide est refusé.</li>
+  <li>Trois erreurs de compilation dédiées : champ conditionnant inconnu ou déclaré plus bas, valeur absente des options, syntaxe de <code>when</code>.</li>
+</ul>
+
+<h2>4. Jumeau pour agents</h2>
+<h3>Ce qu'un agent trouve</h3>
+<ul>
+  <li><code>/llms.txt</code> : texte lisible qui résume le site, liste les pages avec leur description, les horaires, les tarifs, et explique comment agir (quel formulaire, quels champs, quel protocole).</li>
+  <li><code>/site.json</code> : la même chose en données : identité, coordonnées, navigation, pages et sections avec leurs ancres, horaires par jour, listes de prix, formulaires avec types, obligations et conditions, actions disponibles, lien vers l'index d'intention.</li>
+  <li>Dans chaque page : un JSON-LD schema.org (type configurable, par exemple <code>Plumber</code>, <code>Bakery</code>, <code>LegalService</code>) avec nom, description, téléphone, e-mail, adresse et <code>openingHoursSpecification</code> dérivé du composant horaires ; et un lien <code>rel="alternate"</code> vers <code>site.json</code>.</li>
+</ul>
+<h3>Comment c'est fait</h3>
+<p>Tout vient de la structure du DSL : le compilateur parcourt les sections, reconnaît horaires, tarifs et formulaires, et émet les trois artefacts. Les deux fichiers sont servis par le routeur avec le bon type de contenu ; rien d'autre à la racine n'est exposé. Réglage : <code>site.agents: { enabled, summary, business_type }</code>.</p>
+<h3>Vérifié</h3>
+<p>Les deux fichiers répondent en 200 avec le bon type, le JSON décrit 6 pages, les horaires, 1 liste de prix et 1 formulaire à 8 champs dont 2 conditionnels, et le JSON-LD de type Plumber est présent dans l'en-tête des pages.</p>
+<pre><code>## Agir
+- Contacter : POST /contact — champs : name* (text), email (email), phone* (tel), company (text),
+  kind* (select : Dépannage | Devis travaux | Entretien chaudière | Autre),
+  wished_date (date, si kind ∈ Devis travaux|Entretien chaudière),
+  urgency* (select : …, si kind ∈ Dépannage), message* (textarea).
+  GET la page pour obtenir le cookie de session et le champ caché _csrf, puis POST …</code></pre>
+
+<h2>5. Non-régression</h2>
+<div class="box ok">Les trois sites d'exemple recompilés passent le banc complet (45 ou 46 contrôles). Le banc a dû apprendre à ignorer le formulaire de recherche de l'en-tête pour retrouver le formulaire de contact. Les sites écrits par les agents des tests précédents ne sont pas touchés.</div>
+
+<h2>5 bis. Mots-clés générés par LLM à la compilation</h2>
+<p>La recherche est lexicale : sans vocabulaire déclaré, « tuyau cassé » ne trouvait rien. La commande <code>sitec keywords &lt;dossier&gt;</code> envoie à un modèle, en un seul appel, la liste des sections du site (page, composant, titre, mots déjà connus, extrait du texte) avec une consigne : proposer pour chaque section 6 à 12 expressions que des visiteurs réels taperaient, synonymes, langage courant, situations concrètes, sans répéter le titre, sans rien promettre. La réponse JSON est validée (expressions courtes, sans doublon ni redite, limite par section) puis <strong>écrite dans le YAML des pages</strong>, en préservant le reste du document. Le résultat est donc relu, versionné, et le LLM n'intervient plus jamais à la visite.</p>
+<ul>
+  <li>Appel direct par le SDK Anthropic officiel (modèle par défaut <code>claude-opus-5-5</code>, effort bas, un appel pour tout le site : 21 sections tiennent dans 9 500 caractères de prompt) quand une clé d'API ou un profil est présent.</li>
+  <li>Sans accès au modèle, <code>--export</code> écrit le prompt et <code>--import</code> applique une réponse obtenue ailleurs : même validation, même écriture. C'est ce mode qui a servi ici, ce poste n'ayant pas de clé ; la réponse a été produite par Claude dans la session à partir du prompt exporté, et conservée dans <code>examples/plomberie-martin/keywords-proposals.json</code>.</li>
+  <li><code>--dry-run</code> affiche les propositions sans écrire ; par défaut seules les sections sans <code>keywords</code> sont traitées, <code>--all</code> régénère tout en fusionnant avec l'existant.</li>
+</ul>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Question tapée</th><th>Avant (premier résultat)</th><th>Après</th></tr></thead>
+  <tbody>
+    <tr><td>tuyau cassé</td><td><em>aucun résultat</em></td><td>Nos services</td></tr>
+    <tr><td>robinet qui goutte</td><td>Services (bandeau générique)</td><td>Nos services</td></tr>
+    <tr><td>ballon d'eau chaude en panne</td><td>Nos services</td><td>Nos services</td></tr>
+    <tr><td>prix d'une intervention le dimanche</td><td>Nos tarifs</td><td>Nos tarifs</td></tr>
+    <tr><td>vos horaires du samedi</td><td>Horaires de l'atelier</td><td>Horaires de l'atelier</td></tr>
+    <tr><td>je recrute</td><td>Envie de travailler avec nous ?</td><td>Envie de travailler avec nous ?</td></tr>
+    <tr><td>paiement en plusieurs fois</td><td>question de FAQ correspondante</td><td>question de FAQ correspondante</td></tr>
+    <tr><td>salle de bain italienne</td><td>Galerie</td><td>Galerie, puis Nos services</td></tr>
+    <tr><td>certification rge</td><td>Une entreprise familiale depuis 1999</td><td>Une entreprise familiale depuis 1999</td></tr>
+    <tr><td>pompe à chaleur</td><td>L'équipe (bio d'un membre)</td><td>L'équipe, puis Nos services</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Deux requêtes qui échouaient passent, les autres restent correctes, et l'index passe de 9,7 à 13,7 ko. Le cas « pompe à chaleur » montre la limite du procédé : le modèle a proposé « spécialiste pompe à chaleur » pour la section équipe, ce qui est exact, et l'index ne sait pas qu'un visiteur qui tape ces mots veut plus souvent le service que la personne. C'est à l'auteur de relire les propositions, ce que le passage par le YAML permet.</p>
+
+<div class="box ok"><strong>Mise à jour.</strong> Les trois chantiers suivants, personnalisation par segments et variantes, e-commerce minimal et point d'entrée pour agents, sont implémentés : voir <a href="RAPPORT-OBJECTIFS.html">RAPPORT-OBJECTIFS.html</a>.</div>
+<h2>6. Limites et suites</h2>
+<ul>
+  <li>La recherche reste lexicale ; les mots-clés générés couvrent les synonymes courants, pas les formulations imprévues. Un embedding local calculé à la compilation serait l'étape suivante, au prix d'un index plus lourd.</li>
+  <li>Les conditions sont des égalités sur un champ déclaré avant. Pas de combinaison « et / ou », volontairement.</li>
+  <li>Le jumeau décrit, il n'exécute pas : un agent qui veut envoyer le formulaire doit suivre le protocole. Une étape de plus serait un point d'entrée JSON dédié avec jeton, à décider.</li>
+  <li>Le JSON-LD couvre l'entité ; les pages produits ou services n'ont pas encore de balisage individuel.</li>
+</ul>
+
+<h2>7. Reproduire</h2>
+<pre><code>node bin/sitec.js build examples/plomberie-martin
+node scripts/verify-php-site.mjs examples/plomberie-martin/dist 8884
+# puis, serveur lancé :  /assets/intent-index.json   /site.json   /llms.txt</code></pre>
+
+</div>
+</body>
+</html>

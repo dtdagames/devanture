@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Variance Sitelang</title>
+<style>
+  :root { --bg:#fff; --bg-soft:#f6f7f9; --fg:#1b1f24; --fg-muted:#5b6470; --accent:#1f3a5f; --accent-soft:#e8eef6; --border:#d9dee5; --code-bg:#f1f3f6; --ok-bg:#e7f5ec; --ok-border:#5aa36f; --warn-bg:#fff6e0; --warn-border:#e8c46a; --bar:#1f3a5f; --bar2:#8aa3c4; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0f1216; --bg-soft:#161b22; --fg:#e6e9ee; --fg-muted:#9aa4b1; --accent:#8fb4e3; --accent-soft:#1b2a3f; --border:#2a323d; --code-bg:#161b22; --ok-bg:#12301c; --ok-border:#3c8a52; --warn-bg:#2b2410; --warn-border:#8a6d1f; --bar:#8fb4e3; --bar2:#3b5676; } }
+  :root[data-theme="dark"] { --bg:#0f1216; --bg-soft:#161b22; --fg:#e6e9ee; --fg-muted:#9aa4b1; --accent:#8fb4e3; --accent-soft:#1b2a3f; --border:#2a323d; --code-bg:#161b22; --ok-bg:#12301c; --ok-border:#3c8a52; --warn-bg:#2b2410; --warn-border:#8a6d1f; --bar:#8fb4e3; --bar2:#3b5676; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:32px 16px 80px; }
+  header { border-bottom:1px solid var(--border); padding-bottom:20px; margin-bottom:28px; }
+  header h1 { font-size:1.8rem; line-height:1.25; margin:0 0 8px; }
+  header p.meta { color:var(--fg-muted); margin:0; }
+  h2 { font-size:1.4rem; margin:44px 0 12px; padding-top:8px; border-top:1px solid var(--border); }
+  p { margin:0 0 14px; } ul, ol { margin:0 0 14px; padding-left:24px; } li { margin-bottom:5px; }
+  code { font:.9em/1.5 ui-monospace,"Cascadia Code",Consolas,monospace; background:var(--code-bg); padding:1px 5px; border-radius:4px; }
+  pre { background:var(--code-bg); border:1px solid var(--border); border-radius:8px; padding:12px 14px; overflow-x:auto; margin:0 0 18px; }
+  pre code { background:none; padding:0; font-size:.82rem; }
+  table { width:100%; border-collapse:collapse; margin:0 0 20px; font-size:.93rem; }
+  th, td { text-align:left; vertical-align:top; padding:8px 10px; border:1px solid var(--border); }
+  th { background:var(--bg-soft); font-weight:600; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  tr.dsl td { background:var(--accent-soft); }
+  .table-wrap { overflow-x:auto; margin-bottom:20px; }
+  .verdict { background:var(--accent-soft); border-left:4px solid var(--accent); padding:14px 18px; border-radius:0 8px 8px 0; margin-bottom:18px; }
+  .box { border-radius:8px; padding:12px 16px; margin:0 0 18px; border:1px solid; }
+  .ok { background:var(--ok-bg); border-color:var(--ok-border); } .warn { background:var(--warn-bg); border-color:var(--warn-border); }
+  .bars { margin:0 0 22px; }
+  .bar-row { display:grid; grid-template-columns:200px 1fr 90px; gap:10px; align-items:center; margin-bottom:6px; font-size:.92rem; }
+  .bar-row .track { background:var(--bg-soft); border:1px solid var(--border); border-radius:4px; height:18px; overflow:hidden; position:relative; }
+  .bar-row .fill { height:100%; background:var(--bar2); }
+  .bar-row.dsl .fill { background:var(--bar); }
+  .bar-row .range { position:absolute; top:3px; height:12px; border-left:2px solid #c0392b; border-right:2px solid #c0392b; }
+  .bar-row .n { text-align:right; font-variant-numeric:tabular-nums; }
+  .legend { font-size:.85rem; color:var(--fg-muted); margin:-10px 0 18px; }
+  @media (max-width:640px) { header h1 { font-size:1.45rem; } .bar-row { grid-template-columns:1fr; gap:2px; } .bar-row .n { text-align:left; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Variance : trois essais par case, DSL contre PHP à la main, Haiku et Sonnet</h1>
+  <p class="meta">Réalisé le 8 novembre 2026 · Même brief (cabinet d'avocats à Bordeaux) et mêmes consignes que la <a href="RAPPORT-BASELINE.html">baseline</a> et le <a href="RAPPORT-HAIKU.html">test Haiku</a>, rapport d'agent raccourci à dix lignes</p>
+</header>
+
+<h2>1. Verdict</h2>
+<div class="verdict">
+Avec trois essais par case, les mesures sont stables : l'écart-type dans une case vaut 2 à 6 % de la moyenne. Le DSL fait <strong>écrire 4 à 5 fois moins</strong>, va <strong>1,8 à 2,8 fois plus vite</strong>, et consomme <strong>29 % de tokens en moins sur Haiku</strong> mais <strong>seulement 8 % en moins sur Sonnet</strong>. Les chiffres uniques des tests précédents (− 44 % sur Haiku, − 18 % sur Sonnet) surestimaient l'écart : une partie venait du rapport long demandé aux agents. Douze sites sur douze passent le banc de vérification, et aucun agent, dans aucune case, n'a produit d'erreur PHP réelle.
+</div>
+
+<h2>2. Résultats bruts</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Case</th><th>Essai</th><th class="num">Tokens consommés</th><th class="num">Appels</th><th class="num">Durée</th><th class="num">Écrit (tokens)</th><th class="num">Lignes</th><th>Itérations</th><th class="num">Banc</th></tr></thead>
+  <tbody>
+    <tr class="dsl"><td rowspan="3">Haiku · DSL</td><td>1</td><td class="num">78 083</td><td class="num">15</td><td class="num">1 min 18</td><td class="num">2 160</td><td class="num">208</td><td>1 check, 0 erreur</td><td class="num">50/50</td></tr>
+    <tr class="dsl"><td>2</td><td class="num">85 480</td><td class="num">16</td><td class="num">1 min 45</td><td class="num">2 708</td><td class="num">227</td><td>1 check, 0 erreur</td><td class="num">50/50</td></tr>
+    <tr class="dsl"><td>3</td><td class="num">81 146</td><td class="num">16</td><td class="num">1 min 32</td><td class="num">2 721</td><td class="num">228</td><td>2 checks (8 icônes hors liste → 0)</td><td class="num">50/50</td></tr>
+    <tr><td rowspan="3">Haiku · PHP</td><td>1</td><td class="num">116 450</td><td class="num">28</td><td class="num">4 min 39</td><td class="num">13 763</td><td class="num">1 475</td><td>0 erreur PHP, 2 reprises de harnais</td><td class="num">46/46</td></tr>
+    <tr><td>2</td><td class="num">113 411</td><td class="num">18</td><td class="num">4 min 06</td><td class="num">14 476</td><td class="num">1 257</td><td>0 erreur PHP, 1 reprise</td><td class="num">46/46</td></tr>
+    <tr><td>3</td><td class="num">115 949</td><td class="num">34</td><td class="num">4 min 08</td><td class="num">12 766</td><td class="num">1 489</td><td>0 erreur PHP, 2 reprises</td><td class="num">46/46</td></tr>
+    <tr class="dsl"><td rowspan="3">Sonnet · DSL</td><td>1</td><td class="num">71 774</td><td class="num">8</td><td class="num">1 min 12</td><td class="num">2 248</td><td class="num">228</td><td>2 checks (2 deux-points YAML → 0)</td><td class="num">50/50</td></tr>
+    <tr class="dsl"><td>2</td><td class="num">68 696</td><td class="num">9</td><td class="num">1 min 11</td><td class="num">2 076</td><td class="num">188</td><td>2 checks (2 → 0)</td><td class="num">50/50</td></tr>
+    <tr class="dsl"><td>3</td><td class="num">71 568</td><td class="num">17</td><td class="num">1 min 18</td><td class="num">2 190</td><td class="num">210</td><td>2 checks (1 icône → 0)</td><td class="num">50/50</td></tr>
+    <tr><td rowspan="3">Sonnet · PHP</td><td>1</td><td class="num">74 443</td><td class="num">10</td><td class="num">1 min 56</td><td class="num">8 065</td><td class="num">508</td><td>0 erreur PHP, 1 reprise</td><td class="num">46/46</td></tr>
+    <tr><td>2</td><td class="num">82 368</td><td class="num">13</td><td class="num">2 min 44</td><td class="num">8 207</td><td class="num">457</td><td>0 erreur PHP</td><td class="num">47/47</td></tr>
+    <tr><td>3</td><td class="num">74 042</td><td class="num">8</td><td class="num">1 min 54</td><td class="num">9 515</td><td class="num">563</td><td>0 erreur PHP</td><td class="num">46/46</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="legend">Banc : <code>scripts/verify-php-site.mjs</code> sur serveur PHP réel ; les sites DSL comptent quatre contrôles de plus (version texte). Les sites DSL ont été compilés avec <code>--draft</code> car deux d'entre eux portent des « à compléter » légitimes pour le SIRET et le barreau.</p>
+
+<h2>3. Moyennes et dispersion</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Case</th><th class="num">Tokens consommés (moy. ± é.-t.)</th><th class="num">Durée moy.</th><th class="num">Écrit moy.</th><th class="num">Appels moy.</th></tr></thead>
+  <tbody>
+    <tr class="dsl"><td>Haiku · DSL</td><td class="num">81 570 ± 3 700 (4,5 %)</td><td class="num">1 min 32</td><td class="num">2 530</td><td class="num">15,7</td></tr>
+    <tr><td>Haiku · PHP</td><td class="num">115 270 ± 1 600 (1,4 %)</td><td class="num">4 min 18</td><td class="num">13 670</td><td class="num">26,7</td></tr>
+    <tr class="dsl"><td>Sonnet · DSL</td><td class="num">70 680 ± 1 700 (2,4 %)</td><td class="num">1 min 14</td><td class="num">2 170</td><td class="num">11,3</td></tr>
+    <tr><td>Sonnet · PHP</td><td class="num">76 950 ± 4 700 (6,1 %)</td><td class="num">2 min 11</td><td class="num">8 600</td><td class="num">10,3</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="bars">
+  <div class="bar-row dsl"><span>Haiku · DSL</span><div class="track"><div class="fill" style="width:70.8%"></div><div class="range" style="left:67.7%;width:6.4%"></div></div><span class="n">81 570</span></div>
+  <div class="bar-row"><span>Haiku · PHP</span><div class="track"><div class="fill" style="width:100%"></div><div class="range" style="left:98.4%;width:1.6%"></div></div><span class="n">115 270</span></div>
+  <div class="bar-row dsl"><span>Sonnet · DSL</span><div class="track"><div class="fill" style="width:61.3%"></div><div class="range" style="left:59.6%;width:2.7%"></div></div><span class="n">70 680</span></div>
+  <div class="bar-row"><span>Sonnet · PHP</span><div class="track"><div class="fill" style="width:66.8%"></div><div class="range" style="left:64.2%;width:7.2%"></div></div><span class="n">76 950</span></div>
+</div>
+<p class="legend">Tokens consommés, moyenne de trois essais ; les traits rouges marquent le minimum et le maximum observés.</p>
+
+<h2>4. Écarts DSL contre PHP, avec trois essais</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Mesure</th><th class="num">Haiku</th><th class="num">Sonnet</th><th>Rappel des essais uniques précédents</th></tr></thead>
+  <tbody>
+    <tr><td>Tokens consommés</td><td class="num">− 29 %</td><td class="num">− 8 %</td><td>− 44 % (Haiku), − 18 % (Sonnet)</td></tr>
+    <tr><td>Durée</td><td class="num">÷ 2,8</td><td class="num">÷ 1,8</td><td>÷ 4,1 et ÷ 2,1</td></tr>
+    <tr><td>Volume écrit</td><td class="num">÷ 5,4</td><td class="num">÷ 4,0</td><td>÷ 5,0 et ÷ 4,6</td></tr>
+    <tr><td>Appels d'outils</td><td class="num">÷ 1,7</td><td class="num">≈ égal</td><td></td></tr>
+    <tr><td>Erreurs de code réelles</td><td class="num">0 des deux côtés</td><td class="num">0 des deux côtés</td><td>idem</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>5. Lecture</h2>
+<ol>
+  <li><strong>Les mesures sont reproductibles.</strong> Trois essais suffisent à voir que la dispersion est faible et que les écarts sont réels, mais plus modestes que ce que les essais uniques laissaient croire. L'écart sur Sonnet, 8 %, est du même ordre que la dispersion de la case PHP : sur un grand modèle, à la création, le DSL n'économise presque rien en tokens totaux.</li>
+  <li><strong>Pourquoi l'écart précédent était plus grand.</strong> Les premiers tests demandaient aux agents un rapport détaillé avec journal ; cette fois dix lignes. Le rapport pèse davantage dans un agent PHP qui a beaucoup à raconter. Les conditions étant identiques des deux côtés ici, ces chiffres sont les bons.</li>
+  <li><strong>Ce qui ne bouge pas :</strong> le volume écrit divisé par 4 à 5, le temps divisé par 2 à 3, l'absence totale d'erreur PHP réelle en création, et l'homogénéité des sites DSL contre des architectures PHP toutes différentes.</li>
+  <li><strong>Deux nouvelles frictions du DSL</strong> ressortent de neuf agents DSL : la liste des icônes, que quatre agents ont dû découvrir par l'erreur de <code>check</code>, et le deux-points dans une description SEO, piège YAML connu. La liste des icônes a été étendue à 32 pictogrammes SVG, dont balance, pain, croissant, goutte, flamme, et nommée dans la documentation ; les agents DSL les plus rapides sont ceux qui lisent <code>explain</code> avant d'écrire.</li>
+  <li><strong>La valeur se confirme là où on l'avait située :</strong> maintenance, petits modèles, homogénéité, oracle de vérification fourni. Elle n'est pas dans la création unique sur grand modèle.</li>
+</ol>
+
+<h2>6. Limites</h2>
+<ul>
+  <li>Un seul brief. Les trois essais mesurent la variance d'exécution, pas celle entre métiers.</li>
+  <li>Les agents PHP ne vérifient qu'en ligne de commande ; le banc passe après coup. Les agents DSL n'ont pas <code>build</code>. Les conditions sont égales mais aucune n'est celle d'un déploiement réel.</li>
+  <li>Durées sensibles à la charge des serveurs ; elles ont été relevées en parallèle pour les douze agents.</li>
+</ul>
+
+<h2>7. Reproduire</h2>
+<pre><code>node scripts/measure-variance.mjs        # check, build --draft, banc, tokens, pour les 12 essais ; écrit variance/mesures.json
+# briefs : variance/BRIEF-DSL.md et variance/BRIEF-PHP.md ; sites : variance/&lt;modèle&gt;/&lt;dsl|php&gt;/run&lt;n&gt;</code></pre>
+
+</div>
+</body>
+</html>

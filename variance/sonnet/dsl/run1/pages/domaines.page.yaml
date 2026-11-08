@@ -1,0 +1,42 @@
+page: domaines
+route: /domaines
+seo:
+  title: Domaines d'intervention
+  description: Droit du travail, droit des affaires et droit de la famille, les domaines d'intervention du cabinet Garnier & Associés à Bordeaux.
+sections:
+  - hero:
+      title: Domaines d'intervention
+      subtitle: Trois spécialités, chacune portée par un avocat associé.
+  - richtext:
+      id: travail
+      title: Droit du travail
+      image: helene.svg
+      keywords: [licenciement, prud'hommes, contrat de travail, salarié, employeur]
+      text: |
+        Me Hélène Garnier accompagne salariés et employeurs dans leurs litiges et leurs projets : contrat de travail, licenciement, rupture conventionnelle, harcèlement, procédure devant le conseil de prud'hommes.
+
+        Chaque dossier commence par l'analyse des pièces et un point sur les délais, souvent déterminants en droit du travail.
+  - richtext:
+      id: affaires
+      title: Droit des affaires
+      image: thomas.svg
+      image_position: left
+      keywords: [création de société, contrat commercial, litige, entreprise]
+      text: |
+        Me Thomas Ruiz conseille dirigeants et entreprises : création et structuration de société, pactes d'associés, contrats commerciaux, recouvrement de créances et contentieux entre professionnels.
+
+        Il intervient en conseil, pour sécuriser vos décisions, comme en contentieux lorsque le litige ne peut être évité.
+  - richtext:
+      id: famille
+      title: Droit de la famille
+      image: ines.svg
+      keywords: [divorce, garde d'enfants, pension alimentaire, succession]
+      text: |
+        Me Inès Kaddour assiste ses clients dans les moments sensibles : divorce, séparation, autorité parentale, pension alimentaire, liquidation du régime matrimonial.
+
+        Elle privilégie, lorsque c'est possible, une issue négociée, tout en défendant fermement vos intérêts si la voie judiciaire s'impose.
+  - cta:
+      title: Quel est votre besoin ?
+      text: La première consultation de 30 minutes est offerte.
+      button: { label: Prendre rendez-vous, to: /contact }
+      style: surface

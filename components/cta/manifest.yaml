@@ -1,0 +1,17 @@
+name: cta
+order: 70
+description: Bandeau d'appel à l'action (titre, texte, bouton). À placer en fin de page.
+props:
+  type: object
+  required: [title, button]
+  properties:
+    title: { type: string }
+    text: { type: string }
+    button: { $ref: "#/$defs/link" }
+    style: { type: string, enum: [primary, surface], description: "fond coloré (primary) ou discret (surface), défaut primary" }
+example: |
+  - cta:
+      title: Un projet en tête ?
+      text: Devis gratuit sous 48 h.
+      button: { label: Demander un devis, to: /contact }
+intents: [contact, demande, devis]

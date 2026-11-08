@@ -1,0 +1,27 @@
+name: steps
+order: 98
+description: "Étapes numérotées (déroulé d'un dossier, d'une prestation, d'une commande)."
+props:
+  type: object
+  required: [items]
+  properties:
+    title: { type: string }
+    intro: { type: string }
+    items:
+      type: array
+      minItems: 2
+      items:
+        type: object
+        additionalProperties: false
+        required: [title]
+        properties:
+          title: { type: string }
+          text: { type: string }
+example: |
+  - steps:
+      title: Comment ça se passe
+      items:
+        - { title: Premier échange, text: 30 minutes offertes pour comprendre votre situation. }
+        - { title: Convention d'honoraires, text: Un devis écrit avant toute démarche. }
+        - { title: Suivi, text: Un interlocuteur unique jusqu'à la fin du dossier. }
+intents: [étapes, comment ça se passe, déroulement, processus, procédure]

@@ -1,0 +1,13 @@
+name: cart.page
+order: 113
+description: "Panier : lignes, quantités modifiables, suppression, sous-total, livraison, total, bouton vers la commande. Une seule par site."
+props:
+  type: object
+  properties:
+    title: { type: string, description: défaut « Votre panier » }
+    empty_text: { type: string, description: texte quand le panier est vide }
+    continue: { $ref: "#/$defs/link", description: lien « continuer mes achats » }
+example: |
+  - cart.page:
+      continue: { label: Continuer mes achats, to: /boutique }
+intents: [panier, mon panier, commande en cours]

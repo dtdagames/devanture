@@ -1,0 +1,14 @@
+name: order.confirmation
+order: 115
+description: "Confirmation de commande (page dynamique /commande/[id], source: orders) : numéro, lignes, total, instructions de paiement, coordonnées."
+props:
+  type: object
+  properties:
+    title: { type: string, description: défaut « Merci pour votre commande » }
+    text: { type: string, description: texte sous le titre }
+    cta: { $ref: "#/$defs/link", description: lien de sortie (ex. retour à l'accueil) }
+example: |
+  - order.confirmation:
+      text: Vous recevez un e-mail de confirmation dans quelques minutes.
+      cta: { label: Retour à l'accueil, to: / }
+intents: [confirmation, suivi de commande, ma commande]

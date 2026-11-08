@@ -1,0 +1,6 @@
+.gallery-item{margin:0}
+.gallery-item img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:var(--radius);transition:transform .2s}
+.gallery-item a:hover img{transform:scale(1.02)}
+.gallery-item figcaption{margin-top:8px;color:var(--color-muted);font-size:.95rem}
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center;z-index:100;cursor:zoom-out}
+.lightbox img{max-width:92vw;max-height:92vh;border-radius:6px}

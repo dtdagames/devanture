@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test Haiku Sitelang</title>
+<style>
+  :root {
+    --bg: #ffffff; --bg-soft: #f6f7f9; --fg: #1b1f24; --fg-muted: #5b6470;
+    --accent: #1f3a5f; --accent-soft: #e8eef6; --border: #d9dee5;
+    --code-bg: #f1f3f6; --code-fg: #1b1f24;
+    --ok-bg: #e7f5ec; --ok-border: #5aa36f; --warn-bg: #fff6e0; --warn-border: #e8c46a; --bad-bg: #fdecea; --bad-border: #d9534f;
+    --bar: #1f3a5f; --bar2: #8aa3c4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1216; --bg-soft: #161b22; --fg: #e6e9ee; --fg-muted: #9aa4b1;
+      --accent: #8fb4e3; --accent-soft: #1b2a3f; --border: #2a323d;
+      --code-bg: #161b22; --code-fg: #e6e9ee;
+      --ok-bg: #12301c; --ok-border: #3c8a52; --warn-bg: #2b2410; --warn-border: #8a6d1f; --bad-bg: #3a1716; --bad-border: #b23b36;
+      --bar: #8fb4e3; --bar2: #3b5676;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1216; --bg-soft: #161b22; --fg: #e6e9ee; --fg-muted: #9aa4b1;
+    --accent: #8fb4e3; --accent-soft: #1b2a3f; --border: #2a323d;
+    --code-bg: #161b22; --code-fg: #e6e9ee;
+    --ok-bg: #12301c; --ok-border: #3c8a52; --warn-bg: #2b2410; --warn-border: #8a6d1f; --bad-bg: #3a1716; --bad-border: #b23b36;
+    --bar: #8fb4e3; --bar2: #3b5676;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 32px 16px 80px; }
+  header { border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 28px; }
+  header h1 { font-size: 1.8rem; line-height: 1.25; margin: 0 0 8px; }
+  header p.meta { color: var(--fg-muted); margin: 0; }
+  h2 { font-size: 1.4rem; margin: 44px 0 12px; padding-top: 8px; border-top: 1px solid var(--border); }
+  h3 { font-size: 1.08rem; margin: 26px 0 8px; }
+  p { margin: 0 0 14px; }
+  ul, ol { margin: 0 0 14px; padding-left: 24px; }
+  li { margin-bottom: 5px; }
+  code { font: .9em/1.5 ui-monospace, "Cascadia Code", Consolas, monospace; background: var(--code-bg); color: var(--code-fg); padding: 1px 5px; border-radius: 4px; }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; overflow-x: auto; margin: 0 0 18px; }
+  pre code { background: none; padding: 0; font-size: .82rem; }
+  table { width: 100%; border-collapse: collapse; margin: 0 0 20px; font-size: .93rem; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border: 1px solid var(--border); }
+  th { background: var(--bg-soft); font-weight: 600; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.dsl td { background: var(--accent-soft); }
+  .table-wrap { overflow-x: auto; margin-bottom: 20px; }
+  .verdict { background: var(--accent-soft); border-left: 4px solid var(--accent); padding: 14px 18px; border-radius: 0 8px 8px 0; margin-bottom: 18px; }
+  .box { border-radius: 8px; padding: 12px 16px; margin: 0 0 18px; border: 1px solid; }
+  .ok { background: var(--ok-bg); border-color: var(--ok-border); }
+  .warn { background: var(--warn-bg); border-color: var(--warn-border); }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 0 0 22px; }
+  .kpi { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .kpi .v { font-size: 1.6rem; font-weight: 700; color: var(--accent); line-height: 1.1; }
+  .kpi .l { color: var(--fg-muted); font-size: .9rem; margin-top: 4px; }
+  .bars { margin: 0 0 22px; }
+  .bar-row { display: grid; grid-template-columns: 250px 1fr 80px; gap: 10px; align-items: center; margin-bottom: 6px; font-size: .92rem; }
+  .bar-row .track { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 4px; height: 18px; overflow: hidden; }
+  .bar-row .fill { height: 100%; background: var(--bar2); }
+  .bar-row.dsl .fill { background: var(--bar); }
+  .bar-row .n { text-align: right; font-variant-numeric: tabular-nums; }
+  .legend { font-size: .85rem; color: var(--fg-muted); margin: -10px 0 18px; }
+  @media (max-width: 640px) { header h1 { font-size: 1.45rem; } .bar-row { grid-template-columns: 1fr; gap: 2px; } .bar-row .n { text-align: left; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Même test de création sur Haiku : l'écart s'élargit avec un petit modèle</h1>
+  <p class="meta">Réalisé le 7 novembre 2026 · Suite de <a href="RAPPORT-BASELINE.html">RAPPORT-BASELINE.html</a> et <a href="RAPPORT-MAINTENANCE.html">RAPPORT-MAINTENANCE.html</a></p>
+</header>
+
+<h2>1. Verdict</h2>
+<div class="verdict">
+Sur Haiku, le DSL consomme <strong>44 à 46 % de tokens en moins</strong> que le PHP écrit à la main et va <strong>quatre fois plus vite</strong>, contre 18 à 19 % et 1,5 à 2 fois sur Sonnet et le modèle par défaut. Plus le modèle est petit, plus la couche déclarative rapporte. Mais la surprise de la baseline tient encore : <strong>Haiku écrit du PHP correct du premier coup</strong>. Zéro erreur de syntaxe, zéro erreur à l'exécution sur deux sites de 1 200 à 1 340 lignes, qui passent les 46 contrôles du banc. L'économie du DSL ne vient pas de la correction, elle vient du volume, du temps, et surtout du <strong>harnais de vérification fourni</strong> : les agents PHP ont passé une grande part de leur budget à construire et déboguer le leur.
+</div>
+<div class="kpis">
+  <div class="kpi"><div class="v">− 44 à − 46 %</div><div class="l">tokens consommés, DSL vs PHP à la main, sur Haiku</div></div>
+  <div class="kpi"><div class="v">÷ 4,1</div><div class="l">temps, sur les deux briefs</div></div>
+  <div class="kpi"><div class="v">4 / 4</div><div class="l">sites qui passent les 46 contrôles</div></div>
+  <div class="kpi"><div class="v">0</div><div class="l">erreur PHP réelle chez les deux agents « à la main »</div></div>
+</div>
+
+<h2>2. Protocole</h2>
+<p>Identique à la baseline : mêmes briefs (cabinet d'avocats à Bordeaux, boulangerie à Nantes), mêmes consignes, même banc de vérification après coup. Quatre agents Haiku sans contexte : deux en DSL (<code>CLAUDE.md</code>, <code>catalog</code>, <code>explain</code>, <code>check</code>), deux en PHP à la main depuis le cahier des charges (<code>php -l</code> et exécution en ligne de commande). Le DSL a entre-temps gagné les champs de formulaire libres, le bloc <code>custom</code>, les ancres, et les composants horaires et liste de prix ; le catalogue compte douze composants.</p>
+
+<h2>3. Résultats</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Brief</th><th>Variante</th><th class="num">Écrit (tokens)</th><th class="num">Lignes</th><th class="num">Tokens consommés</th><th class="num">Appels d'outils</th><th class="num">Durée</th><th class="num">Itérations</th><th class="num">Erreurs réelles</th><th class="num">Banc</th></tr></thead>
+  <tbody>
+    <tr class="dsl"><td rowspan="2">Garnier &amp; Associés</td><td><strong>DSL</strong></td><td class="num"><strong>2 838</strong></td><td class="num">254</td><td class="num"><strong>75 611</strong></td><td class="num">16</td><td class="num"><strong>1 min 19</strong></td><td class="num">1 check</td><td class="num">0</td><td class="num">46/46</td></tr>
+    <tr><td>PHP à la main</td><td class="num">14 218</td><td class="num">1 340</td><td class="num">135 966</td><td class="num">26</td><td class="num">5 min 22</td><td class="num">1 lint, 3 reprises de harnais</td><td class="num">0</td><td class="num">46/46</td></tr>
+    <tr class="dsl"><td rowspan="2">Le Fournil</td><td><strong>DSL</strong></td><td class="num"><strong>2 666</strong></td><td class="num">231</td><td class="num"><strong>81 056</strong></td><td class="num">32</td><td class="num"><strong>1 min 32</strong></td><td class="num">2 checks (5 erreurs → 0)</td><td class="num">0</td><td class="num">46/46</td></tr>
+    <tr><td>PHP à la main</td><td class="num">12 316</td><td class="num">1 220</td><td class="num">149 647</td><td class="num">32</td><td class="num">6 min 18</td><td class="num">1 lint, 3 reprises de harnais</td><td class="num">0</td><td class="num">46/46</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="legend">« Erreurs réelles » = erreurs du site lui-même, hors problèmes du harnais de test écrit par l'agent. Les cinq erreurs du premier <code>check</code> du Fournil sont quatre virgules non protégées en notation compacte et une erreur YAML de même origine, toutes désignées par le message dédié et corrigées en une passe.</p>
+
+<h3>3.1 Tokens consommés</h3>
+<div class="bars">
+  <div class="bar-row dsl"><span>Garnier · DSL</span><div class="track"><div class="fill" style="width:50.5%"></div></div><span class="n">75 611</span></div>
+  <div class="bar-row"><span>Garnier · PHP à la main</span><div class="track"><div class="fill" style="width:90.9%"></div></div><span class="n">135 966</span></div>
+  <div class="bar-row dsl"><span>Fournil · DSL</span><div class="track"><div class="fill" style="width:54.2%"></div></div><span class="n">81 056</span></div>
+  <div class="bar-row"><span>Fournil · PHP à la main</span><div class="track"><div class="fill" style="width:100%"></div></div><span class="n">149 647</span></div>
+</div>
+
+<h3>3.2 L'écart selon le modèle (création, DSL contre PHP à la main sans bibliothèque)</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Modèle</th><th>Brief</th><th class="num">Tokens DSL</th><th class="num">Tokens PHP</th><th class="num">Écart</th><th class="num">Temps DSL</th><th class="num">Temps PHP</th><th class="num">Rapport</th></tr></thead>
+  <tbody>
+    <tr><td>Sonnet</td><td>Garnier</td><td class="num">70 262</td><td class="num">85 390</td><td class="num">− 18 %</td><td class="num">1 min 40</td><td class="num">3 min 26</td><td class="num">÷ 2,1</td></tr>
+    <tr><td>Modèle par défaut</td><td>Fournil</td><td class="num">88 661</td><td class="num">108 878</td><td class="num">− 19 %</td><td class="num">7 min 17</td><td class="num">11 min 05</td><td class="num">÷ 1,5</td></tr>
+    <tr><td>Haiku</td><td>Garnier</td><td class="num">75 611</td><td class="num">135 966</td><td class="num"><strong>− 44 %</strong></td><td class="num">1 min 19</td><td class="num">5 min 22</td><td class="num"><strong>÷ 4,1</strong></td></tr>
+    <tr><td>Haiku</td><td>Fournil</td><td class="num">81 056</td><td class="num">149 647</td><td class="num"><strong>− 46 %</strong></td><td class="num">1 min 32</td><td class="num">6 min 18</td><td class="num"><strong>÷ 4,1</strong></td></tr>
+  </tbody>
+</table>
+</div>
+<p>Le coût du DSL est à peu près stable d'un modèle à l'autre (70 000 à 89 000 tokens). Le coût du PHP à la main grimpe avec un petit modèle (85 000 à 150 000) : plus d'appels, plus de relectures, plus d'essais de harnais. Le DSL absorbe cette variabilité parce qu'il laisse moins de décisions à prendre.</p>
+
+<h2>4. Lecture</h2>
+<ol>
+  <li><strong>La correction n'est toujours pas l'argument.</strong> Même Haiku a sorti 2 500 lignes de PHP sans une erreur de syntaxe ni d'exécution. Trois tests, dix sites écrits à la main, zéro erreur réelle à la création. Il faut cesser de présenter le compilateur comme un filet contre les fautes de code.</li>
+  <li><strong>L'oracle de validation est l'argument.</strong> Les deux agents PHP sur Haiku ont chacun perdu trois passes à cause de leur harnais : conversion de chemins Git Bash, sortie avant <code>http_response_code</code>, motif de recherche qui attrapait une classe CSS. Les agents DSL n'ont rien construit : <code>check</code> était là. Sur un petit modèle, ce travail de harnais coûte proportionnellement plus cher, d'où l'écart qui s'élargit.</li>
+  <li><strong>Les messages d'erreur ciblés font converger un petit modèle.</strong> Cinq erreurs au premier passage du Fournil, toutes nommées par <code>E_UNQUOTED_COMMA</code> avec la parade, zéro au second. Sans ce message, l'agent aurait vu des « propriétés inconnues » absurdes.</li>
+  <li><strong>Haiku exploite le catalogue étendu.</strong> Le Fournil utilise onze composants, dont les nouveaux horaires et liste de prix, et le formulaire à champs libres. Les manques signalés par les agents précédents étaient donc bien des freins.</li>
+  <li><strong>Le DSL reste plus homogène.</strong> Les deux sites DSL Haiku ont la même structure que ceux de Sonnet et du modèle par défaut. Les deux sites PHP Haiku ont encore deux architectures nouvelles.</li>
+</ol>
+
+<h2>5. Ce que les agents Haiku ont signalé</h2>
+<ul>
+  <li><strong>Piège du dièse</strong> : <code>to: #formulaire</code> sans guillemets est un commentaire YAML. Corrigé après le test : <code>check</code> remonte à la vraie ligne fautive et nomme le piège avec la parade ; <code>CLAUDE.md</code> le documente comme piège n° 2.</li>
+  <li>L'erreur YAML pointait la ligne de la section plutôt que la ligne de l'item fautif. Corrigé en partie : le message remonte désormais à la dernière ligne non vide et diagnostique par son contenu.</li>
+  <li>Icônes sans équivalent juridique ou alimentaire (déjà noté), pas de prop <code>alt</code> sur la photo d'équipe, <code>required</code> définissable à deux endroits sans règle de priorité écrite, contenu « [à compléter] » que <code>check</code> ne signale pas.</li>
+  <li>Les deux agents PHP ont refusé d'inventer des témoignages pour un cabinet d'avocats, comme leurs prédécesseurs.</li>
+</ul>
+
+<h2>6. Bilan consolidé des quatre tests</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Question</th><th>Réponse</th></tr></thead>
+  <tbody>
+    <tr><td>Un agent sans contexte écrit-il un site valide dans le DSL ?</td><td>Oui, sur trois niveaux de modèle, en 1 ou 2 itérations de <code>check</code>.</td></tr>
+    <tr><td>Combien le DSL économise-t-il à la création ?</td><td>18 à 19 % de tokens sur les grands modèles, 44 à 46 % sur Haiku ; volume écrit divisé par 4 à 5 ; temps divisé par 1,5 à 4.</td></tr>
+    <tr><td>Et en maintenance ?</td><td>25 à 36 % de tokens, temps divisé par 2,3 à 2,7, diff deux fois plus petit, zéro régression.</td></tr>
+    <tr><td>Le compilateur rattrape-t-il des erreurs de code ?</td><td>Non démontré : dix sites PHP écrits à la main, zéro erreur réelle. Sa valeur est l'oracle prêt à l'emploi et les messages ciblés sur les pièges du DSL lui-même.</td></tr>
+    <tr><td>Le DSL couvre-t-il les besoins ?</td><td>Mieux qu'au départ : champs libres, bloc <code>custom</code>, ancres, horaires, liste de prix. Reste : carte, étapes, balisage léger dans les textes, icônes métier.</td></tr>
+    <tr><td>Où est la valeur pour un éditeur de sites ?</td><td>Petits modèles, parc homogène, correctifs propagés par recompilation, modifications en quelques lignes.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="box ok"><strong>Mise à jour.</strong> Trois chantiers « navigation » ont été implémentés ensuite : navigation par intention, formulaire conditionnel, jumeau pour agents. Voir <a href="RAPPORT-NAVIGATION.html">RAPPORT-NAVIGATION.html</a>.</div>
+<div class="box warn"><strong>Correction par la mesure de variance.</strong> Avec trois essais par case et un rapport d'agent court, l'écart sur Haiku est de − 29 % (et non − 44 %) et de − 8 % sur Sonnet. Voir <a href="RAPPORT-VARIANCE.html">RAPPORT-VARIANCE.html</a>.</div>
+<h2>7. Limites</h2>
+<ul>
+  <li>Un essai par case, pas de variance. Les durées dépendent aussi de la charge des serveurs.</li>
+  <li>Le DSL testé ici est plus riche que celui de la baseline (douze composants au lieu de dix) ; la comparaison entre niveaux de modèle n'est donc pas strictement à périmètre constant côté DSL.</li>
+  <li>Qualité éditoriale et visuelle non évaluées ; JavaScript et rendu mobile non couverts par le banc.</li>
+</ul>
+
+<h2>8. Annexe : reproduire</h2>
+<pre><code>node bin/sitec.js check haiku/dsl/le-fournil
+node bin/sitec.js build haiku/dsl/le-fournil
+node scripts/verify-php-site.mjs haiku/dsl/le-fournil/dist 8871
+node scripts/verify-php-site.mjs haiku/sans-lib/garnier-associes 8872
+node scripts/measure.mjs haiku/dsl/garnier-associes haiku/dsl/le-fournil
+node scripts/measure-baseline.mjs haiku/sans-lib/garnier-associes haiku/sans-lib/le-fournil</code></pre>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,27 @@
+site:
+  name: Boulangerie Le Fournil
+  tagline: Artisan boulanger à Nantes, quartier Bouffay, depuis 2009
+  locale: fr-FR
+  theme:
+    preset: chaleureux
+    tokens:
+      color.primary: "#6b2d5c"
+      color.accent: "#d4a017"
+      font.heading: "Georgia, serif"
+  nav:
+    - { label: Accueil, to: / }
+    - { label: Nos produits, to: /nos-produits }
+    - { label: La boulangerie, to: /la-boulangerie }
+    - { label: Commandes événements, to: /commandes-evenements }
+    - { label: Recrutement, to: /recrutement }
+    - { label: Contact, to: /contact }
+  footer:
+    text: "Boulangerie Le Fournil — 8 rue de la Juiverie, 44000 Nantes. Ouvert du mardi au dimanche, 6h30-19h30."
+    links:
+      - { label: Mentions légales, to: /mentions-legales }
+      - { label: Recrutement, to: /recrutement }
+      - { label: Contact, to: /contact }
+  contact:
+    email: bonjour@lefournil-nantes.fr
+    phone: 02 40 00 00 00
+    address: "8 rue de la Juiverie, 44000 Nantes"

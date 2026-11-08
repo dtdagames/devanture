@@ -1,0 +1,140 @@
+[
+  {
+    "model": "haiku",
+    "variant": "dsl",
+    "run": 1,
+    "dir": "variance/haiku/dsl/run1",
+    "check_ok": true,
+    "build_ok": true,
+    "tokens": 2160,
+    "lines": 208,
+    "bench": "50/50",
+    "bench_ok": true
+  },
+  {
+    "model": "haiku",
+    "variant": "dsl",
+    "run": 2,
+    "dir": "variance/haiku/dsl/run2",
+    "check_ok": true,
+    "build_ok": true,
+    "tokens": 2708,
+    "lines": 227,
+    "bench": "50/50",
+    "bench_ok": true
+  },
+  {
+    "model": "haiku",
+    "variant": "dsl",
+    "run": 3,
+    "dir": "variance/haiku/dsl/run3",
+    "check_ok": true,
+    "build_ok": true,
+    "tokens": 2721,
+    "lines": 228,
+    "bench": "50/50",
+    "bench_ok": true
+  },
+  {
+    "model": "haiku",
+    "variant": "php",
+    "run": 1,
+    "dir": "variance/haiku/php/run1",
+    "tokens": 13763,
+    "lines": 1475,
+    "bench": "46/46",
+    "bench_ok": true,
+    "fails": []
+  },
+  {
+    "model": "haiku",
+    "variant": "php",
+    "run": 2,
+    "dir": "variance/haiku/php/run2",
+    "tokens": 14476,
+    "lines": 1257,
+    "bench": "46/46",
+    "bench_ok": true,
+    "fails": []
+  },
+  {
+    "model": "haiku",
+    "variant": "php",
+    "run": 3,
+    "dir": "variance/haiku/php/run3",
+    "tokens": 12766,
+    "lines": 1489,
+    "bench": "46/46",
+    "bench_ok": true,
+    "fails": []
+  },
+  {
+    "model": "sonnet",
+    "variant": "dsl",
+    "run": 1,
+    "dir": "variance/sonnet/dsl/run1",
+    "check_ok": true,
+    "build_ok": true,
+    "tokens": 2248,
+    "lines": 228,
+    "bench": "50/50",
+    "bench_ok": true
+  },
+  {
+    "model": "sonnet",
+    "variant": "dsl",
+    "run": 2,
+    "dir": "variance/sonnet/dsl/run2",
+    "check_ok": true,
+    "build_ok": true,
+    "tokens": 2076,
+    "lines": 188,
+    "bench": "50/50",
+    "bench_ok": true
+  },
+  {
+    "model": "sonnet",
+    "variant": "dsl",
+    "run": 3,
+    "dir": "variance/sonnet/dsl/run3",
+    "check_ok": true,
+    "build_ok": true,
+    "tokens": 2190,
+    "lines": 210,
+    "bench": "50/50",
+    "bench_ok": true
+  },
+  {
+    "model": "sonnet",
+    "variant": "php",
+    "run": 1,
+    "dir": "variance/sonnet/php/run1",
+    "tokens": 8065,
+    "lines": 508,
+    "bench": "46/46",
+    "bench_ok": true,
+    "fails": []
+  },
+  {
+    "model": "sonnet",
+    "variant": "php",
+    "run": 2,
+    "dir": "variance/sonnet/php/run2",
+    "tokens": 8207,
+    "lines": 457,
+    "bench": "47/47",
+    "bench_ok": true,
+    "fails": []
+  },
+  {
+    "model": "sonnet",
+    "variant": "php",
+    "run": 3,
+    "dir": "variance/sonnet/php/run3",
+    "tokens": 9515,
+    "lines": 563,
+    "bench": "46/46",
+    "bench_ok": true,
+    "fails": []
+  }
+]

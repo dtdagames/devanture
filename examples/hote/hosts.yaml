@@ -1,0 +1,4 @@
+# Un hébergement mutualisé, plusieurs sites : le domaine choisit le site.
+sites:
+  - { domain: plomberie-martin.fr, aliases: [www.plomberie-martin.fr], project: ../plomberie-martin }
+  - { domain: savonnerie-du-port.fr, aliases: [www.savonnerie-du-port.fr], project: ../savonnerie }

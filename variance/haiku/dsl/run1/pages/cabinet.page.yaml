@@ -1,0 +1,32 @@
+page: cabinet
+route: /cabinet
+seo:
+  title: "Le cabinet et l'équipe | Cabinet Garnier & Associés"
+  description: "Cabinet fondé en 2011 à Bordeaux, trois associés et une équipe de collaboratrices."
+sections:
+  - hero:
+      title: Le cabinet
+      subtitle: "Fondé en 2011 à Bordeaux, le cabinet réunit trois associés."
+      align: left
+  - richtext:
+      id: histoire
+      title: Notre histoire
+      text: |
+        Le cabinet Garnier & Associés est fondé en 2011 à Bordeaux. Il s'est développé autour de trois spécialités : le droit du travail, le droit des affaires et le droit de la famille.
+
+        Il intervient à Bordeaux, Libourne et Arcachon.
+  - team:
+      id: equipe
+      title: L'équipe
+      intro: "Les trois associés dirigent chacun un pôle d'intervention."
+      members:
+        - { name: Me Hélène Garnier, role: Associée, bio: Droit du travail }
+        - { name: Me Thomas Ruiz, role: Associé, bio: Droit des affaires }
+        - { name: Me Inès Kaddour, role: Associée, bio: Droit de la famille }
+  - richtext:
+      title: Autour des associés
+      text: |
+        Deux collaboratrices et une assistante accompagnent les associés au quotidien, du premier rendez-vous au suivi du dossier.
+  - cta:
+      title: Rencontrer le cabinet
+      button: { label: Nous contacter, to: /contact }

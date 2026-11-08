@@ -1,0 +1,8 @@
+segments:
+  panier_abandonne:
+    all:
+      - { event: cart_add, within: 7d }
+      - { not: { event: purchase, within: 7d } }
+  recurrent: { visits: { gte: 2 } }
+  nouveau: { visits: 1 }
+priority: [panier_abandonne, recurrent, nouveau]

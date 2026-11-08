@@ -1,0 +1,48 @@
+name: pricelist
+order: 96
+description: "Liste de prix ou carte : groupes (catégories) d'articles avec prix libre (« 1,30 € », « à partir de 95 € », « sur devis »), description et badge."
+props:
+  type: object
+  required: [groups]
+  properties:
+    title: { type: string }
+    intro: { type: string }
+    note: { type: string, description: "mention sous la liste (ex. Prix TTC, hors déplacement)" }
+    columns: { type: integer, enum: [1, 2], description: groupes sur 1 ou 2 colonnes (défaut 2 si plusieurs groupes) }
+    cta: { $ref: "#/$defs/link", description: bouton sous la liste }
+    groups:
+      type: array
+      minItems: 1
+      items:
+        type: object
+        additionalProperties: false
+        required: [items]
+        properties:
+          title: { type: string, description: nom de la catégorie }
+          text: { type: string, description: courte description de la catégorie }
+          items:
+            type: array
+            minItems: 1
+            items:
+              type: object
+              additionalProperties: false
+              required: [name, price]
+              properties:
+                name: { type: string }
+                price: { type: [string, number], description: "texte libre : « 1,30 € », « à partir de 95 € », « sur devis » ; un nombre est affiché avec €" }
+                description: { type: string }
+                badge: { type: string, description: "mention courte mise en avant (ex. Nouveau, Médaille d'argent 2024)" }
+                unit: { type: string, description: "unité ou condition (ex. / kg, la pièce, par heure)" }
+example: |
+  - pricelist:
+      title: Nos tarifs
+      note: Prix TTC. Devis gratuit pour tous travaux.
+      groups:
+        - title: Dépannage
+          items:
+            - { name: Déplacement + 1 h de main-d'œuvre, price: à partir de 95 €, description: Majoration de 30 % dimanches et fériés }
+            - { name: Recherche de fuite, price: 180 €, badge: Rapport assurance inclus }
+        - title: Entretien
+          items:
+            - { name: Contrat entretien chaudière, price: 129 €, unit: par an }
+intents: [prix, tarifs, combien, coût, carte, tarif]
