@@ -1,4 +1,4 @@
-// Atelier Sitelang : le compilateur tourne ici, dans le navigateur, sur un système de fichiers en mémoire.
+// Atelier Devanture : le compilateur tourne ici, dans le navigateur, sur un système de fichiers en mémoire.
 import * as S from './sitec-browser.js';
 
 const $ = (id) => document.getElementById(id);

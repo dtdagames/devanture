@@ -106,9 +106,9 @@ node_modules/
 `,
     'package.json': JSON.stringify({
       name: id, private: true, type: 'module',
-      description: `Site ${siteName} — source Sitelang (YAML), compilée en PHP par sitec. Aucun PHP dans ce dépôt.`,
+      description: `Site ${siteName} — source Devanture (YAML), compilée en PHP par sitec. Aucun PHP dans ce dépôt.`,
       scripts: { check: 'sitec check .', build: 'sitec build .', review: 'sitec review .', keywords: 'sitec keywords .', deploy: 'sitec deploy .', 'no-php': "node -e \"const{execSync}=require('child_process');const f=execSync('git ls-files',{encoding:'utf8'}).split(/\\r?\\n/).filter(x=>/\\.php$/i.test(x));if(f.length){console.error('PHP interdit dans ce dépôt :',f.join(', '));process.exit(1)}console.log('aucun PHP versionné')\"" },
-      dependencies: { sitelang: dep },
+      dependencies: { devanture: dep },
     }, null, 2) + '\n',
     '.github/workflows/site.yml': `name: Site
 on:
@@ -143,14 +143,14 @@ jobs:
       - run: npm install
       - run: npx sitec build .
       - name: Déployer vers \${{ vars.SITE_URL }}
-        env: { SITELANG_DEPLOY_SECRET: \${{ secrets.DEPLOY_SECRET }} }
+        env: { DEVANTURE_DEPLOY_SECRET: \${{ secrets.DEPLOY_SECRET }} }
         run: npx sitec deploy . --to "\${{ vars.SITE_URL }}"
 `,
     '.gitattributes': `* text=auto eol=lf
 `,
     'README.md': `# ${siteName}
 
-Dépôt de site **sans PHP** : la source est le DSL Sitelang (YAML), le compilateur \`sitec\` produit le PHP, le JS et le CSS dans \`dist/\`, qui n'est jamais versionné.
+Dépôt de site **sans PHP** : la source est le DSL Devanture (YAML), le compilateur \`sitec\` produit le PHP, le JS et le CSS dans \`dist/\`, qui n'est jamais versionné.
 
 ## Travailler
 
@@ -169,7 +169,7 @@ Test local : \`php -S localhost:8080 -t dist dist/index.php\` (ou l'atelier : \`
 2. Dans le dépôt GitHub : variable \`SITE_URL\` (https://votre-domaine) et secret \`DEPLOY_SECRET\` (même valeur), environnement \`production\`.
 3. Chaque push sur \`main\` vérifie, compile et déploie par envoi signé. Les données du site (messages, commandes, stock) et son \`.env\` sont conservés.
 
-À la main : \`SITE_URL=https://votre-domaine SITELANG_DEPLOY_SECRET=… npm run deploy\`.
+À la main : \`SITE_URL=https://votre-domaine DEVANTURE_DEPLOY_SECRET=… npm run deploy\`.
 
 ## Règles
 
@@ -186,7 +186,7 @@ Back-office du site compilé : \`/_admin\` (jeton \`ADMIN_TOKEN\`). Version text
   let manual = await fs.readFile(path.join(SITEC_ROOT, 'CLAUDE.md'), 'utf8');
   manual = manual.replace(/```\nnode bin\/sitec\.js catalog[\s\S]*?```/, '```\nnpx sitec catalog              # liste des composants (1 ligne chacun)\nnpx sitec explain <composant>  # props détaillées + exemple\nnpx sitec check .              # valide, erreurs en JSON (1 par ligne), code 1 si erreurs\nnpx sitec build .              # valide puis génère dist/ (PHP + JS + CSS), jamais versionné\nnpx sitec review .             # relecture éditoriale contre brief.md\n```')
     .replaceAll('node bin/sitec.js', 'npx sitec')
-    .replace('# Sitelang — mode d\'emploi pour l\'agent', `# ${siteName} — mode d'emploi pour l'agent\n\nCe dépôt ne contient que la source du site (YAML, brief, images). **Aucun fichier PHP, JS ou CSS n'y est accepté** : le bloc \`custom\` est interdit ici. \`dist/\` est produit par \`npx sitec build .\` et n'est jamais versionné.`);
+    .replace('# Devanture — mode d\'emploi pour l\'agent', `# ${siteName} — mode d'emploi pour l'agent\n\nCe dépôt ne contient que la source du site (YAML, brief, images). **Aucun fichier PHP, JS ou CSS n'y est accepté** : le bloc \`custom\` est interdit ici. \`dist/\` est produit par \`npx sitec build .\` et n'est jamais versionné.`);
   files['CLAUDE.md'] = manual;
   files['assets/.gitkeep'] = '';
 
@@ -197,7 +197,7 @@ Back-office du site compilé : \`/_admin\` (jeton \`ADMIN_TOKEN\`). Version text
     try {
       await run('git', ['init', '-q', '-b', 'main'], { cwd: root });
       await run('git', ['add', '-A'], { cwd: root });
-      await run('git', ['-c', 'user.name=sitec', '-c', 'user.email=sitec@localhost', 'commit', '-q', '-m', `Squelette du site ${siteName} (Sitelang, sans PHP)\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`], { cwd: root });
+      await run('git', ['-c', 'user.name=sitec', '-c', 'user.email=sitec@localhost', 'commit', '-q', '-m', `Squelette du site ${siteName} (Devanture, sans PHP)\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`], { cwd: root });
       committed = true;
     } catch (e) { /* git absent : le dossier reste utilisable */ }
   }

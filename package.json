@@ -1,7 +1,7 @@
 {
-  "name": "sitelang",
+  "name": "devanture",
   "version": "0.1.0",
-  "description": "Sitelang : langage déclaratif (YAML) pour sites vitrines et petites boutiques, compilé en PHP + JS + CSS par sitec. Écrit pour les modèles de langage autant que pour les humains.",
+  "description": "Devanture : langage déclaratif (YAML) pour sites vitrines et petites boutiques, compilé en PHP + JS + CSS par sitec. Écrit pour les modèles de langage autant que pour les humains.",
   "type": "module",
   "bin": {
     "sitec": "./bin/sitec.js"
@@ -39,7 +39,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/VOTRE-COMPTE/sitelang.git"
+    "url": "https://github.com/VOTRE-COMPTE/devanture.git"
   },
   "keywords": [
     "dsl",

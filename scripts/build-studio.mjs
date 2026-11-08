@@ -28,7 +28,7 @@ const snapshot = JSON.stringify({ components, examples });
 
 const shims = { 'node:fs/promises': 'shim-fs.js', 'node:path': 'shim-path.js', 'node:crypto': 'shim-crypto.js', 'node:url': 'shim-url.js' };
 const plugin = {
-  name: 'sitelang-browser',
+  name: 'devanture-browser',
   setup(b) {
     b.onResolve({ filter: /^virtual:snapshot$/ }, () => ({ path: 'snapshot', namespace: 'virtual' }));
     b.onLoad({ filter: /.*/, namespace: 'virtual' }, () => ({ contents: 'export default ' + snapshot + ';', loader: 'js' }));

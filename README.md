@@ -1,4 +1,4 @@
-# Sitelang
+# Devanture
 
 Un langage déclaratif (YAML strict) pour écrire des sites vitrines et de petites boutiques, et un compilateur, `sitec`, qui en produit un site PHP + JS + CSS déployable sur n'importe quel hébergement mutualisé. Conçu pour être écrit par un modèle de langage autant que par un humain : peu de tokens, un vérificateur qui explique ses erreurs, aucun PHP à écrire.
 
@@ -7,8 +7,8 @@ Un langage déclaratif (YAML strict) pour écrire des sites vitrines et de petit
 ## Installer
 
 ```
-git clone <ce dépôt> sitelang
-cd sitelang
+git clone <ce dépôt> devanture
+cd devanture
 npm install
 node bin/sitec.js help
 ```
@@ -76,4 +76,4 @@ Ce que les mesures montrent : le langage réduit surtout le coût de maintenance
 
 ## Licence
 
-MIT, voir [LICENSE](LICENSE).
+MIT, voir [LICENSE](LICENSE). Les sites produits par le compilateur (le contenu de `dist/`, y compris le PHP, le JS et le CSS copiés depuis `components/` et `src/emit/`) appartiennent entièrement à qui les a compilés, sans autre condition : un client reçoit un site libre de droits.

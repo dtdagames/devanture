@@ -97,7 +97,7 @@ export function buildTwin(site, pages, catalog) {
   });
   const products = pages.__products || null;
   return {
-    generator: 'sitelang', generated_at: new Date().toISOString(),
+    generator: 'devanture', generated_at: new Date().toISOString(),
     ...(products ? { products: products.map(p => ({ id: p.id, name: p.name, price: p.price, category: p.category, description: p.description, in_stock: p.stock === null || p.stock > 0, url: pages.__shop?.product_route ? pages.__shop.product_route.replace('{id}', p.id) : null })), shop: { cart_route: pages.__shop?.cart_route, checkout_route: pages.__shop?.checkout_route, payment: pages.__shop?.payment } } : {}),
     name: site.name, tagline: site.tagline || null, locale: site.locale || 'fr-FR',
     summary: site.agents?.summary || site.tagline || null,

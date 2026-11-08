@@ -6,7 +6,7 @@ import { emit } from './emit/index.js';
 import { formatErrors } from './errors.js';
 import { THEME_PRESETS } from './emit/css.js';
 
-const HELP = `sitec — compilateur Sitelang (sites vitrines → PHP + JS)
+const HELP = `sitec — compilateur Devanture (sites vitrines → PHP + JS)
 
 Usage :
   sitec check   <dossier-projet>  [--json]   Valide sans générer
@@ -18,10 +18,10 @@ Usage :
   sitec build … --draft                      Compile malgré des textes à compléter
   sitec keywords <dossier-projet> [--all] [--dry-run] [--export f.json] [--import f.json] [--model id]
                                              Fait proposer par un LLM les mots-clés de recherche de chaque section et les fige dans le YAML
-  sitec init  <dossier> [--name "Nom du site"] [--repo github:compte/sitelang]
+  sitec init  <dossier> [--name "Nom du site"] [--repo github:compte/devanture]
                                              Crée un dépôt de site sans PHP : squelette YAML, brief, README, CLAUDE.md, .gitignore, flux GitHub Actions (vérifier, déployer), premier commit
   sitec host  <dossier-hôte> [--draft]        Compile les sites listés dans hosts.yaml en un seul dist/ routé par domaine
-  sitec deploy <dossier-projet> [--to https://domaine | SITE_URL] [--secret s | SITELANG_DEPLOY_SECRET]
+  sitec deploy <dossier-projet> [--to https://domaine | SITE_URL] [--secret s | DEVANTURE_DEPLOY_SECRET]
                                              Pousse dist/ vers /_deploy du site (envois signés, intégrité vérifiée, données conservées)
   sitec help
 
@@ -145,13 +145,13 @@ export async function run(argv) {
 
     case 'init': {
       const dir = args[0];
-      if (!dir) { console.error('Usage : sitec init <dossier> [--name "Nom du site"] [--repo github:compte/sitelang]'); return 2; }
+      if (!dir) { console.error('Usage : sitec init <dossier> [--name "Nom du site"] [--repo github:compte/devanture]'); return 2; }
       const nameIdx = rest.indexOf('--name'), repoIdx = rest.indexOf('--repo');
       const { initProject } = await import('./init.js');
       try {
         const r = await initProject(dir, { name: nameIdx >= 0 ? rest[nameIdx + 1] : undefined, repo: repoIdx >= 0 ? rest[repoIdx + 1] : undefined, git: !flags.has('--no-git') });
         console.log(`OK  ${r.name} → ${path.relative(process.cwd(), r.root) || '.'} : ${r.files.length} fichiers${r.committed ? ', dépôt git initialisé (branche main, premier commit)' : ''}`);
-        console.log(`    compilateur : ${r.dependency}${r.dependency.startsWith('file:') ? '  (chemin local ; pour l’intégration continue, publier le compilateur et passer --repo github:compte/sitelang)' : ''}`);
+        console.log(`    compilateur : ${r.dependency}${r.dependency.startsWith('file:') ? '  (chemin local ; pour l’intégration continue, publier le compilateur et passer --repo github:compte/devanture)' : ''}`);
         console.log('    ensuite : cd ' + dir + ' && npm install && npx sitec check .   (remplir brief.md et les [à compléter])');
         return 0;
       } catch (e) { console.error('Erreur : ' + e.message); return 1; }
@@ -173,9 +173,9 @@ export async function run(argv) {
       const dir = args[0];
       const toIdx = rest.indexOf('--to'), secIdx = rest.indexOf('--secret');
       const to = toIdx >= 0 ? rest[toIdx + 1] : process.env.SITE_URL;
-      const secret = secIdx >= 0 ? rest[secIdx + 1] : process.env.SITELANG_DEPLOY_SECRET;
-      if (!dir || !to) { console.error('Usage : sitec deploy <dossier-projet> --to https://domaine [--secret s]   (ou variables SITE_URL et SITELANG_DEPLOY_SECRET)'); return 2; }
-      if (!secret) { console.error('Secret manquant : --secret ou variable SITELANG_DEPLOY_SECRET (même valeur que DEPLOY_SECRET dans le .env du site).'); return 2; }
+      const secret = secIdx >= 0 ? rest[secIdx + 1] : process.env.DEVANTURE_DEPLOY_SECRET;
+      if (!dir || !to) { console.error('Usage : sitec deploy <dossier-projet> --to https://domaine [--secret s]   (ou variables SITE_URL et DEVANTURE_DEPLOY_SECRET)'); return 2; }
+      if (!secret) { console.error('Secret manquant : --secret ou variable DEVANTURE_DEPLOY_SECRET (même valeur que DEPLOY_SECRET dans le .env du site).'); return 2; }
       const { deploy } = await import('./host.js');
       const dist = flags.has('--dist') ? path.resolve(dir) : path.join(path.resolve(dir), 'dist');
       try {

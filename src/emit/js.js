@@ -85,7 +85,7 @@ const BASE_JS = `
     banner.querySelector('.consent-refuse').addEventListener('click',function(){ setCookie('sl_c','0',365); banner.hidden=true; });
   } else { start(); }
   try{ fragments(); }catch(e){}
-  window.sitelang={profile:profile,segments:segments,record:record,serverSegments:SL.segments,refresh:fragments};
+  window.devanture={profile:profile,segments:segments,record:record,serverSegments:SL.segments,refresh:fragments};
 })();
 
 /* Navigation par intention : index produit à la compilation, recherche locale, lien vers la section exacte. */
