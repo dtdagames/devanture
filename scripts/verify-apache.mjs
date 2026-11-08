@@ -63,7 +63,9 @@ for (const d of siteDirs) {
 // 2. Apache : mod_rewrite, mod_headers, mod_expires, mod_deflate ; .htaccess autorisés ; le dossier monté comme racine du serveur.
 try { docker(['rm', '-f', name]); } catch { /* pas de conteneur résiduel */ }
 docker(['run', '-d', '--rm', '--name', name, '-p', `127.0.0.1:${port}:80`, '-v', `${work.replaceAll('\\', '/')}:/var/www/html`, 'php:8.3-apache', 'bash', '-c',
-  "a2enmod rewrite headers expires deflate >/dev/null 2>&1; sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf; exec apache2-foreground"]);
+  // Sous Linux, le dossier monté appartient à l'utilisateur hôte : PHP (www-data) doit pouvoir écrire data/, cache/ et déployer ;
+  // chez un hébergeur mutualisé, PHP tourne sous le compte du client et la question ne se pose pas. Sans effet sur un montage Windows.
+  "chmod -R a+rwX /var/www/html 2>/dev/null; a2enmod rewrite headers expires deflate >/dev/null 2>&1; sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf; exec apache2-foreground"]);
 let up = false;
 for (let i = 0; i < 120 && !up; i++) { try { await raw('/'); up = true; } catch { await new Promise(r => setTimeout(r, 500)); } }
 ok('Apache démarré (php:8.3-apache)' + (HOST ? ` pour Host: ${HOST}` : ''), up);
