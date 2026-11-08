@@ -10,6 +10,9 @@ import { FIELD_TYPES } from './collections.js';
 import { PARAM_TYPES } from './composition.js';
 import { PRODUCT_KEYS } from './shop.js';
 import { BEHAVIOR_NAMES } from './lang/behaviors.js';
+import { TYPE_WORDS } from './lang/donnees.js';
+import { PRIMITIVE_HELP } from './lang/forme.js';
+import { INTENT_NAMES } from './lang/apparence.js';
 
 const clone = v => JSON.parse(JSON.stringify(v));
 const EXPR = { type: 'string', pattern: '\\{\\{', description: 'expression {{ … }} (sitec explain langage)' };
@@ -90,9 +93,13 @@ export function buildSchemas(project, catalog) {
     sections: { type: 'array', minItems: 1, items: { anyOf: branches(true) }, description: 'sections produites ; {{ p.param }} et { for: p.liste, as: x, item: {…} }' },
   } } } } };
 
-  out['manifest.schema.json'] = { $schema: 'http://json-schema.org/draft-07/schema#', title: 'Manifeste de composant (components/<nom>/manifest.yaml)', type: 'object', additionalProperties: false, required: ['description', 'props'], properties: {
+  const fieldSpec = { anyOf: [{ type: 'string', description: `type (${TYPE_WORDS.join(', ')}), puis précisions : facultatif, au moins N, au plus N, de A à B, un parmi a, b — description` }, { type: 'object', description: 'champs d\'une liste ou d\'un groupe : « nom (liste, au moins 1): » puis les champs' }] };
+  out['manifest.schema.json'] = { $schema: 'http://json-schema.org/draft-07/schema#', title: 'Manifeste de composant (components/<nom>/manifest.yaml)', type: 'object', additionalProperties: false, required: ['description'], properties: {
     name: { type: 'string' }, order: { type: 'number' }, description: { type: 'string', description: 'une phrase : ce que montre le composant et quand l\'utiliser' },
-    props: { type: 'object', description: 'schéma JSON des props : { type: object, required: [...], properties: { … } } ; liens : { $ref: "#/$defs/link" }' },
+    props: { type: 'object', description: 'format html : schéma JSON des props ; au format langage, écrivez plutôt données' },
+    'données': { type: 'object', additionalProperties: fieldSpec, markdownDescription: 'Ce que le composant accepte, une ligne par champ :\n\n```yaml\ntitle: texte, facultatif — titre de la section\nitems (liste, au moins 1):\n  text: texte\n  rating: nombre entier, de 1 à 5, facultatif\n```' },
+    forme: { anyOf: [{ type: 'array' }, { type: 'object' }], markdownDescription: `La structure, en primitives : ${Object.keys(PRIMITIVE_HELP).join(', ')}.\n\n\`\`\`yaml\n- en-tête: title, intro\n- grille de items, 3 colonnes:\n    - carte:\n        - titre: title\n        - texte discret: text\n\`\`\`` },
+    apparence: { type: 'object', markdownDescription: `L'allure, par partie (primitive ou nom « ») : ${INTENT_NAMES.join(', ')} ; « sur téléphone: » pour les petits écrans.` },
     example: { type: 'string', description: 'exemple YAML d\'usage, montré par sitec explain et rendu par sitec test' },
     intents: { type: 'array', items: { type: 'string' } },
     behaviors: { type: 'array', items: { type: 'string', enum: BEHAVIOR_NAMES }, description: 'comportements navigateur fournis par le compilateur, posés par des attributs data-sl-… dans le gabarit' },

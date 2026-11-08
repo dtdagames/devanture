@@ -1,23 +1,20 @@
 name: testimonials
 order: 50
 description: Témoignages clients (citation, auteur, rôle ou ville, note optionnelle).
-props:
-  type: object
-  required: [items]
-  properties:
-    title: { type: string }
-    items:
-      type: array
-      minItems: 1
-      items:
-        type: object
-        additionalProperties: false
-        required: [quote, author]
-        properties:
-          quote: { type: string }
-          author: { type: string }
-          role: { type: string, description: "fonction, entreprise ou ville" }
-          rating: { type: integer, minimum: 1, maximum: 5, description: note sur 5 }
+données:
+  title: texte, facultatif
+  items (liste, au moins 1):
+    quote: texte
+    author: texte
+    role: texte, facultatif — fonction, entreprise ou ville
+    rating: nombre entier, de 1 à 5, facultatif — note sur 5
+forme:
+  - en-tête: title
+  - grille de items, 3 colonnes:
+      - témoignage « testimonial »:
+          - étoiles: rating
+          - citation: quote
+          - signature: author, role
 example: |
   - testimonials:
       title: Ils nous font confiance

@@ -33,6 +33,7 @@ Le mode d'emploi du langage, écrit pour un auteur humain ou modèle : [CLAUDE.m
 ## Ce que produit le compilateur
 
 - Un site PHP sans framework ni extension optionnelle, un routeur, des pages, des composants, un CSS à jetons et un JS vanille.
+- Des composants écrits en français contrôlé : un seul `manifest.yaml` avec `données` (ce qu'il accepte), `forme` (sa structure en primitives) et `apparence` (son allure en intentions liées au thème), compilé vers le HTML, la CSS et le PHP ; 62 % de tokens en moins à écrire que gabarit + feuille + schéma, rendu identique au caractère près pour les natifs réécrits.
 - Des composants décrits en langage naturel : `sitec component new <dossier> <nom> --describe "…"` les fait écrire par Claude en formats neutres, puis les vérifie et les fait réparer jusqu'à passer (CSS encadré, comportements déclarés, cas de test rendus) ; `component edit --ask "…"` les fait évoluer, `component preview` en montre tous les cas avec le thème du site.
 - Un langage, pas seulement un catalogue : expressions `{{ const.delai }}`, constantes, collections génériques avec page par élément et liste, composants composés (`components.yaml`) et composants de projet avec gabarit neutre, design propre et effets déclarés (formulaire enregistré et notifié) sans une ligne de PHP. Spécification : [docs/LANGAGE.md](docs/LANGAGE.md).
 - Images optimisées à la compilation : variantes WebP redimensionnées, `srcset`, dimensions déclarées, chargement différé (sharp sous Node, canvas dans l'atelier).

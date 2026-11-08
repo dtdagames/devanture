@@ -1,23 +1,22 @@
 name: timeline
 order: 99
 description: "Frise chronologique : dates clés avec titre et texte (histoire d'une entreprise, parcours)."
-props:
-  type: object
-  required: [items]
-  properties:
-    title: { type: string }
-    intro: { type: string }
-    items:
-      type: array
-      minItems: 2
-      items:
-        type: object
-        additionalProperties: false
-        required: [date, title]
-        properties:
-          date: { type: [string, number], description: "année ou date affichée (ex. 1987, « mars 2015 »)" }
-          title: { type: string }
-          text: { type: string }
+données:
+  title: texte, facultatif
+  intro: texte, facultatif
+  items (liste, au moins 2):
+    date: texte ou nombre — année ou date affichée (ex. 1987, « mars 2015 »)
+    title: texte
+    text: texte, facultatif
+forme:
+  section, conteneur « timeline-inner »:
+    - en-tête: title, intro
+    - liste numérotée « timeline-list » de items:
+        - élément « tl-item »:
+            - date « tl-date »: date
+            - bloc « tl-body »:
+                - titre: title
+                - texte discret: text
 example: |
   - timeline:
       title: Notre histoire

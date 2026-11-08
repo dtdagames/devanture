@@ -1,22 +1,16 @@
 name: faq
 order: 60
 description: Questions fréquentes en accordéon (question, réponse).
-props:
-  type: object
-  required: [items]
-  properties:
-    title: { type: string }
-    intro: { type: string }
-    items:
-      type: array
-      minItems: 1
-      items:
-        type: object
-        additionalProperties: false
-        required: [q, a]
-        properties:
-          q: { type: string, description: question }
-          a: { type: string, description: réponse (paragraphes séparés par une ligne vide) }
+données:
+  title: texte, facultatif
+  intro: texte, facultatif
+  items (liste, au moins 1):
+    q: texte — question
+    a: texte — réponse (paragraphes séparés par une ligne vide)
+forme:
+  section, conteneur « faq-inner »:
+    - en-tête: title, intro
+    - accordéon de items, question q, réponse a
 example: |
   - faq:
       title: Questions fréquentes

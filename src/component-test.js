@@ -63,6 +63,7 @@ require __DIR__ . '/lib/render.php'; require __DIR__ . '/lib/forms.php';
 set_error_handler(function (int $no, string $msg, string $file, int $line) { throw new ErrorException($msg . ' (' . basename($file) . ':' . $line . ')', 0, $no); });
 $site = ${phpValue(project.site?.site || {})};
 $page = ['file' => null, 'seo' => []]; $SL_ITEM = null; $product = null; $order = null; $SHOP = null; $current = '/';
+$GLOBALS['SL_FORMS'] = ${phpValue(Object.fromEntries(components.filter(c => c.manifest?.effects?.form?._fields).map(c => [c.name, { status: null, errors: [], data: [], fields: c.manifest.effects.form._fields, name: c.name, success: c.manifest.effects.form.success || null, message: null }])))};
 $out = [];
 foreach (json_decode((string)file_get_contents(__DIR__ . '/cases.json'), true) as $i => $c) {
     ob_start();

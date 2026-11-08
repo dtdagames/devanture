@@ -31,13 +31,144 @@ export const OUTPUT_SCHEMA = {
 
 async function readText(p) { try { return await fs.readFile(p, 'utf8'); } catch { return null; } }
 
+/** Réponses attendues selon le format : « langage » (données, forme, apparence dans le manifeste) ou « html » (gabarit et feuille). */
+export const OUTPUT_SCHEMA_LANG = {
+  type: 'object', additionalProperties: false,
+  required: ['manifest', 'fixtures', 'notes'],
+  properties: {
+    manifest: { type: 'string', description: 'contenu complet de manifest.yaml, avec données, forme et apparence' },
+    fixtures: OUTPUT_SCHEMA.properties.fixtures,
+    notes: OUTPUT_SCHEMA.properties.notes,
+  },
+};
+export const FORMATS = ['langage', 'html'];
+export const schemaFor = format => (format === 'html' ? OUTPUT_SCHEMA : OUTPUT_SCHEMA_LANG);
+
+/** Composant de référence au nouveau format, écrit dans le langage (carrousel d'avis, formulaire). */
+const EXAMPLE_LANG = `name: avis-defilants
+description: "Carrousel d'avis clients : note en étoiles, texte, prénom et date."
+données:
+  title: texte, facultatif — titre de la section
+  items (liste, au moins 1):
+    rating: nombre entier, de 1 à 5, facultatif — note sur 5
+    text: texte — texte de l'avis
+    author: texte — prénom
+    date: date, facultatif — date de l'avis (AAAA-MM-JJ)
+  link: lien, facultatif — lien vers tous les avis
+forme:
+  - en-tête: title
+  - défilement de items, automatique:
+      - témoignage:
+          - étoiles: rating
+          - citation: text
+          - signature: author, date, en toutes lettres
+  - bouton discret: link
+apparence:
+  étoiles: couleur d'accent
+  sur téléphone:
+    flèches: masquées
+example: |
+  - avis-defilants:
+      title: Ils parlent de nous
+      items:
+        - { rating: 5, text: "Le meilleur pain du quartier.", author: Claire, date: "2026-10-02" }
+intents: [avis, témoignages, note]`;
+const EXAMPLE_FORM = `données:
+  title: texte
+  delai: texte, facultatif — délai de réponse annoncé
+forme:
+  section, conteneur « devis-inner »:
+    - bloc:
+        - titre: title
+        - texte discret: "Réponse sous {{ delai }}. Ou appelez le [{{ site.contact.phone }}](tel:{{ site.contact.phone | replace(' ', '') }})."
+    - formulaire, bouton Demander un devis:
+        - champ: name
+        - champ: phone
+apparence:
+  devis-inner: deux colonnes
+  sur téléphone:
+    devis-inner: une colonne
+effects:
+  form:
+    store: devis
+    notify: true
+    success: Merci, nous vous rappelons.
+    fields: [ name, phone ]`;
+
+/** Guide du langage des composants au format « langage » : données, forme, apparence, depuis le code du compilateur. */
+export async function buildSystemPromptLang() {
+  const { TYPE_WORDS, ICON_NAMES } = await import('./lang/donnees.js');
+  const { PRIMITIVE_HELP } = await import('./lang/forme.js');
+  const { INTENT_NAMES } = await import('./lang/apparence.js');
+  const manifestOf = async n => (await readText(path.join(COMPONENTS_DIR, n, 'manifest.yaml')) || '').trim();
+  return `Tu écris des composants pour Devanture, un langage déclaratif de sites vitrines. Un composant se décrit dans un seul fichier, manifest.yaml, en français contrôlé : ce qu'il accepte (données), sa structure (forme) et son allure (apparence). Le compilateur en tire le HTML, la CSS et le PHP ; tu n'écris jamais de HTML, de CSS, de JavaScript ni de PHP.
+
+# Ce que tu produis
+Un objet JSON : manifest (le contenu complet de manifest.yaml), fixtures (2 à 4 cas de test { name, yaml }, yaml = des props valides), notes.
+
+# manifest.yaml
+Clés autorisées : name, description, données, forme, apparence, example, intents, effects. Rien d'autre (ni props, ni behaviors : la forme les déduit).
+- name : le nom demandé, exactement. description : une phrase entre guillemets.
+- example : un bloc YAML (|) d'usage dans une page, « - <nom d'usage>: » puis des props réalistes ; textes avec virgule ou deux-points entre guillemets.
+- intents : 3 à 6 mots que les visiteurs tapent pour trouver ce contenu.
+- effects.form, seulement si le composant recueille une saisie : { store: collection, notify: true, success: phrase, fields: [ name, email, phone, subject, message, ou { name, label, type: text|email|tel|number|date|select|textarea, options: [...], required: true } ] }.
+
+# données
+Une ligne par champ : « nom: type, précisions — description ». Noms en minuscules sans accent (anglais court conseillé : title, text, items, image, link).
+- Types : ${TYPE_WORDS.join(', ')}.
+- Précisions : facultatif (sinon obligatoire), au moins N, au plus N, de A à B, un parmi a, b, c (toujours en dernier), par défaut X.
+- Liste d'éléments : « items (liste, au moins 1): » puis les champs de chaque élément en dessous. Groupe : « nom (groupe): ».
+- Description après « — ». Si la ligne contient « : » ailleurs, mets-la entre guillemets simples.
+- icône : un pictogramme parmi ${ICON_NAMES.join(', ')}.
+
+# forme
+Une liste d'éléments ; chaque élément est « primitive: données » ou « primitive: » suivi d'éléments en dessous. Dans une liste (grille, défilement…), les noms désignent d'abord les champs de l'élément, puis les données du composant.
+${Object.entries(PRIMITIVE_HELP).map(([k, v]) => `- ${k} : ${v}`).join('\n')}
+- Un nom entre « » donne une classe à l'élément (« carte « offre » ») : utile pour l'apparence.
+- Texte littéral avec données : texte: "Réponse sous {{ delai }}." (balisage léger accepté : **gras**, [texte](lien)). Expression : "{{ title | default(label) }}".
+- Option de section en tête : « section, conteneur « nom-interne »: » puis la liste ; « section, variante style par défaut primary: » ajoute une classe selon une donnée.
+- Une donnée facultative rend son élément conditionnel automatiquement.
+- Aucun texte inventé présenté comme un fait (prix, délais, labels) : tout vient des données ou de site.
+
+# apparence (facultative)
+« partie: intention, intention ». Une partie est une primitive de la forme (singulier ou pluriel : cartes, étoiles, titres), un nom donné entre « », ou section ; « sur téléphone: » regroupe des règles pour les petits écrans.
+Intentions : ${INTENT_NAMES.join(', ')}.
+Rien d'autre : pas de couleur, de taille ni de police libre. N'ajoute une apparence que si la mise en page de base ne suffit pas.
+
+# Cas de test (fixtures)
+2 à 4 cas : complet, minimal (seulement l'obligatoire), cas limite. Chaque yaml contient seulement des props valides.
+
+# Exemple complet
+\`\`\`yaml
+${EXAMPLE_LANG}
+\`\`\`
+
+# Exemple de formulaire (extrait)
+\`\`\`yaml
+${EXAMPLE_FORM}
+\`\`\`
+
+# Composants natifs écrits ainsi
+\`\`\`yaml
+${await manifestOf('features')}
+\`\`\`
+\`\`\`yaml
+${await manifestOf('testimonials')}
+\`\`\`
+
+Réponds uniquement par l'objet JSON demandé.`;
+}
+
 /** Guide du langage des composants, construit depuis le code du compilateur (toujours à jour). */
-export async function buildSystemPrompt() {
+export async function buildSystemPrompt(format = 'langage') {
+  if (format !== 'html') return buildSystemPromptLang();
   const icons = (await readText(path.join(COMPONENTS_DIR, 'features', 'manifest.yaml')))?.match(/enum: \[([^\]]+)\]/)?.[1] || '';
   const tokens = Object.keys(THEME_PRESETS.clair).map(k => `var(--${k.replace(/\./g, '-')})`).join(', ');
+  const { loadCatalog } = await import('./catalog.js');
+  const cat = await loadCatalog();
   const ref = async (name) => {
-    const dir = path.join(COMPONENTS_DIR, name);
-    return `### Composant de référence : ${name}\nmanifest.yaml :\n\`\`\`yaml\n${(await readText(path.join(dir, 'manifest.yaml')) || '').trim()}\n\`\`\`\ntemplate.html :\n\`\`\`html\n${(await readText(path.join(dir, 'template.html')) || '').trim()}\n\`\`\`\nstyles.css :\n\`\`\`css\n${(await readText(path.join(dir, 'styles.css')) || '').trim()}\n\`\`\``;
+    const c = cat.get(name); const dir = path.join(COMPONENTS_DIR, name);
+    return `### Composant de référence : ${name}\ntemplate.html :\n\`\`\`html\n${(c?.files['template.html'] || '').trim()}\n\`\`\`\nstyles.css :\n\`\`\`css\n${(await readText(path.join(dir, 'styles.css')) || '').trim()}\n\`\`\``;
   };
   return `Tu écris des composants pour Devanture, un langage déclaratif de sites vitrines compilé en PHP. Un composant de projet se compose de fichiers en formats neutres ; tu n'écris jamais de PHP, ni de JavaScript.
 
@@ -105,7 +236,7 @@ export function resolveTarget(project, name, pkg = null) {
 
 const FENCE = '```';
 const fence = (lang, t) => `${FENCE}${lang}\n${String(t).trim()}\n${FENCE}`;
-const filesBlock = f => `manifest.yaml :\n${fence('yaml', f.manifest)}\ntemplate.html :\n${fence('html', f.template)}\nstyles.css :\n${fence('css', f.styles)}\nfixtures :\n${f.fixtures.map(x => `- ${x.name} :\n${fence('yaml', x.yaml)}`).join('\n')}`;
+const filesBlock = f => `manifest.yaml :\n${fence('yaml', f.manifest)}${f.template ? `\ntemplate.html :\n${fence('html', f.template)}` : ''}${f.styles ? `\nstyles.css :\n${fence('css', f.styles)}` : ''}\nfixtures :\n${f.fixtures.map(x => `- ${x.name} :\n${fence('yaml', x.yaml)}`).join('\n')}`;
 
 /** Message utilisateur : la demande, le contexte du site ; pour une modification, les fichiers actuels ; pour une réparation, les problèmes. */
 export function buildUserPrompt({ name, description, project, previous = null, problems = [], target = null, current = null, request = null }) {
@@ -128,19 +259,20 @@ export function buildUserPrompt({ name, description, project, previous = null, p
 }
 
 /** Appel au modèle : sortie structurée, effort élevé, repli serveur automatique en cas de refus. */
-export async function askModel({ system, user, model = DEFAULT_MODEL, client = null }) {
+export async function askModel({ system, user, model = DEFAULT_MODEL, client = null, format = 'langage', onUsage = null }) {
   if (!client) { const { default: Anthropic } = await import('@anthropic-ai/sdk'); client = new Anthropic(); }
   const response = await client.beta.messages.stream({
     model,
     max_tokens: 32000,
     betas: ['server-side-fallback-2026-07-01'],
     fallbacks: 'default',
-    output_config: { effort: 'high', format: { type: 'json_schema', schema: OUTPUT_SCHEMA } },
+    output_config: { effort: 'high', format: { type: 'json_schema', schema: schemaFor(format) } },
     system,
     messages: [{ role: 'user', content: user }],
   }).finalMessage();
   if (response.stop_reason === 'refusal') throw new Error(`Le modèle a refusé la demande (${response.stop_details?.category ?? 'sans catégorie'}).`);
   if (response.stop_reason === 'max_tokens') throw new Error('Réponse tronquée (limite de longueur atteinte) : simplifiez la description.');
+  if (onUsage) onUsage(response.usage);
   return response.content.filter(b => b.type === 'text').map(b => b.text).join('');
 }
 
@@ -153,9 +285,11 @@ export function parseResponse(text) {
   return normalizeFiles(JSON.parse(m[0]));
 }
 function normalizeFiles(j) {
-  for (const k of ['manifest', 'template', 'styles']) if (typeof j[k] !== 'string' || !j[k].trim()) throw new Error(`Réponse incomplète : ${k} manquant.`);
+  if (typeof j.manifest !== 'string' || !j.manifest.trim()) throw new Error('Réponse incomplète : manifest manquant.');
+  const lang = /^(données|forme):/m.test(j.manifest);
+  if (!lang) for (const k of ['template', 'styles']) if (typeof j[k] !== 'string' || !j[k].trim()) throw new Error(`Réponse incomplète : ${k} manquant (ou écrivez données et forme dans le manifeste).`);
   const fixtures = (Array.isArray(j.fixtures) ? j.fixtures : []).filter(f => f && typeof f.name === 'string' && typeof f.yaml === 'string').map(f => ({ name: f.name.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-|-$/g, '') || 'cas', yaml: f.yaml }));
-  return { manifest: j.manifest, template: j.template, styles: j.styles, fixtures, notes: typeof j.notes === 'string' ? j.notes : '' };
+  return { manifest: j.manifest, template: typeof j.template === 'string' && j.template.trim() ? j.template : null, styles: typeof j.styles === 'string' && j.styles.trim() ? j.styles : null, fixtures, notes: typeof j.notes === 'string' ? j.notes : '' };
 }
 
 /** Écrit les fichiers du composant (dossier remplacé : anciens instantanés compris). history : modifications demandées, gardées dans description.md. */
@@ -163,8 +297,8 @@ export async function writeComponent(dir, name, files, description, history = []
   await fs.rm(dir, { recursive: true, force: true });
   await fs.mkdir(path.join(dir, 'fixtures'), { recursive: true });
   await fs.writeFile(path.join(dir, 'manifest.yaml'), files.manifest.trim() + '\n');
-  await fs.writeFile(path.join(dir, 'template.html'), files.template.trim() + '\n');
-  await fs.writeFile(path.join(dir, 'styles.css'), files.styles.trim() + '\n');
+  if (files.template) await fs.writeFile(path.join(dir, 'template.html'), files.template.trim() + '\n');
+  if (files.styles) await fs.writeFile(path.join(dir, 'styles.css'), files.styles.trim() + '\n');
   for (const f of files.fixtures) await fs.writeFile(path.join(dir, 'fixtures', f.name + '.yaml'), f.yaml.trim() + '\n');
   const mods = history.length ? `\n## Modifications\n\n${history.map(h => `- ${h}`).join('\n')}\n` : '';
   await fs.writeFile(path.join(dir, 'description.md'), `# ${name}\n\n${String(description).trim()}\n${mods}\n<!-- Source lisible du composant : sitec component new … --from cette description --force le régénère ; sitec component edit … --ask "…" le modifie. Les autres fichiers en ont été produits puis vérifiés. -->\n`);
@@ -175,13 +309,13 @@ export async function writeComponent(dir, name, files, description, history = []
 export async function readComponent(dir) {
   const read = f => fs.readFile(path.join(dir, f), 'utf8').catch(() => null);
   const manifest = await read('manifest.yaml'), template = await read('template.html');
-  if (manifest === null || template === null) return null;
+  if (manifest === null || (template === null && !/^forme:/m.test(manifest))) return null;
   const fixtures = [];
   for (const f of (await fs.readdir(path.join(dir, 'fixtures')).catch(() => [])).filter(x => /\.ya?ml$/.test(x)).sort()) fixtures.push({ name: f.replace(/\.ya?ml$/, ''), yaml: await read('fixtures/' + f) });
   const md = (await read('description.md')) || '';
   const body = md.replace(/^# .*\n+/, '').replace(/<!--[\s\S]*?-->/g, '');
   const [desc, hist = ''] = body.split(/\n## Modifications\n/);
-  return { files: { manifest, template, styles: (await read('styles.css')) || '', fixtures, notes: '' }, description: desc.trim(), history: hist.split('\n').map(l => l.replace(/^- /, '').trim()).filter(Boolean) };
+  return { files: { manifest, template, styles: await read('styles.css'), fixtures, notes: '' }, description: desc.trim(), history: hist.split('\n').map(l => l.replace(/^- /, '').trim()).filter(Boolean), format: /^forme:/m.test(manifest) ? 'langage' : 'html' };
 }
 
 /** Vérifie le composant dans son projet : erreurs et avertissements qui le concernent, puis rendu de ses cas de test. */
@@ -212,14 +346,14 @@ export async function verifyComponent(root, target, catalog, { render = true } =
  * Génère (ou modifie, avec current + request), vérifie, répare. opts : { root, name, description, catalog, model, client, rounds, onRound, ask, pkg, request, current, history } ;
  * ask(system, user, round) peut remplacer l'appel au modèle (tests). Renvoie { ok, rounds, problems, warnings, files, notes, target }.
  */
-export async function generateComponent({ root, name, description, catalog, model = DEFAULT_MODEL, client = null, rounds = 3, onRound = () => {}, ask = null, pkg = null, request = null, current = null, history = [] }) {
-  const system = await buildSystemPrompt();
+export async function generateComponent({ root, name, description, catalog, model = DEFAULT_MODEL, client = null, rounds = 3, onRound = () => {}, ask = null, pkg = null, request = null, current = null, history = [], format = 'langage', onUsage = null }) {
+  const system = await buildSystemPrompt(format);
   const project = await loadProject(root); validateProject(project, catalog);
   const target = resolveTarget(project, name, pkg);
   let previous = null, problems = [], warnings = [], files = null;
   for (let r = 1; r <= rounds; r++) {
     const user = buildUserPrompt({ name: target.name, description, project, previous, problems: [...problems, ...warnings], target, current, request });
-    const text = ask ? await ask(system, user, r) : await askModel({ system, user, model, client });
+    const text = ask ? await ask(system, user, r) : await askModel({ system, user, model, client, format, onUsage });
     try { files = parseResponse(text); }
     catch (e) { problems = [{ code: 'E_RESPONSE', file: '(réponse)', path: '', message: e.message + ' Renvoie uniquement l\'objet JSON demandé.' }]; warnings = []; onRound({ round: r, problems, warnings }); continue; }
     await writeComponent(target.dir, target.name, files, description, request ? [...history, request.trim()] : history);
@@ -240,7 +374,7 @@ export async function editComponent({ root, name, request, catalog, pkg = null, 
   const backup = await fs.mkdtemp(path.join(os.tmpdir(), 'sitec-sauvegarde-'));
   await fs.cp(target.dir, backup, { recursive: true });
   try {
-    const r = await generateComponent({ root, name, description: existing.description || name, catalog, pkg, request, current: existing.files, history: existing.history, ...opts });
+    const r = await generateComponent({ root, name, description: existing.description || name, catalog, pkg, request, current: existing.files, history: existing.history, format: existing.format, ...opts });
     if (!r.ok) { await fs.rm(target.dir, { recursive: true, force: true }); await fs.cp(backup, target.dir, { recursive: true }); r.restored = true; }
     return r;
   } finally { await fs.rm(backup, { recursive: true, force: true }); }

@@ -105,7 +105,7 @@ try {
   const badSel = await post({ _form: 'devis-express', _csrf: csrf, name: 'Test Lang', type_travaux: 'Inconnu' });
   ok('formulaire déclaré : option de select inconnue refusée', /Choix invalide/.test(badSel.text));
   const sent = await post({ _form: 'devis-express', _csrf: csrf, name: 'Test Lang', phone: '06 00 00 00 00', type_travaux: 'Chauffe-eau', details: 'Cumulus 200 L, 3e étage sans ascenseur.' });
-  ok('formulaire déclaré : envoi valide → message de succès déclaré', sent.status === 200 && /Demande envoyée/.test(sent.text) && /un plombier vous rappelle/.test(sent.text), String(sent.status));
+  ok('formulaire déclaré : envoi valide → message de succès déclaré', sent.status === 200 && /un plombier vous rappelle/.test(sent.text) && /role="status"/.test(sent.text), String(sent.status));
   ok('formulaire déclaré : page sans erreur PHP après envoi', !phpErr(sent.text));
   const forged = await post({ _form: 'devis-express', _csrf: 'mauvais', name: 'X', type_travaux: 'Chauffe-eau' });
   ok('formulaire déclaré : jeton CSRF faux refusé', /Session expirée/.test(forged.text));

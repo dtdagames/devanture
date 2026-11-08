@@ -1,14 +1,17 @@
 name: cta
 order: 70
 description: Bandeau d'appel à l'action (titre, texte, bouton). À placer en fin de page.
-props:
-  type: object
-  required: [title, button]
-  properties:
-    title: { type: string }
-    text: { type: string }
-    button: { $ref: "#/$defs/link" }
-    style: { type: string, enum: [primary, surface], description: "fond coloré (primary) ou discret (surface), défaut primary" }
+données:
+  title: texte
+  text: texte, facultatif
+  button: lien
+  style: texte, facultatif, un parmi primary, surface — fond coloré (primary) ou discret (surface), défaut primary
+forme:
+  section, variante style par défaut primary, conteneur « cta-inner »:
+    - bloc:
+        - titre: title
+        - texte: text
+    - bouton: button
 example: |
   - cta:
       title: Un projet en tête ?

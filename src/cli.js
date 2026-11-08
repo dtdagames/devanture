@@ -8,6 +8,9 @@ import { THEME_PRESETS } from './emit/php/css.js';
 import { describeComposite } from './composition.js';
 import { TEMPLATE_VOCABULARY } from './lang/template.js';
 import { BEHAVIORS } from './lang/behaviors.js';
+import { TYPE_WORDS } from './lang/donnees.js';
+import { PRIMITIVE_HELP } from './lang/forme.js';
+import { INTENT_NAMES } from './lang/apparence.js';
 import fs from 'node:fs/promises';
 
 const HELP = `sitec — compilateur Devanture (sites vitrines → PHP + JS)
@@ -19,7 +22,7 @@ Usage :
   sitec catalog [dossier-projet]             Liste compacte des composants (natifs, puis ceux du projet : composés et gabarits)
   sitec explain <composant> [dossier-projet] Fiche détaillée d'un composant (ou : explain site, explain langage)
   sitec component new <dossier> <nom>        Squelette d'un composant de projet : components/<nom>/ (manifest.yaml, template.html, styles.css)
-  sitec component new <dossier> <nom> --describe "texte" | --from f.md [--model id] [--rounds n] [--force]
+  sitec component new <dossier> <nom> --describe "texte" | --from f.md [--format langage|html] [--model id] [--rounds n] [--force]
                                              Génère le composant depuis une description en langage naturel (modèle Claude), vérifié et réparé jusqu'à passer ; --export p.json puis --import r.json sans clé d'API
   sitec component edit <dossier> <nom> --ask "modification" [--package chemin]
                                              Modifie un composant existant par une demande en langage naturel (même vérification ; ancienne version restaurée en cas d'échec)
@@ -154,7 +157,8 @@ export async function run(argv) {
         const history = existing?.history || [];
         const promptArgs = extra => ({ name: target.name, description, project, target, current: request ? existing.files : null, request, ...extra });
         if (opt('--export') && !opt('--import')) {
-          await fs.writeFile(path.resolve(opt('--export')), JSON.stringify({ name: target.name, description, request, model: opt('--model') || gen.DEFAULT_MODEL, system: await gen.buildSystemPrompt(), user: gen.buildUserPrompt(promptArgs({})), output_schema: gen.OUTPUT_SCHEMA }, null, 2));
+          const fmt = request ? existing.format : (opt('--format') || 'langage');
+          await fs.writeFile(path.resolve(opt('--export')), JSON.stringify({ name: target.name, description, request, format: fmt, model: opt('--model') || gen.DEFAULT_MODEL, system: await gen.buildSystemPrompt(fmt), user: gen.buildUserPrompt(promptArgs({})), output_schema: gen.schemaFor(fmt) }, null, 2));
           console.log(JSON.stringify({ ok: true, exported: opt('--export'), hint: `Soumettez system + user à un modèle (sortie JSON conforme à output_schema), enregistrez la réponse, puis : sitec component ${sub} ${dir} ${name}${request ? ' --ask "…"' : ''} --import reponse.json [--export reparation.json]` }));
           return 0;
         }
@@ -165,7 +169,8 @@ export async function run(argv) {
           const v = await gen.verifyComponent(root, target, catalog);
           show({ round: 1, ...v, notes: files.notes });
           if ((v.problems.length || v.warnings.length) && opt('--export')) {
-            await fs.writeFile(path.resolve(opt('--export')), JSON.stringify({ name: target.name, description, request, system: await gen.buildSystemPrompt(), user: gen.buildUserPrompt(promptArgs({ previous: files, problems: [...v.problems, ...v.warnings] })), output_schema: gen.OUTPUT_SCHEMA }, null, 2));
+            const fmt = files.template ? 'html' : 'langage';
+            await fs.writeFile(path.resolve(opt('--export')), JSON.stringify({ name: target.name, description, request, format: fmt, system: await gen.buildSystemPrompt(fmt), user: gen.buildUserPrompt(promptArgs({ previous: files, problems: [...v.problems, ...v.warnings] })), output_schema: gen.schemaFor(fmt) }, null, 2));
             console.log(`      prompt de réparation écrit : ${opt('--export')}`);
           }
           if (!v.problems.length) await preview();
@@ -175,7 +180,9 @@ export async function run(argv) {
         const model = opt('--model') || gen.DEFAULT_MODEL;
         console.error(`${sub === 'edit' ? 'Modification' : 'Génération'} de ${target.name} par ${model} (sortie structurée, repli automatique en cas de refus), vérification et réparation jusqu'à ${opt('--rounds') || 3} tours…`);
         let r;
-        const common = { root, name: target.name, catalog, model, rounds: Number(opt('--rounds') || 3), onRound: show, pkg: opt('--package') };
+        const format = opt('--format') || 'langage';
+        if (!['langage', 'html'].includes(format)) { console.error('--format langage (données, forme, apparence ; défaut) ou --format html (gabarit et feuille)'); return 2; }
+        const common = { root, name: target.name, catalog, model, rounds: Number(opt('--rounds') || 3), onRound: show, pkg: opt('--package'), format };
         try { r = sub === 'edit' ? await gen.editComponent({ ...common, request }) : await gen.generateComponent({ ...common, description }); }
         catch (e) { console.error('Erreur : ' + e.message + (/api.?key|auth/i.test(e.message) ? ' (définissez ANTHROPIC_API_KEY, ou utilisez --export puis --import)' : '')); return 1; }
         if (r.restored) console.log('      échec : la version précédente du composant est restaurée');
@@ -185,7 +192,43 @@ export async function run(argv) {
       }
       if (sub !== 'new') { console.error(usage); return 2; }
       try { await fs.access(cdir); console.error(`${cdir} existe déjà.`); return 2; } catch { /* libre */ }
-      await fs.mkdir(cdir, { recursive: true });
+      await fs.mkdir(path.join(cdir, 'fixtures'), { recursive: true });
+      // Squelette au format langage (défaut) : un seul manifeste, données, forme, apparence.
+      if ((opt('--format') || 'langage') !== 'html') {
+        await fs.writeFile(path.join(cdir, 'manifest.yaml'), `name: ${target.manifestName}
+description: "[à compléter] une phrase : ce que montre ce composant et quand l'utiliser"
+# Ce que le composant accepte : une ligne par champ, « nom: type, précisions — description ».
+données:
+  title: texte, facultatif — titre de la section
+  intro: texte, facultatif — phrase sous le titre
+  items (liste, au moins 1):
+    title: texte
+    text: texte, facultatif
+    image: image, facultatif
+  cta: lien, facultatif — bouton sous la liste
+# La structure : primitives (sitec explain langage). Un nom entre « » donne une classe.
+forme:
+  - en-tête: title, intro
+  - grille de items, 3 colonnes:
+      - carte:
+          - image: image, title
+          - titre: title
+          - texte discret: text
+  - bouton: cta
+# L'allure, par partie : intentions liées au thème.
+apparence:
+  cartes: compactes, coins arrondis
+example: |
+  - ${target.name}:
+      title: Un titre
+      items:
+        - { title: Premier point, text: Une phrase. }
+intents: [mots, que, tapent, les, visiteurs]
+`);
+        await fs.writeFile(path.join(cdir, 'fixtures', 'simple.yaml'), 'title: Un titre\nitems:\n  - { title: Premier point, text: Une phrase. }\n  - { title: Second point }\n');
+        console.log(`OK  ${relDir} : manifest.yaml (données, forme, apparence) et un cas de test. Ensuite : décrire, ajuster, puis sitec check ${dir} et sitec component preview ${dir} ${name}.`);
+        return 0;
+      }
       const cls = name.replace(/\./g, '-');
       await fs.writeFile(path.join(cdir, 'manifest.yaml'), `name: ${name}
 description: "[à compléter] une phrase : ce que montre ce composant et quand l'utiliser"
@@ -432,7 +475,11 @@ Constantes : site.yaml › constants: { delai: 1 h, zone: Lyon } → {{ const.de
 Collections : site.yaml › collections: { nom: { label, fields: { champ: type }, sort } } ; data/<nom>.yaml ; page route: /chemin/[id] + source: nom ; composant collection.list.
   types de champ : string, text, number, boolean, date, asset, list, link.
 Composants composés : components.yaml › components: { nom: { params, sections } } ; dans sections, {{ p.param }} et { for: p.liste, as: x, item: {…} }.
-Composants de projet : components/<nom>/manifest.yaml + template.html (+ styles.css) ; sitec component new <dossier> <nom> [--describe "texte"].
+Composants de projet, format langage (défaut) : un seul manifest.yaml avec données, forme, apparence (docs/LANGAGE.md, section 6).
+  données : nom: ${TYPE_WORDS.join(' | ')}, puis facultatif, au moins N, au plus N, de A à B, un parmi a, b — description ; « items (liste): » puis les champs.
+  forme : ${Object.keys(PRIMITIVE_HELP).join(', ')}.
+  apparence : partie: ${INTENT_NAMES.join(', ')} ; « sur téléphone: ».
+Format html (porte de sortie) : components/<nom>/manifest.yaml + template.html (+ styles.css) ; sitec component new <dossier> <nom> [--describe "texte"] [--format html].
   CSS : sélecteurs préfixés du nom du composant, jetons du thème (var(--color-…), var(--font-…)), rien d'externe.
   comportements : behaviors: [${Object.keys(BEHAVIORS).join(', ')}] et attributs data-sl-… dans le gabarit (docs/LANGAGE.md).
   gabarit : {{ expr }} échappé ; balises ${TEMPLATE_VOCABULARY.tags.join(', ')} ; variables ${TEMPLATE_VOCABULARY.variables.join(', ')} ; fonctions ${TEMPLATE_VOCABULARY.functions.join(', ')} (HTML sûr : ${TEMPLATE_VOCABULARY.safe.join(', ')})

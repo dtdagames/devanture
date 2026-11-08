@@ -1,6 +1,0 @@
-.avis-defilants-box{display:flex;align-items:center;gap:12px}
-.avis-defilants-track{flex:1}
-.avis-defilants-item{width:min(340px,80vw);margin:0}
-.avis-defilants-stars{color:var(--color-accent);letter-spacing:2px}
-.avis-defilants-more{text-align:center;margin-top:20px}
-@media (max-width:760px){.avis-defilants-nav{display:none}}

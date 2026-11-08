@@ -1,6 +1,16 @@
 # Journal des versions
 
-Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.6.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.7.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+
+## v0.7.0 — 2026-11-09 — des composants sans HTML ni CSS
+
+- **Données** : « title: texte, facultatif — description », « items (liste, au moins 1): » ; compilées vers le schéma JSON des props. Preuve : les sept composants natifs réécrits ainsi donnent des schémas identiques à leur version précédente (`scripts/compare-props.mjs v0.6.0 …`).
+- **Forme** : une trentaine de primitives françaises au balisage fixe (en-tête, titre, texte, carte, témoignage, étoiles, signature, grille, liste numérotée, défilement, onglets, accordéon, formulaire…), compilées vers le gabarit neutre ; données facultatives rendues conditionnelles automatiquement ; textes littéraux avec données et balisage léger ; expressions aux noms courts. Preuve : sept natifs réécrits (features, stats, steps, testimonials, faq, timeline, cta) sans gabarit HTML, 36 pages des quatre exemples identiques au caractère près à la v0.6.0.
+- **Apparence** : intentions par partie (compactes, coins arrondis, fond surface, couleur d'accent, deux colonnes, masqués, « sur téléphone »…) traduites vers les jetons du thème ; aucune valeur libre. Les primitives à comportement (défilement, onglets) portent leur mise en page de base.
+- Trois composants de projet réécrits au nouveau format (carrousel d'avis, onglets du paquet, demande de devis avec formulaire), vérifiés au navigateur ; l'encart du paquet reste au format html, porte de sortie.
+- **Générateur** : écrit le format langage par défaut (`--format html` pour l'ancien) ; guide construit depuis les vocabulaires du compilateur. `scripts/measure-gen.mjs` mesure tours de réparation et tokens dans les deux formats (clé d'API requise, non exécuté ici).
+- **Mesure** (`scripts/measure-format.mjs`) : ce qu'un auteur écrit passe de 3 696 à 1 399 tokens (−62 %) sur dix composants.
+- Éditeur : schémas des manifestes étendus aux trois blocs ; banc de rendu muni des champs de formulaire déclarés (aperçus et instantanés montrent le vrai formulaire).
 
 ## v0.6.0 — 2026-11-09 — faire évoluer et relire un composant
 

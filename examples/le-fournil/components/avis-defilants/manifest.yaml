@@ -1,25 +1,27 @@
 name: avis-defilants
 description: "Carrousel d'avis clients : note en étoiles, texte, prénom et date, boutons précédent et suivant, défilement lent."
-behaviors: [carousel]
-props:
-  type: object
-  required: [items]
-  properties:
-    title: { type: string, description: titre de la section }
-    intro: { type: string, description: phrase sous le titre }
-    items:
-      type: array
-      minItems: 1
-      items:
-        type: object
-        additionalProperties: false
-        required: [text, author]
-        properties:
-          rating: { type: integer, minimum: 1, maximum: 5, description: note sur 5 }
-          text: { type: string, description: texte de l'avis }
-          author: { type: string, description: prénom }
-          date: { type: string, description: "date de l'avis (AAAA-MM-JJ)" }
-    link: { $ref: "#/$defs/link", description: lien vers tous les avis }
+données:
+  title: texte, facultatif — titre de la section
+  intro: texte, facultatif — phrase sous le titre
+  items (liste, au moins 1):
+    rating: nombre entier, de 1 à 5, facultatif — note sur 5
+    text: texte — texte de l'avis
+    author: texte — prénom
+    date: date, facultatif — date de l'avis (AAAA-MM-JJ)
+  link: lien, facultatif — lien vers tous les avis
+forme:
+  - en-tête: title, intro
+  - défilement de items, automatique:
+      - témoignage:
+          - étoiles: rating
+          - citation: text
+          - signature: author, date, en toutes lettres
+  - bouton discret: link
+apparence:
+  étoiles: couleur d'accent
+  bouton discret: espace au-dessus
+  sur téléphone:
+    flèches: masquées
 example: |
   - avis-defilants:
       title: Ils parlent de nous

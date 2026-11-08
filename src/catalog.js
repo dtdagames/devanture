@@ -3,6 +3,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import YAML from 'yaml';
 import { nearest } from './errors.js';
+import { compileDonnees } from './lang/donnees.js';
+import { compileForme } from './lang/forme.js';
+import { compileApparence, wantedParts } from './lang/apparence.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const COMPONENTS_DIR = path.join(ROOT, 'components');
@@ -21,7 +24,7 @@ export const SHARED_DEFS = {
 };
 
 const SCHEMA_KEYS = new Set(['type', 'description', 'enum', 'items', 'properties', 'required', 'additionalProperties', 'minItems', 'maxItems', 'minimum', 'maximum', 'minLength', 'format', 'pattern', '$ref', '$defs', 'default']);
-const MANIFEST_KEYS = new Set(['name', 'order', 'description', 'props', 'example', 'intents', 'effects', 'behaviors', 'readable']);
+const MANIFEST_KEYS = new Set(['name', 'order', 'description', 'props', 'données', 'forme', 'apparence', 'example', 'intents', 'effects', 'behaviors', 'readable']);
 
 /** Garde-fou pour les auteurs de manifestes : une virgule non protégée dans une description crée des clés parasites. */
 function lintManifest(name, schema, errors, p = 'props') {
@@ -46,6 +49,13 @@ export function buildComponent({ name, shortName = null, pkg = null, dir, manife
   for (const k of Object.keys(manifest)) if (!MANIFEST_KEYS.has(k)) { const s = nearest(k, [...MANIFEST_KEYS]); errors.push(`clé inconnue « ${k} » dans manifest.yaml${s ? ` (vouliez-vous dire ${s} ?)` : ''}`); }
   if (manifest.name !== undefined && manifest.name !== name && manifest.name !== shortName) errors.push(`name: ${manifest.name} ne correspond pas au dossier ${shortName || name}`);
   manifest.name = name;
+  // Bloc données (français contrôlé) : compilé vers le schéma JSON des props ; les deux ensemble sont refusés.
+  if (manifest['données'] !== undefined) {
+    if (manifest.props !== undefined) errors.push('props et données à la fois : gardez données (ou props, en schéma JSON), pas les deux');
+    const r = compileDonnees(manifest['données']);
+    for (const e of r.errors) errors.push(`${e.path} : ${e.message}`);
+    manifest.props = r.schema;
+  }
   manifest.props ??= { type: 'object', properties: {} };
   if (typeof manifest.props !== 'object' || Array.isArray(manifest.props)) { errors.push('props doit être un schéma objet { type: object, properties: { … } }'); manifest.props = { type: 'object', properties: {} }; }
   manifest.props.type ??= 'object';
@@ -59,9 +69,24 @@ export function buildComponent({ name, shortName = null, pkg = null, dir, manife
   manifest.intents ??= [];
   manifest.description ??= '';
   lintManifest(name, manifest.props, errors);
+  // Forme et apparence (français contrôlé) : compilées vers le gabarit neutre et la feuille encadrée ; le reste de la chaîne est inchangé.
+  if (manifest.forme !== undefined) {
+    if (files['template.html'] !== undefined || files['template.php'] !== undefined) errors.push('forme et template.html à la fois : la forme produit le gabarit, retirez template.html (ou retirez forme)');
+    const r = compileForme(manifest.forme, { name, props: manifest.props, want: wantedParts(manifest.apparence), effects: manifest.effects || null });
+    for (const e of r.errors) errors.push(`${e.path} : ${e.message}`);
+    files = { ...files, 'template.html': r.template };
+    if (r.behaviors.size) manifest.behaviors = [...new Set([...(Array.isArray(manifest.behaviors) ? manifest.behaviors : []), ...r.behaviors])];
+    if (r.css) files['styles.css'] = [files['styles.css'], r.css].filter(Boolean).join('\n');
+    if (manifest.apparence !== undefined) {
+      const a = compileApparence(manifest.apparence, { parts: r.parts, sectionClass: r.sectionClass });
+      for (const e of a.errors) errors.push(`${e.path} : ${e.message}`);
+      files['styles.css'] = [files['styles.css'], a.css].filter(Boolean).join('\n');
+    }
+    manifest._generated = { template: true, styles: manifest.apparence !== undefined };
+  } else if (manifest.apparence !== undefined) errors.push('apparence sans forme : l\'apparence vise les parties de la forme');
   if (project) {
     if (files['template.php'] !== undefined) errors.push('template.php interdit dans un composant de projet : écrivez template.html (gabarit neutre, sans PHP)');
-    if (files['template.html'] === undefined) errors.push('template.html manquant (gabarit du composant)');
+    if (files['template.html'] === undefined) errors.push('template.html manquant (gabarit du composant) : écrivez une forme dans manifest.yaml, ou template.html');
   }
   if (!/^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*$/.test(name)) errors.push(`nom de composant mal formé : ${name} (minuscules, chiffres et tirets, points pour les familles : produit.carte)`);
   return { entry: { name, dir, manifest, files, project, package: pkg }, errors };

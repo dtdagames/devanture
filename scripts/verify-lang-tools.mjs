@@ -93,24 +93,27 @@ try {
 
   // --- CSS encadré, comportements déclarés, gabarit sans script
   const fournil0 = await copy('examples/le-fournil', 'fournil-composants');
-  const cdir = path.join(fournil0, 'components', 'avis-defilants');
-  const css0 = await fs.readFile(path.join(cdir, 'styles.css'), 'utf8');
-  const tpl0 = await fs.readFile(path.join(cdir, 'template.html'), 'utf8');
-  const man0 = await fs.readFile(path.join(cdir, 'manifest.yaml'), 'utf8');
+  // Format html (porte de sortie) : gabarit et feuille écrits à la main, toujours vérifiés.
+  const cdir = path.join(fournil0, 'components', 'avis-html');
+  await fs.mkdir(path.join(cdir, 'fixtures'), { recursive: true });
+  const css0 = '.avis-html-box{display:flex;align-items:center;gap:12px}\n.avis-html-stars{color:var(--color-accent)}\n';
+  const tpl0 = '<section class="section avis-html">\n  <div class="container">\n    <div class="avis-html-box" data-sl-carousel>\n      <button type="button" class="avis-html-nav" data-sl-prev>‹</button>\n      <div data-sl-track>{% for a in p.items %}<blockquote class="card"><div class="avis-html-stars">{{ \'★\' | repeat(a.rating | default(5)) }}</div><p>« {{ a.text }} »</p></blockquote>{% endfor %}</div>\n      <button type="button" class="avis-html-nav" data-sl-next>›</button>\n    </div>\n  </div>\n</section>\n';
+  const man0 = 'name: avis-html\ndescription: "Carrousel au format html."\nbehaviors: [carousel]\nprops:\n  type: object\n  required: [items]\n  properties:\n    items:\n      type: array\n      items:\n        type: object\n        additionalProperties: false\n        required: [text]\n        properties:\n          text: { type: string }\n          rating: { type: integer }\nexample: |\n  - avis-html:\n      items:\n        - { text: Bon. }\n';
+  for (const [f, t] of [['styles.css', css0], ['template.html', tpl0], ['manifest.yaml', man0], ['fixtures/simple.yaml', 'items:\n  - { text: Bon., rating: 4 }\n']]) await fs.writeFile(path.join(cdir, f), t);
   r = run('check', fournil0);
-  ok('composant généré (exemple fournil) : valide, sans avertissement', r.code === 0 && lines(r.out).find(x => x.ok)?.warnings === 0, r.out.slice(-300));
+  ok('format html et format langage côte à côte : valides, sans avertissement', r.code === 0 && lines(r.out).find(x => x.ok)?.warnings === 0, r.out.slice(-300));
   const expectCheck = async (file, content, re, label, code = 1) => { await fs.writeFile(path.join(cdir, file), content); const x = run('check', fournil0); ok(label, x.code === code && re.test(x.out), x.out.slice(0, 300)); };
   await expectCheck('styles.css', css0 + 'h2{color:var(--color-fg)}\n', /E_CSS.*sélecteur « h2 » hors du composant/, 'CSS : sélecteur hors du composant → E_CSS');
   await expectCheck('styles.css', css0 + ':root{--x:1}\n', /E_CSS.*sélecteur global/, 'CSS : sélecteur global → E_CSS');
-  await expectCheck('styles.css', css0 + '.avis-defilants-bg{background:url(https://cdn.exemple.fr/x.png)}\n', /E_CSS.*ressource externe/, 'CSS : ressource externe → E_CSS');
-  await expectCheck('styles.css', css0 + '.avis-defilants-x{color:#ff0000}\n', /W_CSS.*couleur écrite en dur/, 'CSS : couleur en dur → avertissement W_CSS', 0);
+  await expectCheck('styles.css', css0 + '.avis-html-bg{background:url(https://cdn.exemple.fr/x.png)}\n', /E_CSS.*ressource externe/, 'CSS : ressource externe → E_CSS');
+  await expectCheck('styles.css', css0 + '.avis-html-x{color:#ff0000}\n', /W_CSS.*couleur écrite en dur/, 'CSS : couleur en dur → avertissement W_CSS', 0);
   await fs.writeFile(path.join(cdir, 'styles.css'), css0);
   await expectCheck('manifest.yaml', man0.replace('behaviors: [carousel]\n', ''), /E_BEHAVIOR.*carousel sans le déclarer/, 'comportements : attributs posés sans déclaration → E_BEHAVIOR');
   await expectCheck('manifest.yaml', man0.replace('behaviors: [carousel]', 'behaviors: [carousel, carousell]'), /E_ENUM.*Comportement inconnu : carousell/, 'comportements : nom inconnu → E_ENUM avec suggestion');
   await expectCheck('manifest.yaml', man0.replace('behaviors: [carousel]', 'behaviors: [carousel, tabs]'), /W_BEHAVIOR.*déclare tabs/, 'comportements : déclaré mais inutilisé → W_BEHAVIOR', 0);
   await fs.writeFile(path.join(cdir, 'manifest.yaml'), man0);
   await expectCheck('template.html', tpl0 + '<script>alert(1)</script>\n', /E_TEMPLATE.*<script> interdit/, 'gabarit : <script> → E_TEMPLATE');
-  await expectCheck('template.html', tpl0.replace('<button type="button" class="avis-defilants-nav" data-sl-prev>', '<button type="button" class="avis-defilants-nav" data-sl-prev onclick="x()">'), /E_TEMPLATE.*attribut d'événement/, 'gabarit : onclick= → E_TEMPLATE');
+  await expectCheck('template.html', tpl0.replace('<button type="button" class="avis-html-nav" data-sl-prev>', '<button type="button" class="avis-html-nav" data-sl-prev onclick="x()">'), /E_TEMPLATE.*attribut d'événement/, 'gabarit : onclick= → E_TEMPLATE');
   await fs.writeFile(path.join(cdir, 'template.html'), tpl0);
   await fs.writeFile(path.join(cdir, 'module.js'), 'console.log(1);');
   r = run('check', fournil0);
@@ -124,25 +127,32 @@ try {
   const gen = await import(pathToFileURL(path.join(ROOT, 'src', 'component-gen.js')).href);
   const { loadCatalog } = await import(pathToFileURL(path.join(ROOT, 'src', 'catalog.js')).href);
   const catalog = await loadCatalog();
-  const good = { manifest: man0, template: tpl0, styles: css0, fixtures: [{ name: 'complet', yaml: await fs.readFile(path.join(cdir, 'fixtures', 'complet.yaml'), 'utf8') }, { name: 'minimal', yaml: await fs.readFile(path.join(cdir, 'fixtures', 'minimal.yaml'), 'utf8') }], notes: 'ok' };
-  const bad = { ...good, manifest: man0.replace('behaviors: [carousel]\n', ''), styles: css0.replace('var(--color-accent)', '#e0a100'), notes: 'premier jet' };
+  const ldir = path.join(ROOT, 'examples', 'le-fournil', 'components', 'avis-defilants');
+  const manL = await fs.readFile(path.join(ldir, 'manifest.yaml'), 'utf8');
+  const good = { manifest: manL, fixtures: [{ name: 'complet', yaml: await fs.readFile(path.join(ldir, 'fixtures', 'complet.yaml'), 'utf8') }, { name: 'minimal', yaml: await fs.readFile(path.join(ldir, 'fixtures', 'minimal.yaml'), 'utf8') }], notes: 'ok' };
+  // Mauvais jet typique : un champ mal nommé dans la forme, une intention mal orthographiée dans l'apparence.
+  const bad = { ...good, manifest: manL.replace('          - signature: author, date, en toutes lettres', '          - signature: auteur, date, en toutes lettres').replace("étoiles: couleur d'accent", "étoiles: couleur d'acent"), notes: 'premier jet' };
   const site2 = await copy('examples/le-fournil', 'fournil-gen');
   await fs.rm(path.join(site2, 'components', 'avis-defilants'), { recursive: true });
   await fs.writeFile(path.join(site2, 'pages', 'accueil.page.yaml'), (await fs.readFile(path.join(ROOT, 'examples', 'le-fournil', 'pages', 'accueil.page.yaml'), 'utf8')).replace('  - avis-defilants:', '  - testimonials:').replace(/        - text: /g, '        - quote: '));
   const prompts = [];
   let res = await gen.generateComponent({ root: site2, name: 'avis-defilants', description: 'Un carrousel d\'avis clients.', catalog, rounds: 3, ask: async (system, user, round) => { prompts.push({ system, user }); return JSON.stringify(round === 1 ? bad : good); } });
   ok('générateur : premier jet refusé, réparé au deuxième tour', res.ok && res.rounds === 2, JSON.stringify({ ok: res.ok, rounds: res.rounds, problems: res.problems }));
-  ok('générateur : le prompt de réparation cite les problèmes et les fichiers précédents', /E_BEHAVIOR/.test(prompts[1]?.user || '') && /W_CSS/.test(prompts[1]?.user || '') && /## Fichiers précédents/.test(prompts[1]?.user || ''));
-  ok('générateur : le guide système vient du code (comportements, filtres, composants de référence)', /carousel : carrousel/.test(prompts[0]?.system || '') && /truncate/.test(prompts[0]?.system || '') && /Composant de référence : features/.test(prompts[0]?.system || ''));
+  ok('générateur : le prompt de réparation cite les problèmes (donnée inconnue avec suggestion, intention mal écrite) et les fichiers précédents', /« auteur » n'est pas une donnée.*vouliez-vous dire « author »/.test(prompts[1]?.user || '') && /intention inconnue « couleur d'acent »/.test(prompts[1]?.user || '') && /## Fichiers précédents/.test(prompts[1]?.user || ''));
+  ok('générateur : le guide du format langage vient du code (types, primitives, intentions, natifs en forme)', /défilement : carrousel/.test(prompts[0]?.system || '') && /nombre entier/.test(prompts[0]?.system || '') && /coins arrondis/.test(prompts[0]?.system || '') && /- grille de items, colonnes columns par défaut 3:/.test(prompts[0]?.system || '') && !/template\.html :/.test(prompts[0]?.system || ''));
+  ok('générateur : aucun gabarit ni feuille écrits au format langage', !(await fs.readdir(path.join(site2, 'components', 'avis-defilants'))).some(f => f === 'template.html' || f === 'styles.css'));
   const written = await fs.readdir(path.join(site2, 'components', 'avis-defilants', 'fixtures'));
   ok('générateur : description.md, cas de test et instantanés écrits', written.includes('complet.html') && (await fs.readFile(path.join(site2, 'components', 'avis-defilants', 'description.md'), 'utf8')).includes('Un carrousel d\'avis clients.'));
   res = await gen.generateComponent({ root: site2, name: 'avis-defilants', description: 'x', catalog, rounds: 2, ask: async (s2, u, round) => round === 1 ? 'Voici le composant : pas de JSON' : JSON.stringify(good) });
   ok('générateur : réponse sans JSON → nouveau tour', res.ok && res.rounds === 2);
   res = await gen.generateComponent({ root: site2, name: 'avis-defilants', description: 'x', catalog, rounds: 2, ask: async () => JSON.stringify(bad) });
-  ok('générateur : toujours faux → échec après le nombre de tours, problèmes rendus', !res.ok && res.rounds === 2 && res.problems.some(p => p.code === 'E_BEHAVIOR'));
+  ok('générateur : toujours faux → échec après le nombre de tours, problèmes rendus', !res.ok && res.rounds === 2 && res.problems.some(p => /auteur/.test(p.message)));
+  const htmlPrompts = [];
+  res = await gen.generateComponent({ root: site2, name: 'avis-html2', description: 'x', catalog, rounds: 1, format: 'html', ask: async (system) => { htmlPrompts.push(system); return JSON.stringify({ manifest: man0.replace('name: avis-html', 'name: avis-html2'), template: tpl0.replace(/avis-html/g, 'avis-html2'), styles: css0.replace(/avis-html/g, 'avis-html2'), fixtures: [{ name: 'simple', yaml: 'items:\n  - { text: Bon. }\n' }], notes: '' }); } });
+  ok('générateur --format html : guide html, gabarit et feuille écrits et vérifiés', res.ok && /template\.html \(gabarit neutre\)/.test(htmlPrompts[0] || '') && (await fs.readdir(path.join(site2, 'components', 'avis-html2'))).includes('template.html'), JSON.stringify(res.problems));
   r = run('component', 'new', site2, 'autre-bloc', '--describe', 'Un bloc simple.', '--export', path.join(tmp, 'p.json'));
   const exported = JSON.parse(await fs.readFile(path.join(tmp, 'p.json'), 'utf8'));
-  ok('générateur sans clé : --export écrit system, user et schéma de sortie', r.code === 0 && exported.system && /Nom du composant : autre-bloc/.test(exported.user) && exported.output_schema?.required?.includes('template'));
+  ok('générateur sans clé : --export écrit system, user et schéma de sortie', r.code === 0 && exported.system && /Nom du composant : autre-bloc/.test(exported.user) && exported.output_schema?.required?.includes('manifest') && !exported.output_schema?.required?.includes('template') && exported.format === 'langage');
   await fs.writeFile(path.join(tmp, 'r.json'), JSON.stringify(bad));
   await fs.rm(path.join(site2, 'components', 'avis-defilants'), { recursive: true });
   r = run('component', 'new', site2, 'avis-defilants', '--import', path.join(tmp, 'r.json'), '--export', path.join(tmp, 'rep.json'));
@@ -150,17 +160,17 @@ try {
 
   // --- Modification en langage naturel, génération dans un paquet, aperçu
   const site3 = await copy('examples/le-fournil', 'fournil-edit');
-  const before3 = await fs.readFile(path.join(site3, 'components', 'avis-defilants', 'template.html'), 'utf8');
-  const edited = { ...good, template: tpl0.replace('<p>« {{ a.text }} »</p>', '<p class="avis-defilants-texte">« {{ a.text }} »</p>'), styles: css0 + '.avis-defilants-texte{font-style:italic}\n', notes: 'texte en italique' };
+  const before3 = await fs.readFile(path.join(site3, 'components', 'avis-defilants', 'manifest.yaml'), 'utf8');
+  const edited = { ...good, manifest: manL.replace("  étoiles: couleur d'accent", "  étoiles: couleur d'accent\n  citations: italique"), notes: 'texte en italique' };
   const editPrompts = [];
   res = await gen.editComponent({ root: site3, name: 'avis-defilants', request: 'Mets le texte des avis en italique.', catalog, rounds: 2, ask: async (system, user) => { editPrompts.push(user); return JSON.stringify(edited); } });
   ok('edit : modification appliquée et vérifiée en un tour', res.ok && res.rounds === 1, JSON.stringify(res.problems));
-  ok('edit : le prompt contient le composant actuel et la demande', /# Composant actuel/.test(editPrompts[0] || '') && /# Modification demandée\nMets le texte des avis en italique\./.test(editPrompts[0] || '') && /data-sl-carousel/.test(editPrompts[0] || ''));
+  ok('edit : le prompt contient le composant actuel et la demande', /# Composant actuel/.test(editPrompts[0] || '') && /# Modification demandée\nMets le texte des avis en italique\./.test(editPrompts[0] || '') && /défilement de items/.test(editPrompts[0] || ''));
   const md3 = await fs.readFile(path.join(site3, 'components', 'avis-defilants', 'description.md'), 'utf8');
   ok('edit : description conservée, demande ajoutée à l\'historique', /Un carrousel d'avis clients/.test(md3) && /## Modifications\n\n- Mets le texte des avis en italique\./.test(md3));
   res = await gen.editComponent({ root: site3, name: 'avis-defilants', request: 'Casse tout.', catalog, rounds: 2, ask: async () => JSON.stringify(bad) });
-  const after3 = await fs.readFile(path.join(site3, 'components', 'avis-defilants', 'template.html'), 'utf8');
-  ok('edit : échec après tous les tours → version précédente restaurée', !res.ok && res.restored && after3.includes('avis-defilants-texte') && after3 !== before3 && !(await fs.readdir(path.join(site3, 'components'))).some(f => f.startsWith('.sauvegarde-')));
+  const after3 = await fs.readFile(path.join(site3, 'components', 'avis-defilants', 'manifest.yaml'), 'utf8');
+  ok('edit : échec après tous les tours → version précédente restaurée', !res.ok && res.restored && after3.includes('citations: italique') && after3 !== before3 && !(await fs.readdir(path.join(site3, 'components'))).some(f => f.startsWith('.sauvegarde-')));
   const garnier3 = await copy('examples/garnier-associes', 'garnier-gen');
   await copy('examples/paquets', 'paquets-gen');
   await fs.writeFile(path.join(garnier3, 'site.yaml'), (await fs.readFile(path.join(garnier3, 'site.yaml'), 'utf8')).replace('../paquets/vitrine', '../paquets-gen/vitrine'));

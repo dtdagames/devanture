@@ -95,15 +95,90 @@ Types de paramètre : `string text number boolean list object link asset`. L'usa
 
 ## 6. Composants de projet
 
+Un composant s'écrit de deux façons.
+
+**Format langage (par défaut)** : un seul fichier, `manifest.yaml`, en français contrôlé. Le compilateur en tire le gabarit, la feuille de style, les comportements et le schéma des props ; l'auteur ne voit ni HTML, ni CSS, ni JavaScript. La correspondance est fixe : une même configuration donne toujours le même rendu, et toute erreur renvoie à une ligne du manifeste.
+
 ```
 components/<nom>/
-  manifest.yaml    name, description, props (schéma), example, intents, effects
-  template.html    gabarit neutre
-  styles.css       design, avec les jetons du thème
-  module.js        comportement navigateur (optionnel)
+  manifest.yaml    description, données, forme, apparence, example, intents, effects
+  description.md   la demande en français libre (facultatif, écrit par sitec component new)
+  fixtures/        cas de test et rendus attendus
 ```
 
-Le nom ne peut pas être celui d'un composant natif. Le manifeste a le format du catalogue. `template.php` est interdit : un composant de projet ne contient pas de code de la cible. `sitec component new <dossier> <nom>` crée le squelette.
+**Format html (porte de sortie)** : pour un design que les primitives n'expriment pas.
+
+```
+components/<nom>/
+  manifest.yaml    description, props (schéma JSON) ou données, behaviors, example, intents, effects
+  template.html    gabarit neutre
+  styles.css       design, avec les jetons du thème
+  module.js        comportement navigateur (optionnel, signalé)
+```
+
+Le nom ne peut pas être celui d'un composant natif. `template.php` est interdit : un composant de projet ne contient pas de code de la cible. `sitec component new <dossier> <nom>` crée le squelette.
+
+### Données
+
+Ce que le composant accepte, une ligne par champ : « nom: type, précisions — description ». Le bloc se compile vers le schéma JSON des props, vérifié comme avant (`scripts/compare-props.mjs` montre que les props des sept composants natifs réécrits ainsi sont identiques à leur schéma d'origine).
+
+| Écrit | Signifie |
+|---|---|
+| `texte`, `texte long`, `texte ou nombre`, `nombre`, `nombre entier`, `oui ou non`, `date` | types simples |
+| `lien`, `image`, `icône` | lien `{ label, to }`, fichier d'`assets/`, pictogramme du catalogue |
+| `liste de textes`, `liste de liens`, `liste d'images` | listes simples |
+| `items (liste, au moins 1):` puis des champs en dessous | liste d'éléments ; `nom (groupe):` pour un objet |
+| `facultatif` | champ non obligatoire (tout champ est obligatoire sinon) |
+| `au moins N`, `au plus N`, `de A à B` | bornes (éléments d'une liste, longueur d'un texte, valeur d'un nombre) |
+| `un parmi a, b, c` | valeurs permises, toujours en dernier |
+| `par défaut X` | valeur par défaut |
+| `— texte` | description, libre (entre guillemets simples si la ligne contient « : ») |
+
+### Forme
+
+La structure de la section, en primitives dont le balisage est fixe (classes maison, accessibilité, comportements). Une donnée facultative rend son élément conditionnel ; un nom entre « » donne une classe à l'élément ; dans une liste, les noms désignent d'abord les champs de l'élément.
+
+| Primitive | Rendu |
+|---|---|
+| `en-tête: title, intro` | titre h2 et introduction de la section |
+| `titre`, `grand titre`, `sous-titre` | h2 dans la section, h3 dans un élément de liste ; forcés h2 ou h3 |
+| `texte`, `texte discret`, `paragraphes`, `citation` | paragraphe, paragraphe discret, texte long avec balisage léger, citation « » |
+| `image`, `icône`, `étoiles`, `prix`, `badge`, `date` (option : en toutes lettres) | médias et valeurs formatées |
+| `bouton`, `bouton discret`, `lien` | liens |
+| `signature: author, role` (option : en toutes lettres) | auteur en gras, précision discrète |
+| `numéro` | numéro de l'élément dans sa liste |
+| `bloc`, `carte`, `témoignage`, `élément`, `si x:` | regroupements, carte, carte de citation, élément de liste, condition |
+| `grille de x, 3 colonnes`, `liste de x`, `liste numérotée de x`, `rangée de x` | listes d'éléments |
+| `défilement de x` (options : automatique, sans flèches), `onglets de x, libellé y`, `accordéon de x, question q, réponse r` | carrousel, onglets, questions repliables : comportements inclus |
+| `formulaire, bouton Envoyer:` puis `champ: nom` | formulaire déclaré par `effects.form` |
+
+En tête : `section, conteneur « nom », variante style par défaut primary:` puis la liste. Un texte littéral peut porter des données et du balisage léger : `texte: "Réponse sous {{ delai }}. [Appeler]({{ lien_appel }})"` ; une valeur `"{{ … }}"` est une expression du langage, aux noms courts (`{{ title | default(label) }}`).
+
+### Apparence
+
+L'allure, par partie (primitive au singulier ou au pluriel, nom donné entre « », ou `section`), en intentions fixes traduites vers les jetons du thème : `compactes`, `aérées`, `coins arrondis`, `ombre légère`, `bordure`, `trait à gauche`, `fond surface`, `fond principal`, `fond d'accent`, `couleur d'accent`, `couleur discrète`, `couleur de succès`, `centré`, `grand`, `petit`, `gras`, `italique`, `majuscules`, `en ligne`, `empilés`, `deux colonnes`, `une colonne`, `étroit`, `largeur moyenne`, `masqués`, `espace au-dessus`… (liste complète : `sitec explain langage`). `sur téléphone:` regroupe les règles des petits écrans. Aucune valeur libre : pas de couleur, taille ni police écrite en dur.
+
+```yaml
+données:
+  title: texte, facultatif
+  items (liste, au moins 1):
+    rating: nombre entier, de 1 à 5, facultatif
+    text: texte
+    author: texte
+forme:
+  - en-tête: title
+  - défilement de items, automatique:
+      - témoignage:
+          - étoiles: rating
+          - citation: text
+          - signature: author
+apparence:
+  étoiles: couleur d'accent
+  sur téléphone:
+    flèches: masquées
+```
+
+Mesure (`scripts/measure-format.mjs`) : sur sept composants natifs et trois composants de projet, ce que l'auteur écrit passe de 3 696 à 1 399 tokens (−62 %) et de 481 à 149 lignes. Les sept natifs réécrits en forme produisent les 36 pages des exemples identiques au caractère près (`scripts/snapshot-pages.mjs --compare`).
 
 ### Gabarit
 
@@ -180,7 +255,7 @@ Un site les déclare à la racine de `site.yaml` : `packages: [ ./paquets/vitrin
 
 ## 6 quater. Composants décrits en langage naturel
 
-`sitec component new <dossier> <nom> --describe "…"` (ou `--from description.md`) fait écrire le composant par un modèle (Claude Opus 5.5 par défaut, `--model`), en formats neutres seulement : manifeste, gabarit, feuille de style, cas de test. Le guide donné au modèle est construit depuis le compilateur (vocabulaire du gabarit, filtres, comportements, jetons, pictogrammes, deux composants natifs de référence) et le contexte du site (thème, images, noms déjà pris). La proposition est écrite dans `components/<nom>/`, puis vérifiée comme tout composant (`check`, règles CSS, comportements, cas de test rendus) ; les erreurs et avertissements sont renvoyés au modèle, jusqu'à trois tours (`--rounds`). La description reste dans `components/<nom>/description.md`, source lisible ; le reste est figé et versionné. La compilation n'appelle jamais le modèle.
+`sitec component new <dossier> <nom> --describe "…"` (ou `--from description.md`) fait écrire le composant par un modèle (Claude Opus 5.5 par défaut, `--model`). Par défaut, le modèle écrit le format langage (données, forme, apparence et cas de test : aucun HTML ni CSS) ; `--format html` lui fait écrire gabarit et feuille. `scripts/measure-gen.mjs` compare les deux formats sur une série fixe de descriptions (composants valides, tours de réparation, tokens), avec une clé d'API. Le guide donné au modèle est construit depuis le compilateur (vocabulaire du gabarit, filtres, comportements, jetons, pictogrammes, deux composants natifs de référence) et le contexte du site (thème, images, noms déjà pris). La proposition est écrite dans `components/<nom>/`, puis vérifiée comme tout composant (`check`, règles CSS, comportements, cas de test rendus) ; les erreurs et avertissements sont renvoyés au modèle, jusqu'à trois tours (`--rounds`). La description reste dans `components/<nom>/description.md`, source lisible ; le reste est figé et versionné. La compilation n'appelle jamais le modèle.
 
 Sans clé d'API : `--export prompt.json` écrit le prompt et le schéma de sortie ; la réponse d'un modèle (ou d'un agent) s'importe par `--import reponse.json`, vérifiée, avec `--export reparation.json` pour le tour suivant si elle ne passe pas.
 

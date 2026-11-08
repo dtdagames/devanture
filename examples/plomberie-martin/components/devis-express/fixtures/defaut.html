@@ -1,10 +1,6 @@
 <section class="section devis-express">
   <div class="container devis-express-inner">
-    <div class="devis-express-text">
-      <h2>Un devis en quelques minutes</h2>
-      <p>Décrivez les travaux, un plombier vous rappelle avec un prix.</p>      <p class="muted">Réponse sous 48 h, du lundi au samedi. Ou appelez le <a href="tel:0472001122">04 72 00 11 22</a>.</p>    </div>
-        <form class="card sl-form" method="post" action="" novalidate data-sl-form="devis-express"><input type="hidden" name="_form" value="devis-express"><input type="hidden" name="_csrf" value="00000000000000000000000000000000"><div class="hp"><label>Site web <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
-            <!-- champ inconnu : name -->      <!-- champ inconnu : phone -->      <!-- champ inconnu : type_travaux -->      <!-- champ inconnu : details -->      <button class="btn" type="submit">Demander un devis</button>
-    </form>
-      </div>
+<div class="devis-express-text"><h2>Un devis en quelques minutes</h2>
+<p>Décrivez les travaux, un plombier vous rappelle avec un prix.</p><p class="muted">Réponse sous 48 h, du lundi au samedi. Ou appelez le <a href="tel:0472001122">04 72 00 11 22</a>.</p></div>
+<div class="devis-express-formulaire"><form class="card sl-form" method="post" action="" novalidate data-sl-form="devis-express"><input type="hidden" name="_form" value="devis-express"><input type="hidden" name="_csrf" value="00000000000000000000000000000000"><div class="hp"><label>Site web <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div><div class="field"><label for="f-name">Nom *</label><input id="f-name" type="text" name="name" value="" required></div><div class="field"><label for="f-phone">Téléphone</label><input id="f-phone" type="tel" name="phone" value=""></div><div class="field"><label for="f-type_travaux">Type de travaux *</label><select id="f-type_travaux" name="type_travaux" required><option value="">Choisir…</option><option value="Fuite ou dépannage">Fuite ou dépannage</option><option value="Chauffe-eau">Chauffe-eau</option><option value="Chaudière ou chauffage">Chaudière ou chauffage</option><option value="Salle de bain">Salle de bain</option><option value="Autre">Autre</option></select></div><div class="field"><label for="f-details">Précisions</label><textarea id="f-details" name="details" rows="5" placeholder="Étage, accès, urgence…"></textarea></div><button class="btn" type="submit">Demander un devis</button></form></div>  </div>
 </section>

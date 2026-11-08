@@ -1,12 +1,25 @@
 name: devis-express
 description: "Demande de devis en trois champs, enregistrée dans la collection devis et transmise par e-mail. Composant propre au site."
-props:
-  type: object
-  required: [title]
-  properties:
-    title: { type: string, description: titre du bloc }
-    intro: { type: string, description: phrase sous le titre }
-    delai: { type: string, description: "délai de réponse annoncé (ex. 2 h ouvrées)" }
+données:
+  title: texte — titre du bloc
+  intro: texte, facultatif — phrase sous le titre
+  delai: texte, facultatif — délai de réponse annoncé (ex. 2 h ouvrées)
+forme:
+  section, conteneur « devis-express-inner »:
+    - bloc « devis-express-text »:
+        - titre: title
+        - texte: intro
+        - texte discret: "Réponse sous {{ delai }}, du lundi au samedi. Ou appelez le [{{ site.contact.phone }}](tel:{{ site.contact.phone | replace(' ', '') }})."
+    - formulaire, bouton Demander un devis:
+        - champ: name
+        - champ: phone
+        - champ: type_travaux
+        - champ: details
+apparence:
+  section: fond surface
+  devis-express-inner: deux colonnes
+  sur téléphone:
+    devis-express-inner: une colonne
 effects:
   form:
     store: devis
