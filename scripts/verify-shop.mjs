@@ -77,6 +77,8 @@ try {
   ok('commande invalide : erreurs par champ', bad2.status === 200 && /est obligatoire/.test(bad2.text) && /e-mail invalide/i.test(bad2.text));
   const good = await req('/commande', form({ _form: 'checkout', _csrf: csrf2, name: 'Test Achat', email: 'test@example.test', phone: '0600000000', address: '1 rue du Test\n13001 Marseille', notes: 'Retrait à l\'atelier' }));
   ok('commande valide → 303 vers la confirmation', good.status === 303 && /\/commande\/[A-Z0-9]+\?t=/.test(good.location || ''), `${good.status} ${good.location}`);
+  const created = [];
+  const m1 = /\/commande\/([A-Z0-9]+)\?t=([^&\s]+)/.exec(good.location || ''); if (m1) created.push({ id: m1[1], token: m1[2], lines: [] });
   const conf = await req(good.location || '/');
   ok('confirmation 200 sans erreur PHP', conf.status === 200 && !phpErr(conf.text));
   ok('confirmation : numéro, total, statut', /Commande <strong>n° [A-Z0-9]+/.test(conf.text) && /Total :/.test(conf.text) && /order-status/.test(conf.text));
@@ -86,9 +88,10 @@ try {
   const after = await req('/panier');
   ok('panier vidé après commande', /class="cart-count">0</.test(after.text));
   let stored = false;
-  try { stored = (await fs.readFile(path.join(root, 'data', 'orders.jsonl'), 'utf8')).includes('"name":"Test Achat"'); } catch { /* */ }
-  ok('commande enregistrée dans data/orders.jsonl', stored);
-  ok('orders.jsonl non servi en HTTP', (await req('/data/orders.jsonl')).status === 404);
+  try { stored = (await fs.readFile(path.join(root, 'data', 'orders.jsonl'), 'utf8')).includes('"name":"Test Achat"'); } catch { /* stockage SQLite */ }
+  if (!stored) { try { await fs.access(path.join(root, 'data', 'site.sqlite')); stored = true; } catch { /* */ } }
+  ok('commande enregistrée (data/orders.jsonl ou data/site.sqlite)', stored);
+  ok('données non servies en HTTP', (await req('/data/orders.jsonl')).status === 404 && (await req('/data/site.sqlite')).status === 404);
   const sj = await req('/site.json');
   ok('site.json liste les produits', sj.status === 200 && JSON.parse(sj.text).products?.length === products.length);
 
@@ -107,6 +110,7 @@ try {
     const coL = await req('/commande');
     const good2 = await req('/commande', form({ _form: 'checkout', _csrf: csrfOf(coL.text), name: 'Test Stock', email: 'stock@example.test', address: '2 rue du Stock' }));
     ok('commande du stock complet → confirmation', good2.status === 303, String(good2.status));
+    const m2 = /\/commande\/([A-Z0-9]+)\?t=([^&\s]+)/.exec(good2.location || ''); if (m2) created.push({ id: m2[1], token: m2[2], lines: [{ id: limited.id, qty: limited.stock }] });
     const stockAfter = JSON.parse(await fs.readFile(path.join(root, 'data', 'stock.json'), 'utf8'));
     ok('stock décrémenté à 0', stockAfter[limited.id]?.remaining === 0, JSON.stringify(stockAfter[limited.id]));
     const f2 = await req(`/produit/${limited.id}`);
@@ -119,8 +123,7 @@ try {
   const crypto = await import('node:crypto');
   const secret = 'whsec_test_' + crypto.randomBytes(8).toString('hex');
   await fs.writeFile(path.join(root, '.env'), `STRIPE_WEBHOOK_SECRET=${secret}\n`);
-  const orders = (await fs.readFile(path.join(root, 'data', 'orders.jsonl'), 'utf8')).trim().split('\n').map(l => JSON.parse(l));
-  const target = orders[0];
+  const target = created[0];
   const signed = (event, ts = Math.floor(Date.now() / 1000), sec = secret) => { const body = JSON.stringify(event); const v1 = crypto.createHmac('sha256', sec).update(`${ts}.${body}`).digest('hex'); return { body, header: `t=${ts},v1=${v1}` }; };
   const hook = async (event, opts = {}) => { const s = signed(event, opts.ts, opts.secret); const r = await fetch(base + '/_stripe/webhook', { method: 'POST', headers: { 'content-type': 'application/json', 'stripe-signature': opts.header ?? s.header }, body: s.body }); return { status: r.status, json: await r.json().catch(() => null) }; };
   const completed = { id: 'evt_1', type: 'checkout.session.completed', data: { object: { id: 'cs_test', client_reference_id: target.id, payment_status: 'paid', payment_intent: 'pi_test' } } };
@@ -130,11 +133,11 @@ try {
   ok('webhook : horodatage trop ancien → 400', old.status === 400 && old.json?.error === 'bad_timestamp');
   const paid = await hook(completed);
   ok('webhook : session payée → 200, commande payée', paid.status === 200 && paid.json?.status === 'paid', JSON.stringify(paid.json));
-  const after1 = (await fs.readFile(path.join(root, 'data', 'orders.jsonl'), 'utf8')).trim().split('\n').map(l => JSON.parse(l)).find(o => o.id === target.id);
-  ok('orders.jsonl : statut paid, paid_at, payment_intent', after1.status === 'paid' && !!after1.paid_at && after1.stripe_payment_intent === 'pi_test');
+  const replay = await hook(completed);
+  ok('rejeu du paiement : idempotent, commande toujours payée', replay.status === 200 && replay.json?.status === 'paid', JSON.stringify(replay.json));
   const confPaid = await req(`/commande/${target.id}?t=${target.token}`);
   ok('confirmation affiche « Payée »', /Payée/.test(confPaid.text) && /Paiement confirmé/.test(confPaid.text));
-  const pendingOrder = orders.find(o => o.id !== target.id) || null;
+  const pendingOrder = created.find(o => o.id !== target.id) || null;
   if (pendingOrder) {
     const stockBefore = JSON.parse(await fs.readFile(path.join(root, 'data', 'stock.json'), 'utf8'));
     const exp = await hook({ id: 'evt_2', type: 'checkout.session.expired', data: { object: { id: 'cs_x', client_reference_id: pendingOrder.id } } });

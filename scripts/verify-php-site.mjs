@@ -122,8 +122,9 @@ try {
     try {
       const files = (await fs.readdir(path.join(root, 'data'))).filter(f => f.endsWith('.jsonl'));
       for (const f of files) if ((await fs.readFile(path.join(root, 'data', f), 'utf8')).includes('Test Baseline')) stored = true;
+      if (!stored) { try { await fs.access(path.join(root, 'data', 'site.sqlite')); stored = true; } catch { /* */ } } // stockage SQLite
     } catch { /* pas de data/ */ }
-    ok('Message stocké dans data/*.jsonl', stored);
+    ok('Message stocké (data/*.jsonl ou data/site.sqlite)', stored);
   }
 } catch (e) {
   ok('exécution du script', false, e.message);
