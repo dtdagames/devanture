@@ -4,6 +4,7 @@
 // import d'une réponse.
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import os from 'node:os';
 import YAML from 'yaml';
 import { COMPONENTS_DIR } from './catalog.js';
 import { loadProject } from './load.js';
@@ -88,22 +89,41 @@ ${await ref('testimonials')}
 Réponds uniquement par l'objet JSON demandé.`;
 }
 
-/** Message utilisateur : la demande, le contexte du site, et pour une réparation les fichiers et les erreurs. */
-export function buildUserPrompt({ name, description, project, previous = null, problems = [] }) {
+/**
+ * Cible d'une génération : le dossier du composant, son nom d'usage dans les pages et son nom de manifeste.
+ * Dans un paquet (pkg = chemin déclaré dans site.yaml › packages), le nom d'usage est préfixé (vitrine.carte) et le manifeste porte le nom court.
+ */
+export function resolveTarget(project, name, pkg = null) {
+  if (!pkg) return { dir: path.join(project.root, 'components', name), name, manifestName: name, pkg: null };
+  const p = (project.packages || []).find(x => x.spec === pkg || path.resolve(project.root, pkg) === x.dir);
+  if (!p) throw new Error(`Paquet ${pkg} absent de site.yaml › packages (déclarés : ${(project.packages || []).map(x => x.spec).join(', ') || 'aucun'}).`);
+  const prefix = p.prefix || p.meta?.name;
+  if (!prefix) throw new Error(`Le paquet ${pkg} n'a pas de nom (package.yaml › name).`);
+  const short = name.startsWith(prefix + '.') ? name.slice(prefix.length + 1) : name;
+  return { dir: path.join(p.dir, 'components', short), name: prefix + '.' + short, manifestName: short, pkg: prefix };
+}
+
+const FENCE = '```';
+const fence = (lang, t) => `${FENCE}${lang}\n${String(t).trim()}\n${FENCE}`;
+const filesBlock = f => `manifest.yaml :\n${fence('yaml', f.manifest)}\ntemplate.html :\n${fence('html', f.template)}\nstyles.css :\n${fence('css', f.styles)}\nfixtures :\n${f.fixtures.map(x => `- ${x.name} :\n${fence('yaml', x.yaml)}`).join('\n')}`;
+
+/** Message utilisateur : la demande, le contexte du site ; pour une modification, les fichiers actuels ; pour une réparation, les problèmes. */
+export function buildUserPrompt({ name, description, project, previous = null, problems = [], target = null, current = null, request = null }) {
+  const t = target || { name, manifestName: name, pkg: null };
   const site = project.site?.site || {};
   const theme = site.theme || {};
-  const existing = project.catalog ? project.catalog.names() : [];
+  const existing = project.catalog ? project.catalog.names().filter(n => n !== t.name) : [];
   const ctx = [
     `Site : ${site.name || '?'}${site.tagline ? ' — ' + site.tagline : ''}`,
     `Thème : ${theme.preset || 'clair'}${theme.tokens ? ' ; surcharges ' + JSON.stringify(theme.tokens) : ''}`,
     `Images disponibles dans assets/ (pour l'exemple et les cas de test) : ${[...project.assets].filter(a => /\.(jpe?g|png|webp|svg)$/i.test(a)).slice(0, 30).join(', ') || 'aucune'}`,
     `Composants déjà présents (ne pas réutiliser ces noms) : ${existing.join(', ')}`,
-    `Préfixes de classe CSS à utiliser : ${cssPrefixes(name).map(p => '.' + p).join(' ou ')}`,
+    `Préfixes de classe CSS à utiliser : ${cssPrefixes(t.name).map(p => '.' + p).join(' ou ')}`,
+    t.pkg ? `Paquet : ${t.pkg}. Dans manifest.yaml, name: ${t.manifestName} (nom court) ; dans l'exemple et les pages, le composant s'écrit « - ${t.name}: ».` : `Dans manifest.yaml, name: ${t.manifestName}.`,
   ].join('\n');
-  let msg = `Nom du composant : ${name}\n\nDescription :\n${description.trim()}\n\nContexte :\n${ctx}`;
-  if (previous) {
-    msg += `\n\n# Ta proposition précédente ne passe pas la vérification.\nCorrige tous les problèmes ci-dessous et renvoie l'ensemble complet des fichiers.\n\n## Problèmes\n${problems.map(p => `- [${p.code}] ${p.file}${p.path ? ' › ' + p.path : ''} : ${p.message}${p.hint ? ' (' + p.hint + ')' : ''}`).join('\n')}\n\n## Fichiers précédents\nmanifest.yaml :\n\`\`\`yaml\n${previous.manifest}\n\`\`\`\ntemplate.html :\n\`\`\`html\n${previous.template}\n\`\`\`\nstyles.css :\n\`\`\`css\n${previous.styles}\n\`\`\`\nfixtures :\n${previous.fixtures.map(f => `- ${f.name} :\n\`\`\`yaml\n${f.yaml}\n\`\`\``).join('\n')}`;
-  }
+  let msg = `Nom du composant : ${t.name}\n\nDescription :\n${String(description).trim()}\n\nContexte :\n${ctx}`;
+  if (current && request) msg += `\n\n# Composant actuel\n${filesBlock(current)}\n\n# Modification demandée\n${request.trim()}\n\nApplique la modification en gardant ce qui n'est pas concerné (props existantes, classes, cas de test). Si la modification change les props, mets à jour l'exemple et les cas de test. Renvoie l'ensemble complet des fichiers.`;
+  if (previous) msg += `\n\n# Ta proposition précédente ne passe pas la vérification.\nCorrige tous les problèmes ci-dessous et renvoie l'ensemble complet des fichiers.\n\n## Problèmes\n${problems.map(p => `- [${p.code}] ${p.file}${p.path ? ' › ' + p.path : ''} : ${p.message}${p.hint ? ' (' + p.hint + ')' : ''}`).join('\n')}\n\n## Fichiers précédents\n${filesBlock(previous)}`;
   return msg;
 }
 
@@ -138,61 +158,90 @@ function normalizeFiles(j) {
   return { manifest: j.manifest, template: j.template, styles: j.styles, fixtures, notes: typeof j.notes === 'string' ? j.notes : '' };
 }
 
-/** Écrit les fichiers du composant (dossier remplacé : anciens instantanés compris). */
-export async function writeComponent(root, name, files, description) {
-  const dir = path.join(root, 'components', name);
+/** Écrit les fichiers du composant (dossier remplacé : anciens instantanés compris). history : modifications demandées, gardées dans description.md. */
+export async function writeComponent(dir, name, files, description, history = []) {
   await fs.rm(dir, { recursive: true, force: true });
   await fs.mkdir(path.join(dir, 'fixtures'), { recursive: true });
   await fs.writeFile(path.join(dir, 'manifest.yaml'), files.manifest.trim() + '\n');
   await fs.writeFile(path.join(dir, 'template.html'), files.template.trim() + '\n');
   await fs.writeFile(path.join(dir, 'styles.css'), files.styles.trim() + '\n');
   for (const f of files.fixtures) await fs.writeFile(path.join(dir, 'fixtures', f.name + '.yaml'), f.yaml.trim() + '\n');
-  await fs.writeFile(path.join(dir, 'description.md'), `# ${name}\n\n${description.trim()}\n\n<!-- Source lisible du composant : « sitec component new <dossier> ${name} --from components/${name}/description.md --force » le régénère. Les autres fichiers ont été produits à partir d'elle puis vérifiés. -->\n`);
+  const mods = history.length ? `\n## Modifications\n\n${history.map(h => `- ${h}`).join('\n')}\n` : '';
+  await fs.writeFile(path.join(dir, 'description.md'), `# ${name}\n\n${String(description).trim()}\n${mods}\n<!-- Source lisible du composant : sitec component new … --from cette description --force le régénère ; sitec component edit … --ask "…" le modifie. Les autres fichiers en ont été produits puis vérifiés. -->\n`);
   return dir;
 }
 
+/** Lit un composant existant : fichiers, description et historique des modifications. */
+export async function readComponent(dir) {
+  const read = f => fs.readFile(path.join(dir, f), 'utf8').catch(() => null);
+  const manifest = await read('manifest.yaml'), template = await read('template.html');
+  if (manifest === null || template === null) return null;
+  const fixtures = [];
+  for (const f of (await fs.readdir(path.join(dir, 'fixtures')).catch(() => [])).filter(x => /\.ya?ml$/.test(x)).sort()) fixtures.push({ name: f.replace(/\.ya?ml$/, ''), yaml: await read('fixtures/' + f) });
+  const md = (await read('description.md')) || '';
+  const body = md.replace(/^# .*\n+/, '').replace(/<!--[\s\S]*?-->/g, '');
+  const [desc, hist = ''] = body.split(/\n## Modifications\n/);
+  return { files: { manifest, template, styles: (await read('styles.css')) || '', fixtures, notes: '' }, description: desc.trim(), history: hist.split('\n').map(l => l.replace(/^- /, '').trim()).filter(Boolean) };
+}
+
 /** Vérifie le composant dans son projet : erreurs et avertissements qui le concernent, puis rendu de ses cas de test. */
-export async function verifyComponent(root, name, catalog, { render = true } = {}) {
-  const dir = path.join(root, 'components', name).replaceAll('\\', '/');
+export async function verifyComponent(root, target, catalog, { render = true } = {}) {
+  const t = typeof target === 'string' ? { dir: path.join(root, 'components', target), name: target } : target;
+  const dir = t.dir.replaceAll('\\', '/');
   const project = await loadProject(root);
   const errors = validateProject(project, catalog);
-  const mine = e => (e.file || '').replaceAll('\\', '/').startsWith(dir + '/') || (e.message || '').includes(name);
+  const mine = e => (e.file || '').replaceAll('\\', '/').startsWith(dir + '/') || (e.message || '').includes(t.name);
   const rel = e => ({ ...e, file: path.relative(root, e.file || '').replaceAll('\\', '/') });
   const problems = errors.filter(mine).map(rel);
-  const others = errors.filter(e => !mine(e)).length;
   // Avertissements remontés même avec des erreurs : un seul tour de réparation corrige tout.
   const warnings = collectWarnings(project).filter(mine).map(rel);
   let tests = null;
   if (render && !errors.length) {
     const { testComponents, findPhp } = await import('./component-test.js');
     if (findPhp()) {
-      const r = await testComponents(project, { only: name });
+      const r = await testComponents(project, { only: t.name });
       tests = r.results;
-      for (const t of r.results) if (['invalid', 'error', 'changed'].includes(t.status)) problems.push({ code: t.status === 'invalid' ? 'E_FIXTURE' : 'E_RENDER', file: `components/${name}/fixtures/${t.name}.yaml`, path: '', message: t.detail });
+      for (const x of r.results) if (['invalid', 'error', 'changed'].includes(x.status)) problems.push({ code: x.status === 'invalid' ? 'E_FIXTURE' : 'E_RENDER', file: path.relative(root, path.join(t.dir, 'fixtures', x.name + '.yaml')).replaceAll('\\', '/'), path: '', message: x.detail });
     }
   }
-  if (!errors.length && !project.catalog?.has(name)) problems.push({ code: 'E_COMPONENT', file: `components/${name}/manifest.yaml`, path: '', message: 'composant absent du catalogue après vérification' });
-  return { problems, warnings, others, tests };
+  if (!errors.length && !project.catalog?.has(t.name)) problems.push({ code: 'E_COMPONENT', file: path.relative(root, path.join(t.dir, 'manifest.yaml')).replaceAll('\\', '/'), path: '', message: 'composant absent du catalogue après vérification' });
+  return { problems, warnings, others: errors.filter(e => !mine(e)).length, tests, project };
 }
 
 /**
- * Génère, vérifie, répare. opts : { root, name, description, catalog, model, client, rounds, onRound, ask } ;
- * ask(system, user) peut remplacer l'appel au modèle (tests). Renvoie { ok, rounds, problems, warnings, files, notes }.
+ * Génère (ou modifie, avec current + request), vérifie, répare. opts : { root, name, description, catalog, model, client, rounds, onRound, ask, pkg, request, current, history } ;
+ * ask(system, user, round) peut remplacer l'appel au modèle (tests). Renvoie { ok, rounds, problems, warnings, files, notes, target }.
  */
-export async function generateComponent({ root, name, description, catalog, model = DEFAULT_MODEL, client = null, rounds = 3, onRound = () => {}, ask = null }) {
+export async function generateComponent({ root, name, description, catalog, model = DEFAULT_MODEL, client = null, rounds = 3, onRound = () => {}, ask = null, pkg = null, request = null, current = null, history = [] }) {
   const system = await buildSystemPrompt();
-  let project = await loadProject(root); validateProject(project, catalog);
+  const project = await loadProject(root); validateProject(project, catalog);
+  const target = resolveTarget(project, name, pkg);
   let previous = null, problems = [], warnings = [], files = null;
   for (let r = 1; r <= rounds; r++) {
-    const user = buildUserPrompt({ name, description, project, previous, problems: [...problems, ...warnings] });
+    const user = buildUserPrompt({ name: target.name, description, project, previous, problems: [...problems, ...warnings], target, current, request });
     const text = ask ? await ask(system, user, r) : await askModel({ system, user, model, client });
     try { files = parseResponse(text); }
     catch (e) { problems = [{ code: 'E_RESPONSE', file: '(réponse)', path: '', message: e.message + ' Renvoie uniquement l\'objet JSON demandé.' }]; warnings = []; onRound({ round: r, problems, warnings }); continue; }
-    await writeComponent(root, name, files, description);
-    ({ problems, warnings } = await verifyComponent(root, name, catalog));
+    await writeComponent(target.dir, target.name, files, description, request ? [...history, request.trim()] : history);
+    ({ problems, warnings } = await verifyComponent(root, target, catalog));
     onRound({ round: r, problems, warnings, notes: files.notes });
-    if (!problems.length && !warnings.length) return { ok: true, rounds: r, problems, warnings, files, notes: files.notes };
+    if (!problems.length && !warnings.length) return { ok: true, rounds: r, problems, warnings, files, notes: files.notes, target };
     previous = files;
   }
-  return { ok: !problems.length, rounds, problems, warnings, files, notes: files?.notes || '' };
+  return { ok: !problems.length, rounds, problems, warnings, files, notes: files?.notes || '', target };
+}
+
+/** Modifie un composant existant selon une demande en langage naturel ; en cas d'échec final, l'ancienne version est restaurée. */
+export async function editComponent({ root, name, request, catalog, pkg = null, ...opts }) {
+  const project = await loadProject(root); validateProject(project, catalog);
+  const target = resolveTarget(project, name, pkg);
+  const existing = await readComponent(target.dir);
+  if (!existing) throw new Error(`Composant introuvable : ${path.relative(root, target.dir)} (manifest.yaml et template.html attendus).`);
+  const backup = await fs.mkdtemp(path.join(os.tmpdir(), 'sitec-sauvegarde-'));
+  await fs.cp(target.dir, backup, { recursive: true });
+  try {
+    const r = await generateComponent({ root, name, description: existing.description || name, catalog, pkg, request, current: existing.files, history: existing.history, ...opts });
+    if (!r.ok) { await fs.rm(target.dir, { recursive: true, force: true }); await fs.cp(backup, target.dir, { recursive: true }); r.restored = true; }
+    return r;
+  } finally { await fs.rm(backup, { recursive: true, force: true }); }
 }

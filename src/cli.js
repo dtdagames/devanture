@@ -21,6 +21,10 @@ Usage :
   sitec component new <dossier> <nom>        Squelette d'un composant de projet : components/<nom>/ (manifest.yaml, template.html, styles.css)
   sitec component new <dossier> <nom> --describe "texte" | --from f.md [--model id] [--rounds n] [--force]
                                              Génère le composant depuis une description en langage naturel (modèle Claude), vérifié et réparé jusqu'à passer ; --export p.json puis --import r.json sans clé d'API
+  sitec component edit <dossier> <nom> --ask "modification" [--package chemin]
+                                             Modifie un composant existant par une demande en langage naturel (même vérification ; ancienne version restaurée en cas d'échec)
+  sitec component preview <dossier> <nom> [--package chemin]
+                                             Page d'aperçu de tous les cas de test, avec le thème du site (.devanture/preview/<nom>.html)
   sitec schema <dossier> [--no-vscode]       Schémas JSON du site pour l'éditeur (.devanture/schema) et réglages VS Code : complétion des composants, props, assets et routes
   sitec migrate <dossier> [--dry-run] [--to N]
                                              Fait passer le site à la dernière version du langage (texte modifié, commentaires conservés) et suggère ce qu'elle permet d'écrire mieux
@@ -118,47 +122,68 @@ export async function run(argv) {
 
     case 'component': {
       const [sub, dir, name] = args;
-      if (sub !== 'new' || !dir || !name) { console.error('Usage : sitec component new <dossier-projet> <nom>'); return 2; }
+      const usage = 'Usage : sitec component new|edit|preview <dossier-projet> <nom> [--describe "…" | --from f.md | --ask "…"] [--package chemin] [--model id] [--rounds n] [--export p.json] [--import r.json] [--force]';
+      if (!['new', 'edit', 'preview'].includes(sub) || !dir || !name) { console.error(usage); return 2; }
       if (!/^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*$/.test(name)) { console.error(`Nom de composant mal formé : ${name} (minuscules, chiffres, tirets ; points pour une famille).`); return 2; }
-      if (catalog.has(name)) { console.error(`${name} existe déjà dans le catalogue natif : choisissez un autre nom.`); return 2; }
-      const cdir = path.join(path.resolve(dir), 'components', name);
       const opt = k => { const i = rest.indexOf(k); return i >= 0 ? rest[i + 1] : null; };
-      // Génération depuis une description en langage naturel : --describe "…" ou --from fichier.md (et --export / --import sans clé d'API).
-      if (opt('--describe') || opt('--from') || opt('--import')) {
-        const root = path.resolve(dir);
-        let exists = false; try { await fs.access(cdir); exists = true; } catch { /* libre */ }
-        if (exists && !flags.has('--force') && !opt('--import')) { console.error(`${path.relative(process.cwd(), cdir)} existe déjà : --force pour le régénérer depuis sa description.`); return 2; }
-        const gen = await import('./component-gen.js');
-        let description = opt('--describe') || (opt('--from') ? await fs.readFile(path.resolve(opt('--from')), 'utf8') : null);
-        if (!description && opt('--import')) description = (await fs.readFile(path.join(cdir, 'description.md'), 'utf8').catch(() => '')).replace(/^# .*\n+/, '').replace(/<!--[\s\S]*?-->/g, '').trim() || '(description importée)';
-        const show = ({ round, problems, warnings, notes }) => { console.log(`TOUR ${round} : ${problems.length} problème(s), ${warnings.length} avertissement(s)`); for (const p of [...problems, ...warnings]) console.log(`      [${p.code}] ${p.file}${p.path ? ' › ' + p.path : ''} : ${p.message}`); if (notes) console.log(`      notes du modèle : ${notes}`); };
-        const project = await loadProject(root); validateProject(project, catalog);
+      const root = path.resolve(dir);
+      const gen = await import('./component-gen.js');
+      const project = await loadProject(root); validateProject(project, catalog);
+      let target;
+      try { target = gen.resolveTarget(project, name, opt('--package')); } catch (e) { console.error(e.message); return 2; }
+      const cdir = target.dir;
+      const relDir = path.relative(process.cwd(), cdir).replaceAll('\\', '/');
+      const preview = async () => {
+        try { const p = await loadProject(root); validateProject(p, catalog); const { previewComponent } = await import('./component-preview.js'); const r = await previewComponent(p, target.name); console.log(`      aperçu : ${path.relative(process.cwd(), r.file).replaceAll('\\', '/')} (${r.cases} cas${r.errors ? `, ${r.errors} en erreur` : ''}) — à ouvrir dans un navigateur pour la relecture visuelle`); return r; }
+        catch (e) { console.log(`      aperçu indisponible : ${e.message}`); return null; }
+      };
+      if (sub === 'preview') { const r = await preview(); return r && !r.errors ? 0 : 1; }
+      if (sub === 'new' && catalog.has(target.name)) { console.error(`${target.name} existe déjà dans le catalogue natif : choisissez un autre nom.`); return 2; }
+      const show = ({ round, problems, warnings, notes }) => { console.log(`TOUR ${round} : ${problems.length} problème(s), ${warnings.length} avertissement(s)`); for (const p of [...problems, ...warnings]) console.log(`      [${p.code}] ${p.file}${p.path ? ' › ' + p.path : ''} : ${p.message}`); if (notes) console.log(`      notes du modèle : ${notes}`); };
+      const generative = sub === 'edit' || opt('--describe') || opt('--from') || opt('--import');
+      if (generative) {
+        let exists = false; try { await fs.access(path.join(cdir, 'manifest.yaml')); exists = true; } catch { /* libre */ }
+        const existing = exists ? await gen.readComponent(cdir) : null;
+        if (sub === 'new' && exists && !flags.has('--force') && !opt('--import')) { console.error(`${relDir} existe déjà : --force pour le régénérer depuis sa description, ou sitec component edit … --ask "…" pour le modifier.`); return 2; }
+        if (sub === 'edit' && !existing) { console.error(`Composant introuvable : ${relDir}.`); return 2; }
+        const request = sub === 'edit' ? opt('--ask') : null;
+        if (sub === 'edit' && !request && !opt('--import')) { console.error('sitec component edit … --ask "la modification voulue"'); return 2; }
+        let description = opt('--describe') || (opt('--from') ? await fs.readFile(path.resolve(opt('--from')), 'utf8') : null) || existing?.description || null;
+        if (!description && opt('--import')) description = '[à compléter] description du composant (importé sans --describe).';
+        if (!description) { console.error('Description manquante : --describe "…" ou --from description.md.'); return 2; }
+        const history = existing?.history || [];
+        const promptArgs = extra => ({ name: target.name, description, project, target, current: request ? existing.files : null, request, ...extra });
         if (opt('--export') && !opt('--import')) {
-          await fs.writeFile(path.resolve(opt('--export')), JSON.stringify({ name, description, model: opt('--model') || gen.DEFAULT_MODEL, system: await gen.buildSystemPrompt(), user: gen.buildUserPrompt({ name, description, project }), output_schema: gen.OUTPUT_SCHEMA }, null, 2));
-          console.log(JSON.stringify({ ok: true, exported: opt('--export'), hint: `Soumettez system + user à un modèle (sortie JSON conforme à output_schema), enregistrez la réponse, puis : sitec component new ${dir} ${name} --import reponse.json [--export reparation.json]` }));
+          await fs.writeFile(path.resolve(opt('--export')), JSON.stringify({ name: target.name, description, request, model: opt('--model') || gen.DEFAULT_MODEL, system: await gen.buildSystemPrompt(), user: gen.buildUserPrompt(promptArgs({})), output_schema: gen.OUTPUT_SCHEMA }, null, 2));
+          console.log(JSON.stringify({ ok: true, exported: opt('--export'), hint: `Soumettez system + user à un modèle (sortie JSON conforme à output_schema), enregistrez la réponse, puis : sitec component ${sub} ${dir} ${name}${request ? ' --ask "…"' : ''} --import reponse.json [--export reparation.json]` }));
           return 0;
         }
         if (opt('--import')) {
           let files;
           try { files = gen.parseResponse(await fs.readFile(path.resolve(opt('--import')), 'utf8')); } catch (e) { console.error('Réponse illisible : ' + e.message); return 1; }
-          await gen.writeComponent(root, name, files, description);
-          const v = await gen.verifyComponent(root, name, catalog);
+          await gen.writeComponent(cdir, target.name, files, description, request ? [...history, request.trim()] : history);
+          const v = await gen.verifyComponent(root, target, catalog);
           show({ round: 1, ...v, notes: files.notes });
           if ((v.problems.length || v.warnings.length) && opt('--export')) {
-            await fs.writeFile(path.resolve(opt('--export')), JSON.stringify({ name, description, system: await gen.buildSystemPrompt(), user: gen.buildUserPrompt({ name, description, project, previous: files, problems: [...v.problems, ...v.warnings] }), output_schema: gen.OUTPUT_SCHEMA }, null, 2));
+            await fs.writeFile(path.resolve(opt('--export')), JSON.stringify({ name: target.name, description, request, system: await gen.buildSystemPrompt(), user: gen.buildUserPrompt(promptArgs({ previous: files, problems: [...v.problems, ...v.warnings] })), output_schema: gen.OUTPUT_SCHEMA }, null, 2));
             console.log(`      prompt de réparation écrit : ${opt('--export')}`);
           }
-          console.log(JSON.stringify({ ok: !v.problems.length, component: name, problems: v.problems.length, warnings: v.warnings.length, cases: v.tests?.length ?? null }));
+          if (!v.problems.length) await preview();
+          console.log(JSON.stringify({ ok: !v.problems.length, component: target.name, problems: v.problems.length, warnings: v.warnings.length, cases: v.tests?.length ?? null }));
           return v.problems.length ? 1 : 0;
         }
         const model = opt('--model') || gen.DEFAULT_MODEL;
-        console.error(`Génération de ${name} par ${model} (sortie structurée, repli automatique en cas de refus), vérification et réparation jusqu'à ${opt('--rounds') || 3} tours…`);
+        console.error(`${sub === 'edit' ? 'Modification' : 'Génération'} de ${target.name} par ${model} (sortie structurée, repli automatique en cas de refus), vérification et réparation jusqu'à ${opt('--rounds') || 3} tours…`);
         let r;
-        try { r = await gen.generateComponent({ root, name, description, catalog, model, rounds: Number(opt('--rounds') || 3), onRound: show }); }
+        const common = { root, name: target.name, catalog, model, rounds: Number(opt('--rounds') || 3), onRound: show, pkg: opt('--package') };
+        try { r = sub === 'edit' ? await gen.editComponent({ ...common, request }) : await gen.generateComponent({ ...common, description }); }
         catch (e) { console.error('Erreur : ' + e.message + (/api.?key|auth/i.test(e.message) ? ' (définissez ANTHROPIC_API_KEY, ou utilisez --export puis --import)' : '')); return 1; }
-        console.log(JSON.stringify({ ok: r.ok, component: name, rounds: r.rounds, problems: r.problems.length, warnings: r.warnings.length, dir: path.relative(process.cwd(), cdir).replaceAll('\\', '/') }));
+        if (r.restored) console.log('      échec : la version précédente du composant est restaurée');
+        if (r.ok) await preview();
+        console.log(JSON.stringify({ ok: r.ok, component: target.name, rounds: r.rounds, problems: r.problems.length, warnings: r.warnings.length, dir: relDir, restored: !!r.restored }));
         return r.ok ? 0 : 1;
       }
+      if (sub !== 'new') { console.error(usage); return 2; }
       try { await fs.access(cdir); console.error(`${cdir} existe déjà.`); return 2; } catch { /* libre */ }
       await fs.mkdir(cdir, { recursive: true });
       const cls = name.replace(/\./g, '-');

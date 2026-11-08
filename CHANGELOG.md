@@ -1,6 +1,14 @@
 # Journal des versions
 
-Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.5.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.6.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+
+## v0.6.0 — 2026-11-09 — faire évoluer et relire un composant
+
+- **`sitec component edit <dossier> <nom> --ask "…"`** : modification d'un composant existant par une demande en langage naturel (fichiers actuels + demande envoyés au modèle, même vérification et réparation), historique des demandes dans `description.md`, version précédente restaurée si aucun tour ne passe. Export/import sans clé comme pour `new`.
+- **`sitec component preview`** : page autonome `.devanture/preview/<nom>.html` avec tous les cas de test rendus, la feuille du site, ses comportements, les trois thèmes et une largeur de téléphone ; produite automatiquement après `new` et `edit`.
+- **`--package chemin`** : générer, modifier ou prévisualiser un composant d'un paquet (nom court dans le manifeste, nom préfixé dans les pages).
+- Carrousel : le pas de défilement compte l'espace entre les cartes (une carte n'est plus coupée après le défilement automatique). Le chargement ignore les dossiers cachés de `components/`.
+- Bancs : 56 contrôles d'outillage.
 
 ## v0.5.0 — 2026-11-08 — composants décrits en langage naturel
 

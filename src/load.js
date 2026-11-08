@@ -61,7 +61,7 @@ export async function loadProject(root) {
 
   // Composants de projet (gabarit neutre) : components/<nom>/manifest.yaml + template.html (+ styles.css, module.js).
   project.componentSources = [];
-  try { for (const d of await fs.readdir(path.join(root, 'components'), { withFileTypes: true })) if (d.isDirectory()) { const src = await readComponentDir(path.join(root, 'components', d.name)); if (src) project.componentSources.push(src); } } catch { /* pas de composants de projet */ }
+  try { for (const d of await fs.readdir(path.join(root, 'components'), { withFileTypes: true })) if (d.isDirectory() && !d.name.startsWith('.')) { const src = await readComponentDir(path.join(root, 'components', d.name)); if (src) project.componentSources.push(src); } } catch { /* pas de composants de projet */ }
 
   // Paquets de composants (site.yaml › packages) : un chemin (./paquets/x, ../bibliotheque) ou un nom de paquet installé (node_modules/<nom>).
   // Chaque paquet : package.yaml { name, description, version }, components/<nom>/ (gabarit neutre), components.yaml (composés). Noms exposés : <name>.<composant>.
@@ -74,7 +74,7 @@ export async function loadProject(root) {
     const pkg = { spec, dir, local, file: path.join(dir, 'package.yaml'), meta: null, componentSources: [], compositesRaw: null, compositesFile: path.join(dir, 'components.yaml'), missing: false };
     try { await fs.access(pkg.file); } catch { pkg.missing = true; project.packages.push(pkg); continue; }
     pkg.meta = await readYaml(pkg.file, project.loadErrors) ?? null;
-    try { for (const d of await fs.readdir(path.join(dir, 'components'), { withFileTypes: true })) if (d.isDirectory()) { const src = await readComponentDir(path.join(dir, 'components', d.name)); if (src) pkg.componentSources.push(src); } } catch { /* pas de composants à gabarit */ }
+    try { for (const d of await fs.readdir(path.join(dir, 'components'), { withFileTypes: true })) if (d.isDirectory() && !d.name.startsWith('.')) { const src = await readComponentDir(path.join(dir, 'components', d.name)); if (src) pkg.componentSources.push(src); } } catch { /* pas de composants à gabarit */ }
     try { await fs.access(pkg.compositesFile); pkg.compositesRaw = await readYaml(pkg.compositesFile, project.loadErrors) ?? null; } catch { /* pas de composés */ }
     project.packages.push(pkg);
   }

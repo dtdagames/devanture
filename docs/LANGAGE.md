@@ -184,6 +184,10 @@ Un site les déclare à la racine de `site.yaml` : `packages: [ ./paquets/vitrin
 
 Sans clé d'API : `--export prompt.json` écrit le prompt et le schéma de sortie ; la réponse d'un modèle (ou d'un agent) s'importe par `--import reponse.json`, vérifiée, avec `--export reparation.json` pour le tour suivant si elle ne passe pas.
 
+`sitec component edit <dossier> <nom> --ask "…"` modifie un composant existant : le modèle reçoit les fichiers actuels et la demande, la même vérification s'applique, la demande s'ajoute à l'historique de `description.md`, et la version précédente est restaurée si aucun tour ne passe. `--package chemin` écrit dans un paquet déclaré par le site (nom court dans le manifeste, nom préfixé dans les pages).
+
+`sitec component preview <dossier> <nom>` écrit `.devanture/preview/<nom>.html` : tous les cas de test rendus avec la feuille du site et ses comportements, des boutons pour essayer les trois thèmes et une largeur de téléphone. `new` et `edit` la produisent après chaque succès : c'est l'outil de la relecture visuelle, que la vérification ne remplace pas.
+
 ## 6 ter. Éditeur
 
 `sitec schema <dossier>` produit des schémas JSON dérivés du catalogue réel du site (`.devanture/schema/` : site, pages, composés, manifestes, paquet, cas de test, chaque collection, produits) et les déclare à l'extension YAML de VS Code (`.vscode/settings.json`, extension recommandée `redhat.vscode-yaml`). L'éditeur propose alors les composants et leurs props avec leur description et leur exemple, les fichiers d'`assets/`, les routes et les sources ; il souligne une prop, un composant, une image ou une route inconnus. Les expressions `{{ … }}` sont acceptées partout, `{ for, as, item }` dans les composés. Les schémas aident à la frappe, `sitec check` reste l'autorité (expressions, références croisées, gabarits).

@@ -44,30 +44,16 @@ async function casesOf(c) {
  * Rend et compare. Renvoie { results: [{ component, name, status: ok|created|updated|changed|invalid|error|skipped, detail }], php }.
  * opts : { update, catalog (inclure les natifs à gabarit), only (nom de composant) }.
  */
-export async function testComponents(project, { update = false, catalog = false, only = null } = {}) {
-  const cat = project.catalog;
-  const targets = cat.list().filter(c => c.compiled?.php && (c.project || catalog) && (!only || c.name === only));
-  const results = [];
-  if (!targets.length) return { results, php: null, targets: 0 };
-  const php = findPhp();
+/** Rend des cas ({ component, props }) par le runtime PHP de la cible, dans un banc temporaire. Renvoie [{ html } | { error }]. */
+export async function renderCases(project, components, cases, php = findPhp()) {
   if (!php) throw new Error('PHP introuvable : installez php (ou indiquez son chemin dans PHP_BIN) pour rendre les composants.');
-  const ajv = new Ajv({ allErrors: true, strict: false });
-  for (const f of ['route', 'asset', 'file', 'email', 'uri']) ajv.addFormat(f, () => true);
-  const cases = [];
-  for (const c of targets) for (const k of await casesOf(c)) {
-    if (k.error) { results.push({ component: c.name, name: k.name, status: 'invalid', detail: k.error }); continue; }
-    const v = ajv.compile(c.manifest.props);
-    if (!v(k.props)) { results.push({ component: c.name, name: k.name, status: 'invalid', detail: v.errors.map(e => `${e.instancePath || '/'} ${e.message}${e.params?.additionalProperty ? ' : ' + e.params.additionalProperty : ''}`).join(' ; ') }); continue; }
-    cases.push(k);
-  }
-  // Banc PHP temporaire : runtime de rendu, composants compilés, données du site ; erreurs PHP converties en exceptions.
-  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'sitec-test-'));
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'sitec-rendu-'));
   try {
     await fs.mkdir(path.join(tmp, 'lib'), { recursive: true }); await fs.mkdir(path.join(tmp, 'components'), { recursive: true });
     await fs.writeFile(path.join(tmp, 'lib', 'render.php'), RENDER_PHP);
     await fs.writeFile(path.join(tmp, 'lib', 'forms.php'), FORMS_PHP);
     await fs.writeFile(path.join(tmp, 'lib', 'images.php'), '<?php return [];');
-    for (const c of targets) await fs.writeFile(path.join(tmp, 'components', c.name + '.php'), c.compiled.php);
+    for (const c of components) await fs.writeFile(path.join(tmp, 'components', c.name + '.php'), c.compiled?.php || c.files['template.php'] || '');
     await fs.writeFile(path.join(tmp, 'cases.json'), JSON.stringify(cases.map(k => ({ component: k.component, props: k.props }))));
     await fs.writeFile(path.join(tmp, 'run.php'), `<?php
 declare(strict_types=1);
@@ -86,11 +72,37 @@ foreach (json_decode((string)file_get_contents(__DIR__ . '/cases.json'), true) a
 ob_end_clean();
 echo json_encode($out, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 `);
-    let rendered = [];
-    if (cases.length) {
-      const raw = execFileSync(php, [path.join(tmp, 'run.php')], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-      try { rendered = JSON.parse(raw); } catch { throw new Error('Sortie PHP illisible : ' + raw.slice(0, 400)); }
-    }
+    const raw = execFileSync(php, [path.join(tmp, 'run.php')], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    try { return JSON.parse(raw); } catch { throw new Error('Sortie PHP illisible : ' + raw.slice(0, 400)); }
+  } finally { await fs.rm(tmp, { recursive: true, force: true }); }
+}
+
+/** Cas d'un composant (fixtures, sinon exemple), validés contre son manifeste. */
+export async function validCasesOf(c) {
+  const ajv = new Ajv({ allErrors: true, strict: false });
+  for (const f of ['route', 'asset', 'file', 'email', 'uri']) ajv.addFormat(f, () => true);
+  const v = ajv.compile(c.manifest.props);
+  return (await casesOf(c)).map(k => k.error ? { ...k, invalid: k.error } : (v(k.props) ? k : { ...k, invalid: v.errors.map(e => `${e.instancePath || '/'} ${e.message}`).join(' ; ') }));
+}
+
+export async function testComponents(project, { update = false, catalog = false, only = null } = {}) {
+  const cat = project.catalog;
+  const targets = cat.list().filter(c => c.compiled?.php && (c.project || catalog) && (!only || c.name === only));
+  const results = [];
+  if (!targets.length) return { results, php: null, targets: 0 };
+  const php = findPhp();
+  if (!php) throw new Error('PHP introuvable : installez php (ou indiquez son chemin dans PHP_BIN) pour rendre les composants.');
+  const ajv = new Ajv({ allErrors: true, strict: false });
+  for (const f of ['route', 'asset', 'file', 'email', 'uri']) ajv.addFormat(f, () => true);
+  const cases = [];
+  for (const c of targets) for (const k of await casesOf(c)) {
+    if (k.error) { results.push({ component: c.name, name: k.name, status: 'invalid', detail: k.error }); continue; }
+    const v = ajv.compile(c.manifest.props);
+    if (!v(k.props)) { results.push({ component: c.name, name: k.name, status: 'invalid', detail: v.errors.map(e => `${e.instancePath || '/'} ${e.message}${e.params?.additionalProperty ? ' : ' + e.params.additionalProperty : ''}`).join(' ; ') }); continue; }
+    cases.push(k);
+  }
+  {
+    const rendered = cases.length ? await renderCases(project, targets, cases, php) : [];
     for (const [i, k] of cases.entries()) {
       const r = rendered[i] || { error: 'pas de résultat' };
       if (r.error) { results.push({ component: k.component, name: k.name, status: 'error', detail: r.error }); continue; }
@@ -104,6 +116,6 @@ echo json_encode($out, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
       const a = norm(prev), b = norm(html); let j = 0; while (j < a.length && a[j] === b[j]) j++;
       results.push({ component: k.component, name: k.name, status: 'changed', detail: `différence au caractère ${j} : attendu « …${a.slice(Math.max(0, j - 40), j + 60)}… », obtenu « …${b.slice(Math.max(0, j - 40), j + 60)}… » (--update pour accepter)` });
     }
-  } finally { await fs.rm(tmp, { recursive: true, force: true }); }
+  }
   return { results, php, targets: targets.length };
 }

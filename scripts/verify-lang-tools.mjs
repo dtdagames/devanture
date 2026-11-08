@@ -148,6 +148,33 @@ try {
   r = run('component', 'new', site2, 'avis-defilants', '--import', path.join(tmp, 'r.json'), '--export', path.join(tmp, 'rep.json'));
   ok('générateur sans clé : --import d\'une réponse fautive → code 1 et prompt de réparation', r.code === 1 && /prompt de réparation écrit/.test(r.out) && /Ta proposition précédente/.test(JSON.parse(await fs.readFile(path.join(tmp, 'rep.json'), 'utf8')).user));
 
+  // --- Modification en langage naturel, génération dans un paquet, aperçu
+  const site3 = await copy('examples/le-fournil', 'fournil-edit');
+  const before3 = await fs.readFile(path.join(site3, 'components', 'avis-defilants', 'template.html'), 'utf8');
+  const edited = { ...good, template: tpl0.replace('<p>« {{ a.text }} »</p>', '<p class="avis-defilants-texte">« {{ a.text }} »</p>'), styles: css0 + '.avis-defilants-texte{font-style:italic}\n', notes: 'texte en italique' };
+  const editPrompts = [];
+  res = await gen.editComponent({ root: site3, name: 'avis-defilants', request: 'Mets le texte des avis en italique.', catalog, rounds: 2, ask: async (system, user) => { editPrompts.push(user); return JSON.stringify(edited); } });
+  ok('edit : modification appliquée et vérifiée en un tour', res.ok && res.rounds === 1, JSON.stringify(res.problems));
+  ok('edit : le prompt contient le composant actuel et la demande', /# Composant actuel/.test(editPrompts[0] || '') && /# Modification demandée\nMets le texte des avis en italique\./.test(editPrompts[0] || '') && /data-sl-carousel/.test(editPrompts[0] || ''));
+  const md3 = await fs.readFile(path.join(site3, 'components', 'avis-defilants', 'description.md'), 'utf8');
+  ok('edit : description conservée, demande ajoutée à l\'historique', /Un carrousel d'avis clients/.test(md3) && /## Modifications\n\n- Mets le texte des avis en italique\./.test(md3));
+  res = await gen.editComponent({ root: site3, name: 'avis-defilants', request: 'Casse tout.', catalog, rounds: 2, ask: async () => JSON.stringify(bad) });
+  const after3 = await fs.readFile(path.join(site3, 'components', 'avis-defilants', 'template.html'), 'utf8');
+  ok('edit : échec après tous les tours → version précédente restaurée', !res.ok && res.restored && after3.includes('avis-defilants-texte') && after3 !== before3 && !(await fs.readdir(path.join(site3, 'components'))).some(f => f.startsWith('.sauvegarde-')));
+  const garnier3 = await copy('examples/garnier-associes', 'garnier-gen');
+  await copy('examples/paquets', 'paquets-gen');
+  await fs.writeFile(path.join(garnier3, 'site.yaml'), (await fs.readFile(path.join(garnier3, 'site.yaml'), 'utf8')).replace('../paquets/vitrine', '../paquets-gen/vitrine'));
+  const pkgGood = { manifest: 'name: alerte\ndescription: "Bandeau d\'alerte : un titre et un texte."\nprops:\n  type: object\n  required: [title]\n  properties:\n    title: { type: string }\n    text: { type: string }\nexample: |\n  - vitrine.alerte:\n      title: Fermé le 15 août\nintents: [alerte, fermeture]\n', template: '<section class="section alerte">\n  <div class="container"><div class="alerte-box"><strong>{{ p.title }}</strong>{% if p.text %} {{ p.text }}{% endif %}</div></div>\n</section>\n', styles: '.alerte-box{padding:14px 18px;border-radius:var(--radius);background:var(--color-surface);border-left:5px solid var(--color-warning)}\n', fixtures: [{ name: 'simple', yaml: 'title: Fermé le 15 août\ntext: Réouverture le 16.\n' }], notes: '' };
+  const pkgPrompts = [];
+  res = await gen.generateComponent({ root: garnier3, name: 'alerte', description: 'Un bandeau d\'alerte.', catalog, pkg: '../paquets-gen/vitrine', rounds: 1, ask: async (s3, user) => { pkgPrompts.push(user); return JSON.stringify(pkgGood); } });
+  ok('paquet : composant généré dans le paquet, exposé vitrine.alerte', res.ok && res.target?.name === 'vitrine.alerte' && (await fs.readFile(path.join(tmp, 'paquets-gen', 'vitrine', 'components', 'alerte', 'template.html'), 'utf8')).includes('alerte-box'), JSON.stringify(res.problems));
+  ok('paquet : le prompt donne le nom court au manifeste et le nom préfixé aux pages', /name: alerte \(nom court\)/.test(pkgPrompts[0] || '') && /« - vitrine\.alerte: »/.test(pkgPrompts[0] || ''));
+  r = run('component', 'preview', site3, 'avis-defilants');
+  const pv = await fs.readFile(path.join(site3, '.devanture', 'preview', 'avis-defilants.html'), 'utf8').catch(() => '');
+  ok('preview : page d\'aperçu (cas rendus, thèmes, comportement, assets en relatif)', r.code === 0 && (pv.match(/class="pv-case"/g) || []).length === good.fixtures.length && /data-pv-theme="sombre"/.test(pv) && /comportements déclarés : carousel/.test(pv) && !/src="\/assets\//.test(pv), r.out.slice(0, 300));
+  r = run('component', 'preview', garnier3, 'alerte', '--package', '../paquets-gen/vitrine');
+  ok('preview : composant de paquet', r.code === 0 && /vitrine\.alerte\.html \(1 cas\)/.test(r.out), r.out.slice(0, 300));
+
   // --- migrate
   const fournil = await copy('examples/le-fournil', 'fournil');
   const before = await fs.readFile(path.join(fournil, 'site.yaml'), 'utf8');
