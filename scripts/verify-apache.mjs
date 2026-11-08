@@ -96,6 +96,7 @@ try {
   // Statique d'abord : premier passage par PHP (écrit cache/), deuxième servi par Apache seul, cookie → PHP.
   if (staticRoutes.length) {
     const { route, file } = staticRoutes[0];
+    await fs.rm(path.join(work, file), { force: true }); // la page d'accueil a déjà été demandée plus haut : repartir d'un cache vide
     const first = await get(route);
     ok(`Statique ${route} : premier passage rendu par PHP (X-SL-Static: miss)`, first.status === 200 && first.headers.get('x-sl-static') === 'miss', first.headers.get('x-sl-static') || 'absent');
     let written = false; try { await fs.access(path.join(work, file)); written = true; } catch { /* non écrit */ }
@@ -184,13 +185,16 @@ try {
     const log = await fs.readFile(path.join(work, 'data', 'mail.log'), 'utf8').catch(() => '');
     const mails = log.split('--- fin ---').map(m => m.trim()).filter(Boolean);
     ok('E-mails : au moins un message envoyé par mail()', mails.length > 0, String(mails.length));
-    const contact = mails.find(m => /^Subject: .*Nouveau message/m.test(m));
+    // Sujet décodé (RFC 2047 : un nom de site accentué encode tout le sujet en base64).
+    const subject = m => (/^Subject: (.*)$/m.exec(m)?.[1] || '').replace(/=\?UTF-8\?B\?([^?]+)\?=/gi, (_, b) => Buffer.from(b, 'base64').toString('utf8'));
+    const contact = mails.find(m => /Nouveau message/.test(subject(m)));
     ok('E-mail du formulaire : présent, To et Reply-To du visiteur', !!contact && /^To: .+@.+/m.test(contact) && /^Reply-To: .+@.+/m.test(contact), contact ? contact.split('\n').slice(0, 8).join(' | ') : 'absent');
     ok('E-mail du formulaire : From au domaine du site, MIME et UTF-8 déclarés', !!contact && /^From: .*no-reply@127\.0\.0\.1/m.test(contact) && /^MIME-Version: 1\.0/m.test(contact) && /^Content-Type: text\/plain; charset=UTF-8/m.test(contact));
     ok('E-mail du formulaire : accents intacts dans le corps', !!contact && /éàç/.test(contact));
     ok('E-mails : aucun sujet avec caractères non ASCII bruts', mails.every(m => { const s = /^Subject: (.*)$/m.exec(m)?.[1] || ''; return !/[^\x20-\x7e]/.test(s); }));
-    let orderMail = null; try { await fs.access(path.join(work, 'lib', 'data', 'products.json')); orderMail = mails.filter(m => /^Subject: .*[Cc]ommande/m.test(m)); } catch { /* pas de boutique */ }
-    if (orderMail) ok('E-mails de commande : marchand et client', orderMail.length >= 2 && orderMail.some(m => /^Subject: Votre commande/m.test(m)), String(orderMail.length));
+    let orderMail = null; try { await fs.access(path.join(work, 'lib', 'data', 'products.json')); orderMail = mails.filter(m => /[Cc]ommande/.test(subject(m))); } catch { /* pas de boutique */ }
+    if (orderMail) ok('E-mails de commande : marchand et client', orderMail.length >= 2 && orderMail.some(m => /^Votre commande/.test(subject(m))), String(orderMail.length));
+    if (contact) ok('E-mail du formulaire : sujet décodé lisible (nom du site, accents)', subject(contact).includes(String((/"name":\s*"([^"]+)"/.exec(await fs.readFile(path.join(work, 'site.json'), 'utf8').catch(() => '')) || [])[1] || '')));
   }
 
   // Back-office : jeton requis, session ensuite.
