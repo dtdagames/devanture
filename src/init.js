@@ -197,7 +197,7 @@ Back-office du site compilé : \`/_admin\` (jeton \`ADMIN_TOKEN\`). Version text
     try {
       await run('git', ['init', '-q', '-b', 'main'], { cwd: root });
       await run('git', ['add', '-A'], { cwd: root });
-      await run('git', ['-c', 'user.name=sitec', '-c', 'user.email=sitec@localhost', 'commit', '-q', '-m', `Squelette du site ${siteName} (Devanture, sans PHP)\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`], { cwd: root });
+      await run('git', ['-c', 'user.name=sitec', '-c', 'user.email=sitec@localhost', 'commit', '-q', '-m', `Squelette du site ${siteName} (Devanture, sans PHP)`], { cwd: root });
       committed = true;
     } catch (e) { /* git absent : le dossier reste utilisable */ }
   }
