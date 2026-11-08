@@ -18,6 +18,10 @@ Usage :
   sitec catalog [dossier-projet]             Liste compacte des composants (natifs, puis ceux du projet : composés et gabarits)
   sitec explain <composant> [dossier-projet] Fiche détaillée d'un composant (ou : explain site, explain langage)
   sitec component new <dossier> <nom>        Squelette d'un composant de projet : components/<nom>/ (manifest.yaml, template.html, styles.css)
+  sitec migrate <dossier> [--dry-run] [--to N]
+                                             Fait passer le site à la dernière version du langage (texte modifié, commentaires conservés) et suggère ce qu'elle permet d'écrire mieux
+  sitec test <dossier> [--update] [--catalog] [--only nom]
+                                             Rend chaque cas components/*/fixtures/*.yaml (projet et paquets) par PHP et le compare à son instantané .html
   sitec review   <dossier-projet> [--llm] [--export f.json] [--import f.json]
                                              Relecture éditoriale : textes à compléter, faits absents du brief (brief.md), engagements à valider
   sitec build … --draft                      Compile malgré des textes à compléter
@@ -52,6 +56,47 @@ export async function run(argv) {
       const proj = args[1] ? await projectCatalog(args[1], catalog) : null;
       if (proj?.project.composites?.[name]) { printComposite(proj.project.composites[name]); return 0; }
       return explain(proj?.catalog || catalog, name);
+    }
+
+    case 'migrate': {
+      const dir = args[0];
+      if (!dir) { console.error('Usage : sitec migrate <dossier-projet> [--dry-run] [--to N]'); return 2; }
+      const root = path.resolve(dir);
+      const toIdx = rest.indexOf('--to');
+      const { migrate, LATEST } = await import('./migrate.js');
+      let r;
+      try { r = await migrate(root, { to: toIdx >= 0 ? Number(rest[toIdx + 1]) : LATEST, dryRun: flags.has('--dry-run') }); }
+      catch (e) { console.error(e.message); return 1; }
+      if (!r.steps.length) console.log(`Déjà en version ${r.to} : rien à migrer.`);
+      for (const st of r.steps) { console.log(`${flags.has('--dry-run') ? 'PRÉVU' : 'FAIT '} ${st.title}`); for (const c of st.changes) console.log(`      ${c.file} : ${c.change}`); }
+      for (const sg of r.suggestions) console.log(`IDÉE  ${sg}`);
+      // Le site migré doit rester valide.
+      if (!flags.has('--dry-run') && r.steps.length) {
+        const project = await loadProject(root);
+        const errors = validateProject(project, catalog);
+        if (errors.length) { console.log('Le site migré ne passe pas check :'); process.stdout.write(formatErrors(errors, { json: true, root })); return 1; }
+      }
+      console.log(JSON.stringify({ ok: true, from: r.from, to: r.to, steps: r.steps.length, suggestions: r.suggestions.length, written: r.written }));
+      return 0;
+    }
+
+    case 'test': {
+      const dir = args[0];
+      if (!dir) { console.error('Usage : sitec test <dossier-projet> [--update] [--catalog] [--only nom]'); return 2; }
+      const root = path.resolve(dir);
+      const project = await loadProject(root);
+      const errors = validateProject(project, catalog);
+      if (errors.length) { process.stdout.write(formatErrors(errors, { json: true, root })); return 1; }
+      const onlyIdx = rest.indexOf('--only');
+      const { testComponents } = await import('./component-test.js');
+      let r;
+      try { r = await testComponents(project, { update: flags.has('--update'), catalog: flags.has('--catalog'), only: onlyIdx >= 0 ? rest[onlyIdx + 1] : null }); }
+      catch (e) { console.error(e.message); return 2; }
+      const label = { ok: 'OK  ', created: 'NEW ', updated: 'MAJ ', changed: 'DIFF', invalid: 'CAS ', error: 'ERR ' };
+      for (const x of r.results) console.log(`${label[x.status]} ${x.component} › ${x.name}${x.detail ? ' — ' + x.detail : ''}`);
+      const failed = r.results.filter(x => ['changed', 'invalid', 'error'].includes(x.status)).length;
+      console.log(JSON.stringify({ ok: !failed, components: r.targets, cases: r.results.length, failed, created: r.results.filter(x => x.status === 'created').length, updated: r.results.filter(x => x.status === 'updated').length }));
+      return failed ? 1 : 0;
     }
 
     case 'component': {
@@ -138,7 +183,7 @@ intents: [mots, que, tapent, les, visiteurs]
         else { for (const f of placeholders) console.log(JSON.stringify({ ...f, file: path.relative(root, f.file).replaceAll('\\', '/') })); return 1; }
       }
       if (cmd === 'check') {
-        console.log(JSON.stringify({ ok: true, language: project.language ?? 1, pages: project.pages.length, sections: countSections(project), collections: Object.keys(project.collections || {}).length, components: { composites: Object.keys(project.composites || {}).length, project: (project.componentSources || []).length }, warnings: warnings.length + placeholders.length, review: 'sitec review ' + dir }));
+        console.log(JSON.stringify({ ok: true, language: project.language ?? 1, pages: project.pages.length, sections: countSections(project), collections: Object.keys(project.collections || {}).length, components: { composites: Object.keys(project.composites || {}).length, project: (project.componentSources || []).length, packages: (project.packages || []).filter(p => p.prefix).map(p => p.prefix) }, warnings: warnings.length + placeholders.length, review: 'sitec review ' + dir }));
         return 0;
       }
       const outIdx = rest.indexOf('--out');
@@ -318,9 +363,9 @@ function printCatalog(catalog, proj = null) {
     const props = Object.entries(c.manifest.props.properties || {})
       .map(([k]) => (c.manifest.props.required || []).includes(k) ? `${k}*` : k)
       .join(', ');
-    console.log(`${c.name.padEnd(14)} ${c.manifest.description}${c.project ? '   [composant du projet]' : ''}\n${''.padEnd(14)} props: ${props}`);
+    console.log(`${c.name.padEnd(14)} ${c.manifest.description}${c.package ? `   [paquet ${c.package}]` : c.project ? '   [composant du projet]' : ''}\n${''.padEnd(14)} props: ${props}`);
   }
-  for (const def of Object.values(proj?.project?.composites || {})) console.log(`${def.name.padEnd(14)} ${def.description}   [composé du projet → ${def.sections.map(s => Object.keys(s)[0]).join(' + ')}]\n${''.padEnd(14)} params: ${Object.entries(def.params).map(([k, v]) => v.required ? k + '*' : k).join(', ')}`);
+  for (const def of Object.values(proj?.project?.composites || {})) console.log(`${def.name.padEnd(14)} ${def.description}   [composé ${def.package ? `du paquet ${def.package}` : 'du projet'} → ${def.sections.map(s => Object.keys(s)[0]).join(' + ')}]\n${''.padEnd(14)} params: ${Object.entries(def.params).map(([k, v]) => v.required ? k + '*' : k).join(', ')}`);
   console.log(`\nFichiers attendus : site.yaml, pages/*.page.yaml, assets/ (images). Voir CLAUDE.md.\nConfiguration du site (nav, thème, tokens, pied, coordonnées) : sitec explain site`);
 }
 

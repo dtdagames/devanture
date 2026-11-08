@@ -1,0 +1,5 @@
+tone: info
+icon: clock
+title: Première consultation offerte
+text: "Trente minutes pour faire le point, **sans engagement**."
+link: { label: Prendre rendez-vous, to: /contact }

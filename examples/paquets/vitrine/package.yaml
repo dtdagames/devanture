@@ -1,0 +1,6 @@
+# Paquet de composants Devanture : réutilisable par plusieurs sites (site.yaml › packages: [ ../paquets/vitrine ]).
+# Les composants sont exposés préfixés par name : vitrine.encart, vitrine.contact-rapide.
+name: vitrine
+description: Encarts et blocs de contact pour sites de services (cabinets, artisans, commerces).
+version: 1.0.0
+language: 1

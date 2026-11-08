@@ -38,13 +38,13 @@ function lintManifest(name, schema, errors, p = 'props') {
  * files : { 'template.php', 'template.html', 'styles.css', 'module.js' } (textes). project : composant défini dans le site.
  * Renvoie { entry, errors } ; les erreurs sont des phrases (le catalogue natif les lève, un composant de projet les rapporte).
  */
-export function buildComponent({ name, dir, manifestText, files, project = false }) {
+export function buildComponent({ name, shortName = null, pkg = null, dir, manifestText, files, project = false }) {
   const errors = [];
   let manifest;
   try { manifest = YAML.parse(manifestText); } catch (e) { return { entry: null, errors: [`manifest.yaml illisible : ${e.message.split('\n')[0]}`] }; }
   if (!manifest || typeof manifest !== 'object') return { entry: null, errors: ['manifest.yaml doit décrire un objet (name, description, props)'] };
   for (const k of Object.keys(manifest)) if (!MANIFEST_KEYS.has(k)) { const s = nearest(k, [...MANIFEST_KEYS]); errors.push(`clé inconnue « ${k} » dans manifest.yaml${s ? ` (vouliez-vous dire ${s} ?)` : ''}`); }
-  if (manifest.name !== undefined && manifest.name !== name) errors.push(`name: ${manifest.name} ne correspond pas au dossier ${name}`);
+  if (manifest.name !== undefined && manifest.name !== name && manifest.name !== shortName) errors.push(`name: ${manifest.name} ne correspond pas au dossier ${shortName || name}`);
   manifest.name = name;
   manifest.props ??= { type: 'object', properties: {} };
   if (typeof manifest.props !== 'object' || Array.isArray(manifest.props)) { errors.push('props doit être un schéma objet { type: object, properties: { … } }'); manifest.props = { type: 'object', properties: {} }; }
@@ -64,7 +64,7 @@ export function buildComponent({ name, dir, manifestText, files, project = false
     if (files['template.html'] === undefined) errors.push('template.html manquant (gabarit du composant)');
   }
   if (!/^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*$/.test(name)) errors.push(`nom de composant mal formé : ${name} (minuscules, chiffres et tirets, points pour les familles : produit.carte)`);
-  return { entry: { name, dir, manifest, files, project }, errors };
+  return { entry: { name, dir, manifest, files, project, package: pkg }, errors };
 }
 
 const COMPONENT_FILES = ['template.php', 'template.html', 'styles.css', 'module.js'];

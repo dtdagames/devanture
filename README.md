@@ -64,7 +64,7 @@ src/images/     pipeline d'images : dimensions, variantes WebP (sharp sous Node,
 src/studio/     remplaçants Node pour l'atelier navigateur (fichiers en mémoire, chemins, sha256, canvas)
 components/     un dossier par composant : manifest.yaml (props), template.php, styles.css, module.js
 studio/         atelier navigateur (index.html, app.js ; sitec-browser.js est produit par npm run build:studio)
-examples/       sites de démonstration (plomberie, boutique savonnerie, cabinet, fournil, hôte multi-sites)
+examples/       sites de démonstration (plomberie, boutique savonnerie, cabinet, fournil, hôte multi-sites) et paquets/vitrine (paquet de composants partagé)
 scripts/        bancs de vérification des sites produits et scripts de mesure
 docs/LANGAGE.md spécification du langage (version 1 : expressions, collections, composants composés et de projet, effets)
 docs/CIBLES.md  contrat que tout émetteur doit respecter (routes, formulaires, boutique, exploitation)
@@ -79,6 +79,8 @@ node bin/sitec.js build examples/savonnerie
 node scripts/verify-shop.mjs examples/savonnerie/dist 8970        # parcours d'achat, stock, webhook
 node scripts/verify-php-site.mjs examples/savonnerie/dist 8971    # routes, SEO, formulaires, sécurité
 node scripts/verify-lang.mjs examples/plomberie-martin/dist 8973  # langage : expressions JS = PHP, gabarits, collections, composition, composant de projet
+node scripts/verify-lang-tools.mjs                                # paquets de composants, sitec test, sitec migrate
+node bin/sitec.js test examples/plomberie-martin --catalog        # rend les cas et exemples de tous les composants à gabarit
 node scripts/verify-apache.mjs examples/savonnerie/dist 8085      # même site sous un vrai Apache (Docker, php:8.3-apache) : cache statique, .htaccess, déploiement
 node scripts/verify-apache.mjs examples/hote/dist 8087 --host savonnerie-du-port.fr   # hôte multi-sites, un domaine à la fois
 ```

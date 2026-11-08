@@ -30,6 +30,8 @@ sections:
           a: "Le forfait fixe un prix global pour une mission définie. Le temps passé repose sur un taux horaire et s'adapte à la durée réelle du dossier."
         - q: Puis-je bénéficier de l'aide juridictionnelle ?
           a: "Selon vos ressources, l'aide juridictionnelle peut prendre en charge tout ou partie des frais. Nous vous renseignons lors du rendez-vous."
-  - cta:
-      title: Parlons de votre situation
-      button: { label: Réserver ma consultation offerte, to: /contact }
+  - vitrine.contact-rapide:
+      id: joindre
+      titre: Une question sur nos honoraires ?
+      texte: Nous vous répondons avant tout engagement.
+      bouton: { label: Réserver ma consultation offerte, to: /contact }

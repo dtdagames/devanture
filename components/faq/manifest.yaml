@@ -21,7 +21,7 @@ example: |
   - faq:
       title: Questions fréquentes
       items:
-        - { q: Livrez-vous partout en France ?, a: Oui, sous 48 h ouvrées. }
+        - { q: Livrez-vous partout en France ?, a: "Oui, sous 48 h ouvrées." }
         - q: Puis-je retourner un produit ?
           a: Vous avez 14 jours pour changer d'avis.
 intents: [questions, faq, comment, est-ce que]

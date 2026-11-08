@@ -1,0 +1,20 @@
+<section class="section team">
+  <div class="container">
+    {% if p.title or p.intro %}
+    <div class="section-head">
+      {% if p.title %}<h2>{{ p.title }}</h2>{% endif %}
+      {% if p.intro %}<p>{{ p.intro }}</p>{% endif %}
+    </div>
+    {% endif %}
+    <div class="grid grid-4">
+      {% for m in p.members %}
+      <div class="team-member">
+        {% if m.photo %}{{ img(m.photo, m.name, '120px') }}{% else %}<div class="team-avatar" aria-hidden="true">{{ m.name | trim | first | upper }}</div>{% endif %}
+        <h3>{{ m.name }}</h3>
+        {% if m.role %}<div class="muted">{{ m.role }}</div>{% endif %}
+        {% if m.bio %}<p>{{ m.bio }}</p>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>

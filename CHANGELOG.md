@@ -1,6 +1,14 @@
 # Journal des versions
 
-Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.2.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.3.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+
+## v0.3.0 — 2026-11-08 — outillage du langage
+
+- **Gabarit neutre étendu** : bandeau, texte, galerie, équipe, tarifs et carte réécrits sans PHP (13 composants natifs sur 23, plus la liste de collection). Les 36 pages des quatre exemples sont identiques au caractère près avant et après (`scripts/snapshot-pages.mjs`). Restent écrits pour la cible les primitives à effets ou à état : contact, boutique, horaires calculés, mémoire du visiteur, bloc libre. Nouveaux : filtre `url_encode`, fonction `lines()`.
+- **Paquets de composants** : `packages:` dans `site.yaml` (chemin ou paquet installé), `package.yaml` + `components/` + `components.yaml`, composants exposés préfixés (`vitrine.encart`), préfixe unique et distinct des familles natives, version de langage du paquet vérifiée, `W_PACKAGE_STUDIO` si l'atelier embarqué ne peut pas le voir. Exemple : `examples/paquets/vitrine`, utilisé par le cabinet d'avocats.
+- **`sitec test`** : cas `fixtures/<cas>.yaml` validés contre le manifeste, rendus par le PHP de la cible, comparés à leur instantané `.html` (création, `--update`, `--only`, `--catalog`). A trouvé deux exemples de manifeste natifs invalides (virgule non protégée dans `gallery` et `faq`), corrigés : ce sont ceux que `sitec explain` montre aux agents.
+- **`sitec migrate`** : étapes enregistrées entre versions du langage, texte modifié en conservant commentaires et mise en forme, `--dry-run`, vérification du site migré, suggestions (coordonnées recopiées, valeurs répétées à mettre en constantes) ; `W_LANGUAGE` quand la version n'est pas déclarée. Les exemples sont migrés.
+- Bancs : `scripts/verify-lang-tools.mjs` (21 contrôles) dans l'intégration continue ; le cabinet d'avocats passe sous Apache en intégration continue.
 
 ## v0.2.0 — 2026-11-08 — langage version 1
 

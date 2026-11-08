@@ -15,6 +15,7 @@ Trois moyens d'abstraction :
 | Constantes et expressions | `site.yaml › constants`, `{{ … }}` partout | une valeur |
 | Collections | `site.yaml › collections`, `data/<nom>.yaml`, pages `source:` | un type de contenu et ses éléments |
 | Composants composés et de projet | `components.yaml`, `components/<nom>/` | un assemblage, ou un composant nouveau avec son gabarit |
+| Paquets | `site.yaml › packages`, `package.yaml` | une bibliothèque de composants partagée entre sites, sous un préfixe |
 
 ## 2. Expressions
 
@@ -115,7 +116,7 @@ Le nom ne peut pas être celui d'un composant natif. Le manifeste a le format du
 | `{% form %} … {% endform %}` | formulaire déclaré par `effects.form` : méthode, nom, jeton, pot de miel |
 | `{# … #}` | commentaire |
 
-Variables : `p` (props, vérifiées contre le manifeste), `site`, `page`, `item`, `product`, `order`, `form`, `loop`, `shop`. Fonctions : `link(lien, classe)`, `img(chemin, alt, sizes, eager)`, `img_src(chemin, largeur)`, `asset(chemin)`, `url(cible)`, `icon(nom)`, `paragraphs(texte)`, `markup(texte)`, `money(n)`, `field(nom)`.
+Variables : `p` (props, vérifiées contre le manifeste), `site`, `page`, `item`, `product`, `order`, `form`, `loop`, `shop`. Fonctions : `link(lien, classe)`, `img(chemin, alt, sizes, eager)`, `img_src(chemin, largeur)`, `asset(chemin)`, `url(cible)`, `icon(nom)`, `paragraphs(texte)`, `markup(texte)`, `lines(texte)` (retours à la ligne conservés), `money(n)`, `field(nom)`.
 
 La vérification refuse, avec le numéro de ligne : PHP ou tout code de cible, variable inconnue, prop absente du manifeste, clé inconnue d'un élément de liste typé, balise déséquilibrée, filtre ou fonction inconnus, `form` sans `effects.form`.
 
@@ -132,14 +133,36 @@ effects:
 
 Le compilateur produit la validation serveur, le jeton CSRF, le pot de miel, l'enregistrement (`id, at, form, ip, page, mail, …champs`), l'e-mail et l'onglet du back-office. Le gabarit lit `form.ok`, `form.failed`, `form.message`, `form.success`, `form.values.x`, `form.errors.x` et rend un champ par `{{ field('x') }}`. Aucun autre effet serveur n'est exprimable : un besoin inédit devient une primitive du langage s'il se répète, sinon il reste une extension du catalogue.
 
+### Tests
+
+Un cas de test est un fichier `components/<nom>/fixtures/<cas>.yaml` contenant des props. `sitec test <dossier>` valide chaque cas contre le manifeste, le rend par le runtime de la cible et le compare à l'instantané `<cas>.html` (créé au premier passage, mis à jour par `--update`). Un composant sans cas est rendu avec l'exemple de son manifeste, pour vérifier l'absence d'erreur. `--catalog` étend le test aux composants natifs à gabarit. Le rendu se fait sans variantes d'images et sans session réelle (jeton constant), pour des instantanés stables.
+
+## 6 bis. Paquets de composants
+
+Un paquet regroupe des composants à gabarit et des composés, partagés par plusieurs sites :
+
+```
+<paquet>/
+  package.yaml      name: vitrine (préfixe), description, version, language
+  components/<nom>/ composants à gabarit neutre (même format qu'un composant de projet, fixtures/ comprises)
+  components.yaml   composés du paquet
+```
+
+Un site les déclare à la racine de `site.yaml` : `packages: [ ./paquets/vitrine, @acme/devanture-composants ]`. Un chemin commençant par `.` ou `/` est relatif au site ; un nom est cherché dans `node_modules/` (paquet npm ou dépôt git installé). Les composants sont exposés préfixés : `vitrine.encart`, `vitrine.contact-rapide` ; un composé du paquet cite les composants du paquet par leur nom complet. Le préfixe est unique, ne peut pas être une famille du catalogue natif (`products`, `order`…), et un paquet écrit pour une version de langage inconnue est refusé. L'atelier navigateur ne voit que les fichiers du site : pour un site qui l'embarque, le paquet se range sous le site (`./paquets/…`), sinon `check` avertit (`W_PACKAGE_STUDIO`).
+
 ## 7. Ce que garantit le vérificateur
 
 Avant toute génération : structure et types de chaque document, routes et ancres existantes, fichiers d'`assets/` présents, segments déclarés, champs de collections, paramètres des assemblages, gabarits compilables, expressions résolubles, textes `[à compléter]` absents (sauf `--draft`). Après : les pages produites sont identiques quel que soit l'ordre des fichiers ; aucune donnée de la requête n'atteint un gabarit sans échappement.
 
 ## 8. Ce qui appartient à la cible
 
-Le rendu des gabarits, le protocole des formulaires, le stockage, le cache statique, le déploiement : `docs/CIBLES.md`. Le langage n'y fait pas référence. Les composants natifs encore écrits en PHP (boutique, formulaire de contact, horaires, carte, galerie, bandeau, texte libre, équipe, tarifs, récents) sont les primitives à effets ou à état ; leur contrat est décrit dans `CIBLES.md` et c'est lui qu'une seconde cible devrait honorer.
+Le rendu des gabarits, le protocole des formulaires, le stockage, le cache statique, le déploiement : `docs/CIBLES.md`. Le langage n'y fait pas référence.
 
-## 9. Versions
+Treize composants natifs sont écrits dans le gabarit neutre : bandeau, texte, galerie, équipe, tarifs, carte, points forts, chiffres, étapes, appel, chronologie, témoignages, FAQ, plus la liste de collection. Restent écrits pour la cible les **primitives à effets ou à état** : formulaire de contact, boutique (grille, fiche, produits liés, panier, commande, confirmation), horaires calculés à l'heure de la visite, mémoire du visiteur (`recent`), bloc libre (`custom`). Leur contrat est décrit dans `CIBLES.md` ; c'est ce qu'une seconde cible devrait réécrire, le reste vient du gabarit.
 
-- **1** (2026-11-08) : première version écrite. Expressions, constantes, collections, composants composés, composants de projet avec gabarit neutre et effet `form`.
+## 9. Versions et migration
+
+`sitec migrate <dossier>` fait passer un site à la dernière version, étape par étape, en modifiant le texte des fichiers (commentaires et mise en forme conservés), puis vérifie que le site migré passe `check`. `--dry-run` montre les changements sans écrire. Chaque migration propose aussi des suggestions non appliquées : ce que la nouvelle version permet d'écrire mieux (coordonnées recopiées en dur, valeurs répétées à mettre en constantes). Un site sans `language` est lu comme version 1 avec l'avertissement `W_LANGUAGE`.
+
+- **0** : sites écrits avant la déclaration de version (compilateur ≤ 0.1.3). Migration vers 1 : ajout de `language: 1`, aucune construction ne change.
+- **1** (2026-11-08) : première version écrite. Expressions, constantes, collections, composants composés, composants de projet avec gabarit neutre et effet `form`, paquets de composants, tests de composants.

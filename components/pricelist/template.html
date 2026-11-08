@@ -1,0 +1,32 @@
+{% if p.columns %}{% set cols = p.columns %}{% elif (p.groups | count) > 1 %}{% set cols = 2 %}{% else %}{% set cols = 1 %}{% endif %}
+<section class="section pricelist">
+  <div class="container">
+    {% if p.title or p.intro %}
+    <div class="section-head">
+      {% if p.title %}<h2>{{ p.title }}</h2>{% endif %}
+      {% if p.intro %}<p>{{ p.intro }}</p>{% endif %}
+    </div>
+    {% endif %}
+    <div class="pricelist-groups pricelist-cols-{{ cols }}">
+      {% for g in p.groups %}
+      <div class="pricelist-group">
+        {% if g.title %}<h3>{{ g.title }}</h3>{% endif %}
+        {% if g.text %}<p class="muted">{{ g.text }}</p>{% endif %}
+        <ul class="pricelist-items">
+          {% for it in g.items %}
+          <li class="pricelist-item">
+            <div class="pricelist-main">
+              <span class="pricelist-name">{{ it.name }}{% if it.badge %} <span class="badge">{{ it.badge }}</span>{% endif %}</span>
+              {% if it.description %}<span class="pricelist-desc muted">{{ it.description }}</span>{% endif %}
+            </div>
+            <span class="pricelist-price">{{ it.price | price }}{% if it.unit %} <span class="muted pricelist-unit">{{ it.unit }}</span>{% endif %}</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endfor %}
+    </div>
+    {% if p.note %}<p class="muted pricelist-note">{{ p.note }}</p>{% endif %}
+    {% if p.cta %}<p class="pricelist-cta">{{ link(p.cta, 'btn') }}</p>{% endif %}
+  </div>
+</section>

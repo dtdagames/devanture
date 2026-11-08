@@ -1,0 +1,27 @@
+{# Carte : liens d'itinéraire toujours présents ; carte OpenStreetMap chargée au clic seulement (module.js), jamais au chargement de la page. #}
+{% set addr = p.address | default(site.contact.address) | default('') %}
+{% set has = p.lat and p.lon %}
+{% set z = p.zoom | default(16) | int %}
+{% if has %}
+{% set osm = 'https://www.openstreetmap.org/?mlat=' ~ p.lat ~ '&mlon=' ~ p.lon ~ '#map=' ~ z ~ '/' ~ p.lat ~ '/' ~ p.lon %}
+{% set gm = 'https://www.google.com/maps/dir/?api=1&destination=' ~ p.lat ~ ',' ~ p.lon %}
+{% set embed = 'https://www.openstreetmap.org/export/embed.html?bbox=' ~ (p.lon - 0.004) ~ ',' ~ (p.lat - 0.004 * 0.6) ~ ',' ~ (p.lon + 0.004) ~ ',' ~ (p.lat + 0.004 * 0.6) ~ '&layer=mapnik&marker=' ~ p.lat ~ ',' ~ p.lon %}
+{% else %}
+{% set osm = 'https://www.openstreetmap.org/search?query=' ~ (addr | url_encode) %}
+{% set gm = 'https://www.google.com/maps/dir/?api=1&destination=' ~ (addr | url_encode) %}
+{% endif %}
+<section class="section map">
+  <div class="container map-inner">
+    <div class="map-info">
+      <h2>{{ p.title | default('Nous trouver') }}</h2>
+      {% if addr %}<p class="map-address">{{ lines(addr) }}</p>{% endif %}
+      {% if p.access %}<div class="muted">{{ paragraphs(p.access) }}</div>{% endif %}
+      <p class="map-links"><a class="btn" href="{{ gm }}" rel="noopener" target="_blank">Itinéraire</a> <a class="btn btn-outline" href="{{ osm }}" rel="noopener" target="_blank">Voir sur OpenStreetMap</a></p>
+    </div>
+    {% if has %}
+    <div class="map-frame" data-embed="{{ embed }}">
+      <button type="button" class="map-load">Afficher la carte<span class="muted">OpenStreetMap, chargée à votre demande</span></button>
+    </div>
+    {% endif %}
+  </div>
+</section>

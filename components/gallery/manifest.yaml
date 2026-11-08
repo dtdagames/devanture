@@ -24,6 +24,6 @@ example: |
       title: Nos réalisations
       columns: 3
       images:
-        - { src: real-1.jpg, alt: Cuisine rénovée, caption: Cuisine, Lyon 3e }
+        - { src: real-1.jpg, alt: Cuisine rénovée, caption: "Cuisine, Lyon 3e" }
         - { src: real-2.jpg, alt: Salle de bain }
 intents: [photos, réalisations, galerie, exemples]

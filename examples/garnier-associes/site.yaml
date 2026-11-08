@@ -1,3 +1,8 @@
+language: 1
+
+# Composants partagés : le paquet vitrine (examples/paquets/vitrine) expose vitrine.encart et vitrine.contact-rapide.
+packages: [ ../paquets/vitrine ]
+
 site:
   name: Garnier & Associés
   tagline: Avocats à Bordeaux depuis 2011

@@ -139,6 +139,7 @@ export const FILTERS = {
   replace: (v, a, b = '') => str(v).split(str(a)).join(str(b)),
   date: (v, fmt = 'd/m/Y') => { const d = parseDate(v); if (!d) return str(v); return formatDate(d, str(fmt)); },
   nl2br: (v) => str(v),
+  url_encode: (v) => encodeURIComponent(str(v)).replace(/[!'()*]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase()),
   repeat: (v, n = 1) => str(v).repeat(Math.max(0, Math.floor(num(n)))),
   int: (v) => Math.trunc(num(v)),
   price: (v, cur = '€') => { if (typeof v !== 'number' && Number.isNaN(Number(String(v).replace(',', '.')))) return str(v); const n = num(v); return (Number.isInteger(n) ? String(n) : n.toFixed(2).replace('.', ',')).replace(/B(?=(d{3})+(?!d))/g, ' ') + ' ' + cur; },
@@ -191,8 +192,8 @@ function cmp(a, b) { if (typeof a === 'number' || typeof b === 'number') return 
 // ---------------------------------------------------------------------------------------------------------------------------
 // Traduction en PHP : même sémantique via les aides sl_get / sl_truthy / sl_f_* / sl_str du runtime.
 
-export const SAFE_FUNCTIONS = new Set(['link', 'img', 'icon', 'paragraphs', 'markup', 'field']);
-const PHP_FUNCTIONS = { link: 'sl_fn_link', img: 'sl_fn_img', img_src: 'img_src', asset: 'asset', url: 'url', icon: 'sl_icon', paragraphs: 'paragraphs', markup: 'sl_fn_markup', money: 'sl_f_money', field: 'sl_fn_field' };
+export const SAFE_FUNCTIONS = new Set(['link', 'img', 'icon', 'paragraphs', 'markup', 'field', 'lines']);
+const PHP_FUNCTIONS = { lines: 'sl_fn_lines', link: 'sl_fn_link', img: 'sl_fn_img', img_src: 'img_src', asset: 'asset', url: 'url', icon: 'sl_icon', paragraphs: 'paragraphs', markup: 'sl_fn_markup', money: 'sl_f_money', field: 'sl_fn_field' };
 export const FUNCTION_NAMES = Object.keys(PHP_FUNCTIONS);
 
 /**
@@ -285,6 +286,7 @@ function sl_f_date(mixed $v, mixed $fmt = 'd/m/Y'): string {
     return preg_replace_callback('/Y|y|m|n|d|j|F/', fn($m) => $m[0] === 'F' ? $F[(int)date('n', $ts) - 1] : date($m[0], $ts), sl_str($fmt));
 }
 function sl_f_nl2br(mixed $v): string { return sl_str($v); }
+function sl_f_url_encode(mixed $v): string { return rawurlencode(sl_str($v)); }
 function sl_f_repeat(mixed $v, mixed $n = 1): string { return str_repeat(sl_str($v), max(0, (int)sl_num($n))); }
 function sl_f_int(mixed $v): int { return (int)sl_num($v); }
 function sl_f_price(mixed $v, mixed $cur = '€'): string { if (!is_numeric(is_string($v) ? str_replace(',', '.', $v) : $v)) return sl_str($v); $n = (float)sl_num($v); return number_format($n, floor($n) == $n ? 0 : 2, ',', ' ') . ' ' . sl_str($cur); }
@@ -292,5 +294,7 @@ function sl_list(mixed $v): array { return is_array($v) ? $v : []; }
 /** Fonctions d'affichage (HTML sûr, échappement fait à l'intérieur). */
 function sl_fn_link(mixed $l, mixed $class = ''): string { return is_array($l) && isset($l['to'], $l['label']) ? render_link($l, sl_str($class)) : ''; }
 function sl_fn_img(mixed $path, mixed $alt = '', mixed $sizes = null, mixed $eager = false): string { $p = sl_str($path); if ($p === '') return ''; return img($p, sl_str($alt), ['sizes' => $sizes === null ? '100vw' : sl_str($sizes), 'eager' => sl_truthy($eager)]); }
+/** Texte sur plusieurs lignes (adresse) : échappé, retours à la ligne conservés. */
+function sl_fn_lines(mixed $v): string { return nl2br(e(sl_str($v))); }
 function sl_fn_markup(mixed $v): string { return inline_markup(e(sl_str($v))); }
 `;

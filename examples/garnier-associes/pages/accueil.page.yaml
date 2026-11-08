@@ -27,6 +27,12 @@ sections:
           title: Droit de la famille
           text: "Divorce, garde des enfants, pension alimentaire, succession et protection des proches."
           link: { label: En savoir plus, to: /domaines }
+  - vitrine.encart:
+      id: consultation
+      icon: clock
+      title: Première consultation offerte
+      text: "Trente minutes pour faire le point sur votre situation, **sans engagement**."
+      link: { label: Prendre rendez-vous, to: /contact }
   - stats:
       items:
         - { value: "2011", label: année de fondation }

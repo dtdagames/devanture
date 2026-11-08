@@ -27,6 +27,8 @@ const SITE_SCHEMA = {
     constants: { type: 'object' },
     // Collections génériques : { nom: { label, fields: { champ: type | { type, required, label, default } }, sort, title_field } }.
     collections: { type: 'object' },
+    // Paquets de composants partagés : chemins (./paquets/x) ou noms de paquets installés (node_modules).
+    packages: { type: 'array', items: { type: 'string', minLength: 1 } },
     site: {
       type: 'object',
       additionalProperties: false,
@@ -207,10 +209,28 @@ export function validateProject(project, catalog) {
   project.segments = seg.spec;
   const segmentNames = seg.spec ? Object.keys(seg.spec.segments) : [];
 
-  // --- composants de projet (components/<nom>/manifest.yaml + template.html) : construits, vérifiés, ajoutés au catalogue
+  // --- paquets de composants : préfixe unique (package.yaml › name), composants exposés en <préfixe>.<nom>
+  const prefixes = new Set();
+  const nativeFamilies = new Set(catalog.names().filter(n => n.includes('.')).map(n => n.split('.')[0]));
+  const sources = [];
+  (project.packages || []).forEach((pkg, i) => {
+    const where = `packages[${i}]`;
+    if (pkg.missing) { errors.push(err('E_PACKAGE', { file: project.siteFile, path: where, message: `Paquet introuvable : ${pkg.spec} (pas de package.yaml dans ${pkg.dir.replaceAll('\\', '/')}).`, hint: pkg.local ? 'Chemin relatif à la racine du site.' : `Installez-le (npm install ${pkg.spec}) ou donnez un chemin (./paquets/…).` })); return; }
+    const name = pkg.meta && typeof pkg.meta === 'object' ? pkg.meta.name : undefined;
+    if (typeof name !== 'string' || !/^[a-z][a-z0-9-]*$/.test(name)) { errors.push(err('E_PACKAGE', { file: pkg.file, path: 'name', message: `package.yaml doit déclarer name: <préfixe> (minuscules, chiffres, tirets), reçu ${JSON.stringify(name)}.` })); return; }
+    for (const k of Object.keys(pkg.meta)) if (!['name', 'description', 'version', 'language'].includes(k)) errors.push(err('E_UNKNOWN_PROP', { file: pkg.file, path: k, message: `Propriété inconnue : ${k}.`, expected: ['name', 'description', 'version', 'language'] }));
+    if (pkg.meta.language !== undefined && !LANGUAGE_VERSIONS.includes(pkg.meta.language)) { errors.push(err('E_LANGUAGE', { file: pkg.file, path: 'language', message: `Le paquet ${name} est écrit pour la version de langage ${pkg.meta.language}, inconnue de ce compilateur.` })); return; }
+    if (prefixes.has(name)) { errors.push(err('E_PACKAGE', { file: project.siteFile, path: where, message: `Deux paquets portent le même nom : ${name}.` })); return; }
+    if (nativeFamilies.has(name) || catalog.has(name)) { errors.push(err('E_PACKAGE', { file: pkg.file, path: 'name', message: `Le préfixe ${name} est déjà une famille du catalogue natif.`, hint: 'Choisissez un autre nom de paquet.' })); return; }
+    prefixes.add(name); pkg.prefix = name;
+    for (const src of pkg.componentSources) sources.push({ ...src, name: `${name}.${src.name}`, shortName: src.name, pkg: name });
+  });
+
+  // --- composants de projet (components/<nom>/manifest.yaml + template.html) et des paquets : construits, vérifiés, ajoutés au catalogue
   const entries = [];
-  for (const src of project.componentSources || []) {
+  for (const src of [...sources, ...(project.componentSources || [])]) {
     const mf = src.dir + '/manifest.yaml';
+    if (!src.pkg && prefixes.has(src.name.split('.')[0]) && src.name.includes('.')) { errors.push(err('E_COMPONENT_CONFLICT', { file: mf, path: '', message: `Le préfixe ${src.name.split('.')[0]} appartient à un paquet.` })); continue; }
     const { entry, errors: ce } = buildComponent({ ...src, project: true });
     for (const m of ce) errors.push(err('E_COMPONENT', { file: mf, path: '', message: `Composant ${src.name} : ${m}.` }));
     if (!entry) continue;
@@ -369,9 +389,11 @@ export function validateProject(project, catalog) {
   return dedupe(errors);
 }
 
-/** Avertissements (n'empêchent pas la compilation) : blocs custom hors validation. */
+/** Avertissements (n'empêchent pas la compilation) : blocs custom hors validation, paquets hors du dossier avec l'atelier embarqué, version de langage implicite. */
 export function collectWarnings(project) {
   const out = [];
+  if (project.site && typeof project.site === 'object' && project.site.language === undefined) out.push({ level: 'warning', code: 'W_LANGUAGE', file: project.siteFile, path: 'language', message: 'Version du langage non déclarée : lue comme 1. « sitec migrate <dossier> » l\'ajoute en tête de site.yaml.' });
+  if (project.site?.site?.studio?.enabled === true) for (const pkg of project.packages || []) if (!pkg.missing && !pkg.dir.replaceAll('\\', '/').startsWith(project.root.replaceAll('\\', '/') + '/')) out.push({ level: 'warning', code: 'W_PACKAGE_STUDIO', file: project.siteFile, path: 'packages', message: `Le paquet ${pkg.spec} est hors du dossier du site : l'atelier embarqué (/_studio) ne pourra pas compiler. Copiez-le sous le site (./paquets/…).` });
   for (const page of project.pages) {
     (Array.isArray(page.data?.sections) ? page.data.sections : []).forEach((s, i) => {
       if (s && typeof s === 'object' && 'custom' in s) {

@@ -35,6 +35,9 @@ jobs:
       - name: Banc du langage (expressions JS = PHP, gabarits, collections, composition, composant de projet)
         env: { PHP_BIN: php }
         run: bash scripts/ci-run.sh "banc langage" node scripts/verify-lang.mjs examples/plomberie-martin/dist 8973
+      - name: Outils du langage (paquets de composants, sitec test, sitec migrate)
+        env: { PHP_BIN: php }
+        run: bash scripts/ci-run.sh "outils du langage" node scripts/verify-lang-tools.mjs
       - name: Dépôt de site (sitec init) et compilation dans l'atelier
         run: |
           bash scripts/ci-run.sh "sitec init" node bin/sitec.js init /tmp/site-test --name "Site de test" --no-git --local
@@ -55,6 +58,7 @@ jobs:
         run: |
           node bin/sitec.js build examples/savonnerie
           node bin/sitec.js build examples/plomberie-martin
+          node bin/sitec.js build examples/garnier-associes
           node bin/sitec.js host examples/hote
       - name: Image Apache
         run: docker pull -q php:8.3-apache
@@ -62,6 +66,7 @@ jobs:
         run: |
           bash scripts/ci-run.sh "apache savonnerie" node scripts/verify-apache.mjs examples/savonnerie/dist 8085
           bash scripts/ci-run.sh "apache plomberie" node scripts/verify-apache.mjs examples/plomberie-martin/dist 8086
+          bash scripts/ci-run.sh "apache garnier (paquet de composants)" node scripts/verify-apache.mjs examples/garnier-associes/dist 8089
       - name: Hôte multi-sites sous Apache (un domaine à la fois)
         run: |
           bash scripts/ci-run.sh "apache hôte savonnerie" node scripts/verify-apache.mjs examples/hote/dist 8087 --host savonnerie-du-port.fr

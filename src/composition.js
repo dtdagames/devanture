@@ -19,14 +19,21 @@ const MAX_DEPTH = 6;
 
 /** Lit et normalise components.yaml. Renvoie { nom: { name, description, params, sections, file } }. */
 export function loadComposites(project, catalog, errors) {
-  const raw = project.componentsRaw; const file = project.componentsFile;
   const out = {};
+  for (const pkg of project.packages || []) if (pkg.prefix && pkg.compositesRaw) loadCompositesFrom(pkg.compositesRaw, pkg.compositesFile, catalog, errors, out, pkg.prefix);
+  loadCompositesFrom(project.componentsRaw, project.componentsFile, catalog, errors, out, null);
+  return out;
+}
+
+/** Lit un components.yaml (du projet, ou d'un paquet avec son préfixe) et ajoute ses composés à out. */
+function loadCompositesFrom(raw, file, catalog, errors, out, prefix) {
   if (raw === null || raw === undefined) return out;
   if (!raw || typeof raw !== 'object' || !raw.components || typeof raw.components !== 'object' || Array.isArray(raw.components)) { errors.push(err('E_TYPE', { file, path: '', message: 'components.yaml attend components: { nom: { description, params, sections } }.' })); return out; }
-  for (const [name, def] of Object.entries(raw.components)) {
-    const base = `components.${name}`;
+  for (const [short, def] of Object.entries(raw.components)) {
+    const name = prefix ? `${prefix}.${short}` : short;
+    const base = `components.${short}`;
     if (!/^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*$/.test(name)) { errors.push(err('E_FORMAT', { file, path: base, message: `Nom de composant mal formé : ${name}.`, hint: 'Minuscules, chiffres et tirets, points pour les familles (offre.pro).' })); continue; }
-    if (catalog.has(name)) { errors.push(err('E_COMPONENT_CONFLICT', { file, path: base, message: `${name} existe déjà (catalogue ou composant de projet).`, hint: 'Choisissez un autre nom.' })); continue; }
+    if (catalog.has(name) || out[name]) { errors.push(err('E_COMPONENT_CONFLICT', { file, path: base, message: `${name} existe déjà (catalogue, paquet ou composant de projet).`, hint: 'Choisissez un autre nom.' })); continue; }
     if (!def || typeof def !== 'object' || Array.isArray(def)) { errors.push(err('E_TYPE', { file, path: base, message: 'Un composant composé se déclare { description, params, sections }.' })); continue; }
     for (const k of Object.keys(def)) if (!COMPOSITE_KEYS.includes(k)) { const s = nearest(k, COMPOSITE_KEYS); errors.push(err('E_UNKNOWN_PROP', { file, path: `${base}.${k}`, message: `Propriété inconnue : ${k}.`, expected: COMPOSITE_KEYS, hint: s ? `Vouliez-vous dire ${s} ?` : undefined })); }
     if (!Array.isArray(def.sections) || !def.sections.length) { errors.push(err('E_MISSING_PROP', { file, path: `${base}.sections`, message: 'sections est obligatoire : la liste des sections que le composant produit.' })); continue; }
@@ -41,7 +48,7 @@ export function loadComposites(project, catalog, errors) {
       if (!PARAM_TYPES.includes(type)) { const s = nearest(String(type), PARAM_TYPES); errors.push(err('E_ENUM', { file, path: `${pp}.type`, message: `Type de paramètre inconnu : ${JSON.stringify(type)}.`, expected: PARAM_TYPES, hint: s ? `Vouliez-vous dire ${s} ?` : undefined })); continue; }
       params[pname] = { type, required: p.required === true, default: p.default ?? null, description: p.description || '' };
     }
-    out[name] = { name, description: def.description || '', params, sections: def.sections, intents: Array.isArray(def.intents) ? def.intents : [], file };
+    out[name] = { name, description: def.description || '', params, sections: def.sections, intents: Array.isArray(def.intents) ? def.intents : [], file, package: prefix };
   }
   return out;
 }
