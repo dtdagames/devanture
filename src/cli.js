@@ -2,15 +2,16 @@ import path from 'node:path';
 import { loadCatalog } from './catalog.js';
 import { loadProject } from './load.js';
 import { validateProject, collectWarnings } from './validate.js';
-import { emit } from './emit/index.js';
+import { emit, TARGETS } from './emit/index.js';
 import { formatErrors } from './errors.js';
-import { THEME_PRESETS } from './emit/css.js';
+import { THEME_PRESETS } from './emit/php/css.js';
 
 const HELP = `sitec — compilateur Devanture (sites vitrines → PHP + JS)
 
 Usage :
   sitec check   <dossier-projet>  [--json]   Valide sans générer
-  sitec build   <dossier-projet>  [--out d]  Valide puis génère dist/
+  sitec build   <dossier-projet>  [--out d] [--target php]
+                                             Valide puis génère dist/ pour la cible (php, seule cible à ce jour)
   sitec catalog                              Liste compacte des composants
   sitec explain <composant>                  Fiche détaillée d'un composant (ou : explain site)
   sitec review   <dossier-projet> [--llm] [--export f.json] [--import f.json]
@@ -71,7 +72,10 @@ export async function run(argv) {
       }
       const outIdx = rest.indexOf('--out');
       const out = outIdx >= 0 ? path.resolve(rest[outIdx + 1]) : path.join(root, 'dist');
-      const report = await emit(project, catalog, out);
+      const targetIdx = rest.indexOf('--target');
+      const target = targetIdx >= 0 ? rest[targetIdx + 1] : 'php';
+      if (!TARGETS[target]) { console.error(`Cible inconnue : ${target}. Cibles : ${Object.entries(TARGETS).map(([k, v]) => k + ' (' + v.description + ')').join(' ; ')}`); return 2; }
+      const report = await emit(project, catalog, out, { target });
       console.log(`OK  ${report.pages} pages, ${report.components} composants → ${path.relative(process.cwd(), out) || '.'}`);
       return 0;
     }

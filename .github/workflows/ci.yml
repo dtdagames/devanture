@@ -1,0 +1,43 @@
+name: Compilateur
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verifier:
+    name: Exemples compilés, bancs HTTP, atelier
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite
+          tools: none
+      - run: npm ci
+      - name: Vérifier et compiler les exemples
+        run: |
+          for d in examples/plomberie-martin examples/savonnerie examples/garnier-associes examples/le-fournil; do
+            node bin/sitec.js check "$d"
+            node bin/sitec.js build "$d" --draft
+          done
+          node bin/sitec.js host examples/hote
+      - name: Syntaxe du PHP produit
+        run: find examples/savonnerie/dist examples/plomberie-martin/dist -name '*.php' -print0 | xargs -0 -n1 php -l > /dev/null
+      - name: Banc boutique (parcours d'achat, stock, webhook)
+        env: { PHP_BIN: php }
+        run: node scripts/verify-shop.mjs examples/savonnerie/dist 8970
+      - name: Banc site (routes, SEO, formulaires, sécurité)
+        env: { PHP_BIN: php }
+        run: |
+          node scripts/verify-php-site.mjs examples/savonnerie/dist 8971
+          node scripts/verify-php-site.mjs examples/plomberie-martin/dist 8972
+      - name: Dépôt de site (sitec init) et atelier navigateur
+        run: |
+          node bin/sitec.js init /tmp/site-test --name "Site de test" --no-git --local
+          node bin/sitec.js check /tmp/site-test
+          node scripts/build-studio.mjs
+          node --input-type=module -e "const S = await import('./studio/sitec-browser.js'); await S.init(); await S.loadExample('savonnerie'); const b = await S.build('/project', '/out', { draft: true }); if (!b.ok) { console.error(b.errors); process.exit(1); } console.log('atelier : ' + b.files.length + ' fichiers');"

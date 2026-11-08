@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 // Vérifie un site PHP servi par `php -S` : routes, 404, titres, formulaire de contact.
 // Usage : node scripts/verify-php-site.mjs <dossier-site> <port> [chemin-php]
 import { spawn } from 'node:child_process';
@@ -7,7 +8,8 @@ import path from 'node:path';
 const [dir, portArg, phpArg] = process.argv.slice(2);
 if (!dir || !portArg) { console.error('usage: verify-php-site.mjs <dossier> <port> [php.exe]'); process.exit(2); }
 const port = Number(portArg);
-const PHP = phpArg || 'C:/Users/sergi/AppData/Local/Microsoft/WinGet/Packages/PHP.PHP.8.3_Microsoft.Winget.Source_8wekyb3d8bbwe/php.exe';
+const WINGET_PHP = 'C:/Users/sergi/AppData/Local/Microsoft/WinGet/Packages/PHP.PHP.8.3_Microsoft.Winget.Source_8wekyb3d8bbwe/php.exe';
+const PHP = phpArg || process.env.PHP_BIN || (existsSync(WINGET_PHP) ? WINGET_PHP : 'php');
 const root = path.resolve(dir);
 const base = `http://127.0.0.1:${port}`;
 const checks = [];

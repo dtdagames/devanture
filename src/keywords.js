@@ -4,7 +4,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import YAML from 'yaml';
-import { normalize } from './emit/twin.js';
+import { normalize } from './emit/php/twin.js';
 
 export const DEFAULT_MODEL = 'claude-opus-5-5';
 const MAX_PER_SECTION = 14;

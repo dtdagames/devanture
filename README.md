@@ -1,8 +1,10 @@
 # Devanture
 
+[![Compilateur](https://github.com/dtdagames/devanture/actions/workflows/ci.yml/badge.svg)](https://github.com/dtdagames/devanture/actions/workflows/ci.yml)
+
 Un langage déclaratif (YAML strict) pour écrire des sites vitrines et de petites boutiques, et un compilateur, `sitec`, qui en produit un site complet pour une cible d'hébergement bon marché : aujourd'hui PHP + JS + CSS sans framework, déployable sur n'importe quel hébergement mutualisé. Conçu pour être écrit par un modèle de langage autant que par un humain : peu de tokens, un vérificateur qui explique ses erreurs, aucun code à écrire.
 
-Le langage ne contient rien de PHP ; PHP est la première cible parce qu'il est présent partout sans rien installer. Les bancs de vérification testent les sites produits par HTTP et valideraient une autre cible.
+Le langage ne contient rien de PHP ; PHP est la première cible parce qu'il est présent partout sans rien installer. Les bancs de vérification testent les sites produits par HTTP et valideraient une autre cible : ce qu'un émetteur doit fournir est décrit dans [docs/CIBLES.md](docs/CIBLES.md).
 
 > Prototype v0 (novembre 2026). Les mesures, les choix et les limites sont documentés dans [docs/rapports](docs/rapports/).
 
@@ -40,7 +42,7 @@ Le mode d'emploi du langage, écrit pour un auteur humain ou modèle : [CLAUDE.m
 | Commande | Rôle |
 |---|---|
 | `check <dossier>` | Valide, erreurs JSON, code 1 si erreurs |
-| `build <dossier> [--draft]` | Compile dans `dist/` ; refusé tant qu'il reste des `[à compléter]` sauf `--draft` |
+| `build <dossier> [--draft] [--target php]` | Compile dans `dist/` pour la cible (PHP, seule cible à ce jour) ; refusé tant qu'il reste des `[à compléter]` sauf `--draft` |
 | `catalog`, `explain <composant>`, `explain site` | Documentation du langage |
 | `review <dossier>` | Relecture éditoriale contre `brief.md` |
 | `keywords <dossier>` | Mots-clés de recherche proposés par un modèle, figés dans le YAML |
@@ -52,12 +54,14 @@ Le mode d'emploi du langage, écrit pour un auteur humain ou modèle : [CLAUDE.m
 
 ```
 bin/            sitec
-src/            compilateur : chargement, validation (ajv), émetteurs PHP/JS/CSS, revue, mots-clés, hôte, init
+src/            compilateur : chargement, validation (ajv), revue, mots-clés, hôte, init
+src/emit/php/   émetteur de la cible PHP (PHP, JS, CSS, back-office, déploiement) ; src/emit/index.js choisit la cible
 src/studio/     remplaçants Node pour l'atelier navigateur (fichiers en mémoire, chemins, sha256)
 components/     un dossier par composant : manifest.yaml (props), template.php, styles.css, module.js
 studio/         atelier navigateur (index.html, app.js ; sitec-browser.js est produit par npm run build:studio)
 examples/       sites de démonstration (plomberie, boutique savonnerie, cabinet, fournil, hôte multi-sites)
 scripts/        bancs de vérification des sites produits et scripts de mesure
+docs/CIBLES.md  contrat que tout émetteur doit respecter (routes, formulaires, boutique, exploitation)
 docs/rapports/  proposition initiale et rapports de test (création, baseline, maintenance, Haiku, variance, exploitation)
 baseline/ maintenance/ variance/ haiku/   corpus des mesures : mêmes sites écrits à la main en PHP, pour comparaison
 ```

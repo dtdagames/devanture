@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 // Parcours d'achat sur un site généré : grille, fiche, ajout au panier, quantités, commande manuelle, confirmation.
 // Usage : node scripts/verify-shop.mjs <dossier-dist> <port>
 import { spawn } from 'node:child_process';
@@ -6,7 +7,8 @@ import path from 'node:path';
 
 const [dir, portArg] = process.argv.slice(2);
 if (!dir || !portArg) { console.error('usage: verify-shop.mjs <dossier-dist> <port>'); process.exit(2); }
-const PHP = 'C:/Users/sergi/AppData/Local/Microsoft/WinGet/Packages/PHP.PHP.8.3_Microsoft.Winget.Source_8wekyb3d8bbwe/php.exe';
+const WINGET_PHP = 'C:/Users/sergi/AppData/Local/Microsoft/WinGet/Packages/PHP.PHP.8.3_Microsoft.Winget.Source_8wekyb3d8bbwe/php.exe';
+const PHP = process.env.PHP_BIN || (existsSync(WINGET_PHP) ? WINGET_PHP : 'php');
 const root = path.resolve(dir);
 const base = `http://127.0.0.1:${portArg}`;
 const checks = [];

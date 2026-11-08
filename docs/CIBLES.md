@@ -1,0 +1,86 @@
+# Cibles de compilation : le contrat d'un émetteur
+
+Devanture est un langage sans cible : le YAML ne contient rien de PHP, et les bancs de vérification (`scripts/verify-*.mjs`) testent un site compilé par HTTP, sans regarder son code. Un émetteur est un module `src/emit/<cible>/index.js` qui exporte `emit(project, catalog, out)` et produit, dans `out/`, un site qui respecte ce contrat. La cible `php` est la référence ; ce document décrit ce qu'une seconde cible devrait fournir, par ordre d'importance.
+
+Les noms de routes commençant par `_` sont techniques et réservés. Les cookies et préfixes `sl_` sont un héritage du nom de travail ; une autre cible les garde pour que le script client reste commun.
+
+## 1. Pages et fichiers
+
+| Élément | Comportement attendu |
+|---|---|
+| Routes | Chaque page statique répond sur sa `route` ; route inconnue → 404 avec le layout du site. |
+| Routes dynamiques | `/produit/[id]` (source `products`), `/commande/[id]?t=<jeton>` (source `orders`) ; entité absente ou jeton faux → 404. |
+| Sections | Chaque section est précédée d'une ancre `<span id="<id>" class="anchor">` ; `data-variant` quand une variante s'applique, `data-sl-fragment="<page>"` quand la section a des variantes. |
+| Layout | En-tête (marque, navigation avec `aria-current="page"`, lien panier avec `.cart-count` si boutique, champ de recherche `.intent` pointant sur `/assets/intent-index.json`), pied (texte, liens, lien « Version texte »), `<script>window.SL = {spec, consent, segments}</script>`, bandeau de consentement `.consent`. |
+| SEO | `<title>`, `<meta name="description">`, JSON-LD du type d'activité, `<link rel="alternate">` vers `/site.json` et la version texte. |
+| Fichiers publics | Seuls `assets/`, `cache/`, `sw.js`, `manifest.webmanifest`, `offline.html` sont servis tels quels ; `data/`, `lib/`, `pages/`, `components/`, `custom/` jamais. |
+| Assets | `site.css` et `site.js` référencés avec `?v=<empreinte>` et attribut `integrity`. |
+| Version texte | `/lisible<route>` sert `lisible/<page>.html`, HTML simplifié compilé. |
+
+## 2. Formulaire de contact
+
+- `POST` sur la route de la page, champ caché `_form=contact`, jeton `_csrf` lié à la session, pot de miel `site_web` (vide obligatoire).
+- Destinataire, liste des champs, obligations et conditions `when` sont fixés côté serveur à la compilation, jamais lus depuis la requête.
+- Validation : champ manquant → message « est obligatoire », e-mail invalide → « e-mail invalide » ; réponse 200 avec les erreurs par champ et les valeurs conservées. Succès → message `success` de la section.
+- Enregistrement : collection `messages` (voir § 7), document `{ id, at, source: 'form', ip, page, …champs }`.
+- Préremplissage : `?q=` remplit le message et, si une option de `select` correspond, la sélectionne.
+
+## 3. Jumeau pour agents
+
+- `GET /site.json` : fichier compilé tel quel. `GET /llms.txt` : idem.
+- `GET /api/contact` : description du formulaire (champs, obligations). `POST /api/contact` : JSON, en-tête `Authorization: Bearer <AGENT_API_TOKEN>`, mêmes règles de validation que le formulaire, 20 requêtes par heure et par adresse, réponses `{ ok: true, id }` ou `{ ok: false, error, errors }`. Sans jeton configuré → 503.
+
+## 4. Personnalisation
+
+- Profil dans le cookie `sl_p` (JSON : `n` visites, `e` événements `{nom: {n, t, w}}`, `r` historique), consentement `sl_c` (`1` ou `0`). Sans consentement, aucun profil n'est lu ni écrit.
+- Segments évalués côté serveur à chaque rendu avec le même algorithme que le client (`visits`, `device` par agent utilisateur, `event` avec `within`, `count`, `where`, combinaisons `all` / `any` / `not`, ordre `priority`).
+- Variantes : la première variante dont le segment est actif remplace les props de la section (`id`, `keywords`, `variants` exclus). Variantes de page : `first` réordonne, `hide` masque.
+- `POST /_event` : JSON `{ name, data }`, nom `[a-z_]{1,32}`, enregistré dans `events` avec les segments du moment ; réponse 204.
+- `GET /_fragment?page=<id>&section=<id>` : la section seule, rendue pour le profil courant, en-tête `X-SL-Segments`, `Cache-Control: no-store` ; 404 sinon.
+
+## 5. Boutique
+
+- Catalogue compilé dans `data/products.json` ; stock dans `data/stock.json` `{ id: { base, remaining } }`, réconcilié si le catalogue change, un seul verrou pour toute écriture.
+- `POST /_cart` : `action` `add` | `set` | `remove`, `id`, `qty`, `_csrf` ; quantité plafonnée au stock restant avec message ; redirection 303 vers le panier. Panier en session.
+- Commande : `POST` sur la route de la page `checkout.page`, champ `_form=checkout`, validation par champ ; succès → réservation atomique du stock, document `orders` `{ id (8 car.), token, at, status, payment, lines, total, shipping, customer }`, panier vidé, redirection 303 vers `/commande/<id>?t=<token>`.
+- Paiement `manual` : statut `pending` et instructions. Paiement `stripe` : session Stripe Checkout avec `client_reference_id = id`, puis webhook.
+- `POST /_stripe/webhook` : signature `STRIPE_WEBHOOK_SECRET`, `checkout.session.completed` → `paid`, `checkout.session.expired` → `cancelled` et stock libéré ; idempotent.
+- Événements client déclarés par les composants : `product_view`, `cart_add`, `checkout_start`, `purchase`.
+
+## 6. Statique d'abord et hors ligne
+
+- Une page marquée `static` par le compilateur, demandée en `GET` sans aucun cookie, est servie depuis `cache/<page>.html` si le fichier existe (`X-SL-Static: php` ou l'équivalent), sinon rendue, marquée `<meta name="sl-static" content="1">`, écrite dans le cache et servie avec `X-SL-Static: miss`. Aucun cookie n'est posé sur ces réponses. Une règle du serveur web peut servir le fichier sans passer par le programme.
+- La session n'est créée que lorsqu'un état est écrit (CSRF d'un formulaire, panier, back-office).
+- Hors ligne (`site.offline.enabled`) : `sw.js`, `offline.html`, `manifest.webmanifest` compilés ; le service worker précache les assets et les versions texte, jamais les pages.
+
+## 7. Données d'exploitation
+
+Trois collections, `messages`, `orders`, `events`, avec quatre opérations : ajouter, tout lire dans l'ordre, lire par `id`, mettre à jour par `id` sous verrou. La cible `php` les implémente en SQLite si PDO SQLite existe, en JSONL sinon ; une autre cible peut choisir tout autre stockage à condition que `data/` reste le seul dossier à conserver entre deux versions, avec `.env` et `cache/`.
+
+## 8. Back-office
+
+`/_admin` et sous-routes `messages`, `orders`, `stock`, `events`, `integrity` ; 503 sans `ADMIN_TOKEN`, 401 avec formulaire de jeton, session ensuite, dix essais par quart d'heure, CSRF sur chaque action, actions journalisées comme événements `admin_*`. Le back-office ne modifie jamais le contenu du site. `/_studio/` si l'atelier est embarqué, derrière la même garde.
+
+## 9. Déploiement signé et intégrité
+
+- `manifest.sha256.json` : empreinte SHA-256 de chaque fichier compilé, hors `data/`, `cache/`, `.env` et lui-même ; écrit en dernier.
+- `POST /_deploy` : corps `gzip(JSON)`, en-têtes `X-SL-Timestamp` (dix chiffres, tolérance cinq minutes) et `X-SL-Signature` = `HMAC-SHA256(ts + "\n" + sha256(corps), DEPLOY_SECRET)` en hexadécimal. Messages `{ release, files: { chemin: base64 } }` répétés, puis `{ release, commit: true, manifest }`. Au commit : chaque fichier préparé doit avoir l'empreinte annoncée, aucun ne doit manquer ni être en trop ; mise en place fichier à fichier, suppression de ce qui n'est plus dans la version, cache vidé. Chemins remontants, `data/`, `cache/`, `.env` refusés. `OPTIONS` répond aux en-têtes CORS. 503 sans secret, 403 signature ou horodatage, 400 charge utile.
+- Vérification d'intégrité : comparaison du manifeste aux fichiers présents (modifiés, manquants, ajoutés), accessible au back-office et en ligne de commande avec code de sortie.
+
+## 10. Variables d'environnement
+
+`ADMIN_TOKEN`, `AGENT_API_TOKEN`, `DEPLOY_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STORE`. Lues depuis `.env` à côté du point d'entrée ; un `.env.example` est compilé.
+
+## Valider une cible
+
+```
+node bin/sitec.js build examples/savonnerie --target <cible>
+node scripts/verify-shop.mjs examples/savonnerie/dist 8970
+node scripts/verify-php-site.mjs examples/savonnerie/dist 8971
+```
+
+Les bancs lancent aujourd'hui un serveur PHP de développement ; pour une autre cible, ils devront recevoir la commande qui sert `dist/`. Tout le reste de leurs contrôles est indépendant de la cible.
+
+## Ce qu'une seconde cible coûte
+
+Les gabarits des composants (`components/*/template.php`) sont écrits dans la cible de référence : une seconde cible impose soit de les réécrire, soit de définir un format de gabarit neutre rendu par chaque émetteur. C'est le même chantier que les composants définis par l'utilisateur, et la raison pour laquelle aucune seconde cible n'est engagée tant qu'un besoin réel (hébergement sans PHP, plateforme statique à fonctions) ne se présente pas.

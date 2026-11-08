@@ -1,5 +1,5 @@
 // Relecture éditoriale à la compilation : ce qui n'est pas dans le brief, ce qui engage, ce qui reste à compléter.
-import { normalize } from './emit/twin.js';
+import { normalize } from './emit/php/twin.js';
 
 const PLACEHOLDER = /\[(?:à compléter|a completer|à valider|a valider|todo|tbd|xxx|\.\.\.|…)[^\]]*\]|\b(?:lorem ipsum|TODO|TBD|XXX|à compléter avant|a completer avant)\b/i;
 const COMMITMENTS = [
