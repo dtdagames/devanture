@@ -36,4 +36,4 @@ jobs:
         run: |
           bash scripts/ci-run.sh "sitec init" node bin/sitec.js init /tmp/site-test --name "Site de test" --no-git --local
           bash scripts/ci-run.sh "check du site créé" node bin/sitec.js check /tmp/site-test
-          bash scripts/ci-run.sh "compilation dans l'atelier" node --input-type=module -e "const S = await import('./studio/sitec-browser.js'); await S.init(); await S.loadExample('savonnerie'); const b = await S.build('/project', '/out', { draft: true }); if (!b.ok) { console.error(b.errors); process.exit(1); } console.log('atelier : ' + b.files.length + ' fichiers');"
+          bash scripts/ci-run.sh "compilation dans l'atelier" node scripts/ci-studio.mjs

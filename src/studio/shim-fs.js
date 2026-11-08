@@ -36,7 +36,7 @@ export async function readdir(p, opt = {}) {
     return out.sort();
   }
   const list = [...children(n).entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  if (opt.withFileTypes) return list.map(([name, kind]) => ({ name, isDirectory: () => kind === 'dir', isFile: () => kind === 'file' }));
+  if (opt.withFileTypes) return list.map(([name, kind]) => ({ name, isDirectory: () => kind === 'dir', isFile: () => kind === 'file', isSymbolicLink: () => false }));
   return list.map(([name]) => name);
 }
 export async function mkdir(p) { ensureDir(p); }
