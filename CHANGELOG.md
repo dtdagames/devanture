@@ -1,6 +1,13 @@
 # Journal des versions
 
-Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.1.1`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.1.2`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+
+## v0.1.2 — 2026-11-08
+
+- **Correctif hôte multi-sites** : sous Apache, les assets d'un site de `sitec host` n'étaient pas servis (la condition `[OR]` du `.htaccess` liait le domaine à la mauvaise règle) ; `php -S` ne le montrait pas. Les sites compilés par `sitec host` doivent être recompilés et redéployés.
+- **`.htaccess` plus complet** : `.env`, `.release-*` et `manifest.sha256.json` interdits ; types MIME `webp` et `webmanifest`, jeu de caractères UTF-8, compression du texte ; `assets/.htaccess` avec cache navigateur (un an pour CSS et JS versionnés, une semaine pour les images).
+- **Banc Apache** (`scripts/verify-apache.mjs`) : le site compilé tourne dans l'image officielle `php:8.3-apache` avec `AllowOverride All` ; cache statique servi sans PHP puis par PHP dès qu'un cookie existe, dossiers interdits, routes réécrites, en-têtes, back-office, déploiement signé, puis les bancs site et boutique rejoués contre Apache ; mode `--host domaine` pour l'hôte multi-sites. Lancé à chaque push par l'intégration continue.
+- Bancs : un argument `http://…` à la place du port vise un serveur déjà lancé ; le banc boutique conserve un `.env` existant.
 
 ## v0.1.1 — 2026-11-08
 

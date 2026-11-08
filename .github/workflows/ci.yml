@@ -37,3 +37,29 @@ jobs:
           bash scripts/ci-run.sh "sitec init" node bin/sitec.js init /tmp/site-test --name "Site de test" --no-git --local
           bash scripts/ci-run.sh "check du site créé" node bin/sitec.js check /tmp/site-test
           bash scripts/ci-run.sh "compilation dans l'atelier" node scripts/ci-studio.mjs
+
+  apache:
+    name: Sites compilés sous Apache (php:8.3-apache)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - name: Atelier navigateur (requis par la savonnerie, site.studio.enabled)
+        run: node scripts/build-studio.mjs
+      - name: Compiler les sites et l'hôte
+        run: |
+          node bin/sitec.js build examples/savonnerie
+          node bin/sitec.js build examples/plomberie-martin
+          node bin/sitec.js host examples/hote
+      - name: Image Apache
+        run: docker pull -q php:8.3-apache
+      - name: Site seul sous Apache (cache statique, .htaccess, déploiement, bancs)
+        run: |
+          bash scripts/ci-run.sh "apache savonnerie" node scripts/verify-apache.mjs examples/savonnerie/dist 8085
+          bash scripts/ci-run.sh "apache plomberie" node scripts/verify-apache.mjs examples/plomberie-martin/dist 8086
+      - name: Hôte multi-sites sous Apache (un domaine à la fois)
+        run: |
+          bash scripts/ci-run.sh "apache hôte savonnerie" node scripts/verify-apache.mjs examples/hote/dist 8087 --host savonnerie-du-port.fr
+          bash scripts/ci-run.sh "apache hôte plomberie" node scripts/verify-apache.mjs examples/hote/dist 8088 --host www.plomberie-martin.fr

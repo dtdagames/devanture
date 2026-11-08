@@ -821,8 +821,33 @@ RewriteCond %{REQUEST_URI} !(^|/)assets/
 RewriteCond %{REQUEST_URI} !(^|/)cache/
 RewriteCond %{REQUEST_URI} !/(sw\\.js|manifest\\.webmanifest|offline\\.html)$
 RewriteRule ^ index.php [L]
+# Jamais servis : secrets, marqueurs de version, manifeste d'empreintes (lu sur le serveur seulement).
+<FilesMatch "^(\\.env|\\.release-.*|manifest\\.sha256\\.json)$">
+  Require all denied
+</FilesMatch>
+# Types MIME parfois absents des hébergements, jeu de caractères, compression du texte.
+AddType image/webp .webp
+AddType application/manifest+json .webmanifest
+AddCharset UTF-8 .html .css .js .json .txt .webmanifest
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/css application/javascript application/json application/manifest+json image/svg+xml
+</IfModule>
 `;
 }
+
+/** assets/.htaccess : cache navigateur long pour site.css et site.js (toujours référencés avec ?v=<empreinte>), une semaine pour les images, une heure pour les index JSON. */
+export const ASSETS_HTACCESS = `<IfModule mod_headers.c>
+  <FilesMatch "\\.(css|js)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  <FilesMatch "\\.(jpe?g|png|webp|gif|svg|ico|woff2?)$">
+    Header set Cache-Control "public, max-age=604800"
+  </FilesMatch>
+  <FilesMatch "\\.json$">
+    Header set Cache-Control "public, max-age=3600"
+  </FilesMatch>
+</IfModule>
+`;
 
 export const DENY_HTACCESS = `Require all denied
 `;

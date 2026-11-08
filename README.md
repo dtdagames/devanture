@@ -74,6 +74,8 @@ baseline/ maintenance/ variance/ haiku/   corpus des mesures : mêmes sites écr
 node bin/sitec.js build examples/savonnerie
 node scripts/verify-shop.mjs examples/savonnerie/dist 8970        # parcours d'achat, stock, webhook
 node scripts/verify-php-site.mjs examples/savonnerie/dist 8971    # routes, SEO, formulaires, sécurité
+node scripts/verify-apache.mjs examples/savonnerie/dist 8085      # même site sous un vrai Apache (Docker, php:8.3-apache) : cache statique, .htaccess, déploiement
+node scripts/verify-apache.mjs examples/hote/dist 8087 --host savonnerie-du-port.fr   # hôte multi-sites, un domaine à la fois
 ```
 
 Les bancs démarrent eux-mêmes un serveur PHP de développement ; indiquer le chemin de `php` dans `PHP_BIN` s'il n'est pas dans le `PATH`.
@@ -82,7 +84,7 @@ Les variantes WebP des images demandent `sharp` (dépendance optionnelle, instal
 
 ## État et limites
 
-Ce que les mesures montrent : le langage réduit surtout le coût de maintenance, l'écart avec le PHP à la main grandit quand le modèle rétrécit, et la valeur tient à l'oracle de vérification et à l'homogénéité des sites, pas à la correction d'erreurs. Non testé à ce jour : création réelle de sessions Stripe, règles Apache sur un hébergement réel, appels directs au modèle pour `review` et `keywords`. Détail dans [docs/rapports/RAPPORT-EXPLOITATION.html](docs/rapports/RAPPORT-EXPLOITATION.html) et [RAPPORT-VARIANCE.html](docs/rapports/RAPPORT-VARIANCE.html).
+Ce que les mesures montrent : le langage réduit surtout le coût de maintenance, l'écart avec le PHP à la main grandit quand le modèle rétrécit, et la valeur tient à l'oracle de vérification et à l'homogénéité des sites, pas à la correction d'erreurs. Les règles Apache (`.htaccess` généré : cache statique servi sans PHP, dossiers interdits, types MIME, compression, cache navigateur) sont vérifiées à chaque push dans l'image officielle `php:8.3-apache`, site seul et hôte multi-sites. Non testé à ce jour : un hébergeur mutualisé réel (variantes d'Apache, `AllowOverride` restreint), création réelle de sessions Stripe, appels directs au modèle pour `review` et `keywords`. Détail dans [docs/rapports/RAPPORT-EXPLOITATION.html](docs/rapports/RAPPORT-EXPLOITATION.html) et [RAPPORT-VARIANCE.html](docs/rapports/RAPPORT-VARIANCE.html).
 
 ## Licence
 

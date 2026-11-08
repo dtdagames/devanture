@@ -10,10 +10,13 @@ if (!dir || !portArg) { console.error('usage: verify-shop.mjs <dossier-dist> <po
 const WINGET_PHP = 'C:/Users/sergi/AppData/Local/Microsoft/WinGet/Packages/PHP.PHP.8.3_Microsoft.Winget.Source_8wekyb3d8bbwe/php.exe';
 const PHP = process.env.PHP_BIN || (existsSync(WINGET_PHP) ? WINGET_PHP : 'php');
 const root = path.resolve(dir);
-const base = `http://127.0.0.1:${portArg}`;
+// Un argument http(s)://… à la place du port vise un serveur déjà lancé (Apache en conteneur, hébergement réel) : rien n'est démarré ici.
+const external = /^https?:[/][/]/.test(String(portArg));
+const base = external ? String(portArg).replace(/[/]$/, "") : `http://127.0.0.1:${portArg}`;
 const checks = [];
+let restoreEnv = null; // remet le .env du site dans son état initial (le banc y ajoute un secret Stripe le temps du test)
 const ok = (name, pass, detail = '') => checks.push({ name, pass: !!pass, detail });
-const server = spawn(PHP, ['-S', `127.0.0.1:${portArg}`, '-t', root, path.join(root, 'index.php')], { stdio: 'ignore' });
+const server = external ? null : spawn(PHP, ['-S', `127.0.0.1:${portArg}`, '-t', root, path.join(root, 'index.php')], { stdio: 'ignore' });
 let cookie = '';
 async function req(p, opts = {}) {
   const r = await fetch(base + p, { redirect: 'manual', headers: { cookie, ...(opts.headers || {}) }, method: opts.method || 'GET', body: opts.body });
@@ -91,7 +94,8 @@ try {
   try { stored = (await fs.readFile(path.join(root, 'data', 'orders.jsonl'), 'utf8')).includes('"name":"Test Achat"'); } catch { /* stockage SQLite */ }
   if (!stored) { try { await fs.access(path.join(root, 'data', 'site.sqlite')); stored = true; } catch { /* */ } }
   ok('commande enregistrée (data/orders.jsonl ou data/site.sqlite)', stored);
-  ok('données non servies en HTTP', (await req('/data/orders.jsonl')).status === 404 && (await req('/data/site.sqlite')).status === 404);
+  const dataStatus = [(await req('/data/orders.jsonl')).status, (await req('/data/site.sqlite')).status]; // 404 derrière php -S (routeur), 403 derrière Apache (data/.htaccess)
+  ok('données non servies en HTTP', dataStatus.every(s => s === 403 || s === 404), dataStatus.join(','));
   const sj = await req('/site.json');
   ok('site.json liste les produits', sj.status === 200 && JSON.parse(sj.text).products?.length === products.length);
 
@@ -122,7 +126,10 @@ try {
   // Webhook Stripe : événements signés localement avec un secret de test.
   const crypto = await import('node:crypto');
   const secret = 'whsec_test_' + crypto.randomBytes(8).toString('hex');
-  await fs.writeFile(path.join(root, '.env'), `STRIPE_WEBHOOK_SECRET=${secret}\n`);
+  // Un .env existant (jeton d'administration, secret de déploiement) est conservé : la ligne Stripe s'y ajoute le temps du test.
+  const prevEnv = await fs.readFile(path.join(root, '.env'), 'utf8').catch(() => '');
+  restoreEnv = async () => { if (prevEnv) await fs.writeFile(path.join(root, '.env'), prevEnv); else await fs.rm(path.join(root, '.env'), { force: true }); };
+  await fs.writeFile(path.join(root, '.env'), prevEnv + (prevEnv && !prevEnv.endsWith('\n') ? '\n' : '') + `STRIPE_WEBHOOK_SECRET=${secret}\n`);
   const target = created[0];
   const signed = (event, ts = Math.floor(Date.now() / 1000), sec = secret) => { const body = JSON.stringify(event); const v1 = crypto.createHmac('sha256', sec).update(`${ts}.${body}`).digest('hex'); return { body, header: `t=${ts},v1=${v1}` }; };
   const hook = async (event, opts = {}) => { const s = signed(event, opts.ts, opts.secret); const r = await fetch(base + '/_stripe/webhook', { method: 'POST', headers: { 'content-type': 'application/json', 'stripe-signature': opts.header ?? s.header }, body: s.body }); return { status: r.status, json: await r.json().catch(() => null) }; };
@@ -151,14 +158,14 @@ try {
   }
   const ignored = await hook({ id: 'evt_4', type: 'payment_intent.created', data: { object: {} } });
   ok('autre événement → 200 ignoré', ignored.status === 200 && ignored.json?.ignored === 'payment_intent.created');
-  await fs.rm(path.join(root, '.env'), { force: true });
+  await restoreEnv();
   const disabled = await hook(completed);
   ok('sans secret → 503', disabled.status === 503);
 } catch (e) {
   ok('exécution du script', false, e.message);
 } finally {
-  try { await fs.rm(path.join(root, '.env'), { force: true }); } catch { /* */ }
-  server.kill();
+  try { if (restoreEnv) await restoreEnv(); } catch { /* */ }
+  server?.kill();
   try { for (const f of ['orders.jsonl', 'events.jsonl', 'stock.json', 'messages.jsonl']) await fs.rm(path.join(root, 'data', f), { force: true }); } catch { /* */ }
 }
 const passed = checks.filter(c => c.pass).length;

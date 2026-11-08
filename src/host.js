@@ -39,7 +39,8 @@ export async function buildHost(hostDir, catalog, { draft = false } = {}) {
     for (const r of s.staticRoutes) {
       ht += `RewriteCond %{HTTP_HOST} ^(${hosts})$ [NC]\nRewriteCond %{REQUEST_METHOD} GET\nRewriteCond %{HTTP_COOKIE} ^$\nRewriteCond %{DOCUMENT_ROOT}/sites/${s.name}/${r.file} -f\nRewriteRule ^${r.route === '/' ? '' : r.route.slice(1).replace(/[.+?^${}()|[\]\\]/g, '\\$&')}$ sites/${s.name}/${r.file} [L]\n`;
     }
-    ht += `RewriteCond %{HTTP_HOST} ^(${hosts})$ [NC]\nRewriteCond %{REQUEST_URI} ^/(assets|cache)/ [OR]\nRewriteCond %{HTTP_HOST} ^(${hosts})$ [NC]\nRewriteCond %{REQUEST_URI} ^/${passthrough}\nRewriteRule ^(.*)$ sites/${s.name}/$1 [L]\n`;
+    // Fichiers publics du site (assets, cache, service worker…) : une seule condition d'URI ; avec [OR], Apache lierait la condition de domaine à la suivante et les assets ne seraient plus servis.
+    ht += `RewriteCond %{HTTP_HOST} ^(${hosts})$ [NC]\nRewriteCond %{REQUEST_URI} ^/((assets|cache)/|${passthrough})\nRewriteRule ^(.*)$ sites/${s.name}/$1 [L]\n`;
   }
   ht += `\n# Tout le reste passe par le routeur hôte.\nRewriteCond %{REQUEST_URI} !^/sites/\nRewriteRule ^ index.php [L]\n`;
   await fs.writeFile(path.join(out, '.htaccess'), ht);

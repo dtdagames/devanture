@@ -11,18 +11,22 @@ const port = Number(portArg);
 const WINGET_PHP = 'C:/Users/sergi/AppData/Local/Microsoft/WinGet/Packages/PHP.PHP.8.3_Microsoft.Winget.Source_8wekyb3d8bbwe/php.exe';
 const PHP = phpArg || process.env.PHP_BIN || (existsSync(WINGET_PHP) ? WINGET_PHP : 'php');
 const root = path.resolve(dir);
-const base = `http://127.0.0.1:${port}`;
+// Un argument http(s)://… à la place du port vise un serveur déjà lancé (Apache en conteneur, hébergement réel) : rien n'est démarré ici.
+const external = /^https?:[/][/]/.test(String(portArg));
+const base = external ? String(portArg).replace(/[/]$/, "") : `http://127.0.0.1:${port}`;
 const checks = [];
 const ok = (name, pass, detail = '') => { checks.push({ name, pass: !!pass, detail }); };
 
-const server = spawn(PHP, ['-S', `127.0.0.1:${port}`, '-t', root, path.join(root, 'index.php')], { stdio: ['ignore', 'pipe', 'pipe'] });
+const server = external ? null : spawn(PHP, ['-S', `127.0.0.1:${port}`, '-t', root, path.join(root, 'index.php')], { stdio: ['ignore', 'pipe', 'pipe'] });
 let serverLog = '';
-server.stderr.on('data', d => { serverLog += d.toString(); });
-server.stdout.on('data', d => { serverLog += d.toString(); });
+server?.stderr.on('data', d => { serverLog += d.toString(); });
+server?.stdout.on('data', d => { serverLog += d.toString(); });
 
 let cookie = '';
 async function get(p, opts = {}) {
-  const r = await fetch(base + p, { redirect: 'manual', headers: { cookie, ...(opts.headers || {}) }, method: opts.method || 'GET', body: opts.body });
+  let r = await fetch(base + p, { redirect: 'manual', headers: { cookie, ...(opts.headers || {}) }, method: opts.method || 'GET', body: opts.body });
+  // Sous Apache, un dossier existant (lisible/) reçoit une barre finale par redirection 301 : suivie une fois pour les GET.
+  if ((opts.method || 'GET') === 'GET' && r.status === 301 && (r.headers.get('location') || '').startsWith(base + '/')) r = await fetch(r.headers.get('location'), { redirect: 'manual', headers: { cookie, ...(opts.headers || {}) } });
   const sc = r.headers.get('set-cookie');
   if (sc) cookie = sc.split(';')[0];
   const text = await r.text();
@@ -143,7 +147,7 @@ try {
 } catch (e) {
   ok('exécution du script', false, e.message);
 } finally {
-  server.kill();
+  server?.kill();
 }
 
 const passed = checks.filter(c => c.pass).length;
