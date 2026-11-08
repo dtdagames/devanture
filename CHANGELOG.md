@@ -1,6 +1,12 @@
 # Journal des versions
 
-Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.3.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.4.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+
+## v0.4.0 — 2026-11-08 — l'éditeur connaît le langage
+
+- **`sitec schema`** : schémas JSON du site produits depuis son catalogue réel (composants natifs, du projet, des paquets, composés ; collections ; produits ; cas de test ; manifestes ; paquet) dans `.devanture/schema/`, branchés sur l'extension YAML de VS Code (`.vscode/settings.json`, réglages existants conservés, extension recommandée). Complétion avec description et exemple, images d'`assets/` et routes proposées, prop, composant, image ou route inconnus soulignés à la frappe ; expressions et `{ for }` acceptés.
+- `sitec init` produit les schémas à la création et les régénère après chaque `npm install` (`postinstall`, sans faire échouer l'installation) ; `.devanture/` ignoré par git ; scripts `npm run schema` et `npm test`.
+- `scripts/check-schemas.mjs` valide tous les fichiers YAML d'un site contre ses schémas ; les quatre exemples passent (39 fichiers). Banc des outils : 28 contrôles.
 
 ## v0.3.0 — 2026-11-08 — outillage du langage
 

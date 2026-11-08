@@ -71,6 +71,26 @@ try {
   s = lines(r.out).find(x => 'cases' in x);
   ok('test : exemples de tous les composants natifs à gabarit et composant de projet à formulaire', r.code === 0 && s?.components >= 15 && s.failed === 0, r.out.slice(-400));
 
+  // --- schémas de l'éditeur
+  r = run('schema', plomberie);
+  const sch = lines(r.out).find(x => x.schemas);
+  ok('schema : schémas produits (site, pages, composés, manifestes, paquet, cas de test, collection)', r.code === 0 && sch?.files?.includes('page.schema.json') && sch.files.includes('data.realisations.schema.json') && sch.files.includes('fixture.devis-express.schema.json'), r.out.slice(0, 300));
+  const vs = JSON.parse(await fs.readFile(path.join(plomberie, '.vscode', 'settings.json'), 'utf8'));
+  ok('schema : réglages VS Code (yaml.schemas) et extension recommandée', vs['yaml.schemas']?.['./.devanture/schema/page.schema.json']?.includes('pages/*.page.yaml') && JSON.parse(await fs.readFile(path.join(plomberie, '.vscode', 'extensions.json'), 'utf8')).recommendations.includes('redhat.vscode-yaml'));
+  const chk = () => { try { return { code: 0, out: execFileSync(process.execPath, [path.join(ROOT, 'scripts', 'check-schemas.mjs'), plomberie], { encoding: 'utf8' }) }; } catch (e) { return { code: e.status, out: (e.stdout || '') + (e.stderr || '') }; } };
+  r = chk();
+  ok('schema : tous les fichiers YAML du site valides contre leurs schémas', r.code === 0, r.out.slice(0, 400));
+  const pageFile = path.join(plomberie, 'pages', 'services.page.yaml'); const pageText = await fs.readFile(pageFile, 'utf8');
+  for (const [label, from, to] of [['prop inconnue', '      title: Nos services', '      titel: Nos services'], ['composant inconnu', '  - steps:', '  - etapes:'], ['image inexistante', '  - hero:\n', '  - hero:\n      image: absente.jpg\n']]) {
+    await fs.writeFile(pageFile, pageText.replace(from, to));
+    r = chk();
+    ok(`schema : ${label} soulignée par l'éditeur`, r.code === 1 && /FAIL pages\/services\.page\.yaml/.test(r.out), r.out.slice(0, 300));
+  }
+  await fs.writeFile(pageFile, pageText);
+  const vsBefore = { ...vs, 'editor.tabSize': 2 }; await fs.writeFile(path.join(plomberie, '.vscode', 'settings.json'), JSON.stringify(vsBefore));
+  run('schema', plomberie);
+  ok('schema : réglages VS Code existants conservés', JSON.parse(await fs.readFile(path.join(plomberie, '.vscode', 'settings.json'), 'utf8'))['editor.tabSize'] === 2);
+
   // --- migrate
   const fournil = await copy('examples/le-fournil', 'fournil');
   const before = await fs.readFile(path.join(fournil, 'site.yaml'), 'utf8');

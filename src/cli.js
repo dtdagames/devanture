@@ -18,6 +18,7 @@ Usage :
   sitec catalog [dossier-projet]             Liste compacte des composants (natifs, puis ceux du projet : composés et gabarits)
   sitec explain <composant> [dossier-projet] Fiche détaillée d'un composant (ou : explain site, explain langage)
   sitec component new <dossier> <nom>        Squelette d'un composant de projet : components/<nom>/ (manifest.yaml, template.html, styles.css)
+  sitec schema <dossier> [--no-vscode]       Schémas JSON du site pour l'éditeur (.devanture/schema) et réglages VS Code : complétion des composants, props, assets et routes
   sitec migrate <dossier> [--dry-run] [--to N]
                                              Fait passer le site à la dernière version du langage (texte modifié, commentaires conservés) et suggère ce qu'elle permet d'écrire mieux
   sitec test <dossier> [--update] [--catalog] [--only nom]
@@ -56,6 +57,19 @@ export async function run(argv) {
       const proj = args[1] ? await projectCatalog(args[1], catalog) : null;
       if (proj?.project.composites?.[name]) { printComposite(proj.project.composites[name]); return 0; }
       return explain(proj?.catalog || catalog, name);
+    }
+
+    case 'schema': {
+      const dir = args[0];
+      if (!dir) { console.error('Usage : sitec schema <dossier-projet> [--no-vscode]'); return 2; }
+      const root = path.resolve(dir);
+      const project = await loadProject(root);
+      // Au mieux même si le site a des erreurs : l'éditeur doit justement aider à les corriger (npm install ne doit pas échouer pour ça).
+      const errors = validateProject(project, catalog);
+      const { writeSchemas } = await import('./schema.js');
+      const r = await writeSchemas(project, catalog, { vscode: !flags.has('--no-vscode') });
+      console.log(JSON.stringify({ ok: true, schemas: r.files.length, files: r.files, vscode: !flags.has('--no-vscode'), errors: errors.length, hint: errors.length ? 'le site a des erreurs : sitec check pour les voir' : undefined }));
+      return 0;
     }
 
     case 'migrate': {
@@ -274,6 +288,8 @@ intents: [mots, que, tapent, les, visiteurs]
         const r = await initProject(dir, { name: nameIdx >= 0 ? rest[nameIdx + 1] : undefined, repo: repoIdx >= 0 ? rest[repoIdx + 1] : undefined, local: flags.has('--local'), git: !flags.has('--no-git') });
         console.log(`OK  ${r.name} → ${path.relative(process.cwd(), r.root) || '.'} : ${r.files.length} fichiers${r.committed ? ', dépôt git initialisé (branche main, premier commit)' : ''}`);
         console.log(`    compilateur : ${r.dependency}${r.dependency.startsWith('file:') ? '  (chemin local, pour travailler sur le compilateur ; sans --local, la dépendance est le dépôt GitHub étiqueté)' : ''}`);
+        // Schémas de l'éditeur tout de suite (npm install les régénère ensuite, avec la version épinglée du compilateur).
+        try { const project = await loadProject(r.root); validateProject(project, catalog); const { writeSchemas } = await import('./schema.js'); await writeSchemas(project, catalog); console.log('    éditeur : .devanture/schema + .vscode (extension YAML de Red Hat) : complétion des composants, props, images et routes'); } catch { /* facultatif */ }
         console.log('    ensuite : cd ' + dir + ' && npm install && npx sitec check .   (remplir brief.md et les [à compléter])');
         return 0;
       } catch (e) { console.error('Erreur : ' + e.message); return 1; }

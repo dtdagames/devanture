@@ -16,7 +16,7 @@ import { loadComposites, expandComposites } from './composition.js';
 /** Versions du langage que ce compilateur sait lire (site.yaml › language). */
 export const LANGUAGE_VERSIONS = [1];
 
-const SITE_SCHEMA = {
+export const SITE_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   required: ['site'],
@@ -97,7 +97,7 @@ const SITE_SCHEMA = {
   $defs: SHARED_DEFS,
 };
 
-const PAGE_SCHEMA = {
+export const PAGE_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   required: ['route', 'sections'],

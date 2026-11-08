@@ -21,7 +21,7 @@ export async function initProject(dir, { name, repo, local = false, git = true }
 
   // Dépendance vers le compilateur : dépôt git public quand il existe, sinon le chemin local (fonctionne ici, pas en intégration continue).
   const rel = path.relative(root, SITEC_ROOT).replaceAll('\\', '/');
-  const dep = repo || (local ? 'file:' + (rel.startsWith('.') ? rel : './' + rel) : 'github:dtdagames/devanture#v0.3.0');
+  const dep = repo || (local ? 'file:' + (rel.startsWith('.') ? rel : './' + rel) : 'github:dtdagames/devanture#v0.4.0');
 
   const files = {
     'site.yaml': `language: 1
@@ -105,11 +105,13 @@ dist/
 # Secrets du serveur (ADMIN_TOKEN, DEPLOY_SECRET…) : jamais dans le dépôt.
 .env
 node_modules/
+# Schémas de l'éditeur, régénérés après chaque npm install (sitec schema).
+.devanture/
 `,
     'package.json': JSON.stringify({
       name: id, private: true, type: 'module',
       description: `Site ${siteName} — source Devanture (YAML), compilée en PHP par sitec. Aucun PHP dans ce dépôt.`,
-      scripts: { check: 'sitec check .', build: 'sitec build .', review: 'sitec review .', keywords: 'sitec keywords .', deploy: 'sitec deploy .', 'no-php': "node -e \"const{execSync}=require('child_process');const f=execSync('git ls-files',{encoding:'utf8'}).split(/\\r?\\n/).filter(x=>/\\.php$/i.test(x));if(f.length){console.error('PHP interdit dans ce dépôt :',f.join(', '));process.exit(1)}console.log('aucun PHP versionné')\"" },
+      scripts: { postinstall: 'sitec schema . || exit 0', schema: 'sitec schema .', test: 'sitec test .', check: 'sitec check .', build: 'sitec build .', review: 'sitec review .', keywords: 'sitec keywords .', deploy: 'sitec deploy .', 'no-php': "node -e \"const{execSync}=require('child_process');const f=execSync('git ls-files',{encoding:'utf8'}).split(/\\r?\\n/).filter(x=>/\\.php$/i.test(x));if(f.length){console.error('PHP interdit dans ce dépôt :',f.join(', '));process.exit(1)}console.log('aucun PHP versionné')\"" },
       dependencies: { devanture: dep },
     }, null, 2) + '\n',
     '.github/workflows/site.yml': `name: Site
