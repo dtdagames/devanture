@@ -21,6 +21,16 @@ sections:
         Quel que soit le mode de facturation, nous établissons une convention d'honoraires avant de commencer. Elle précise la mission, le mode de calcul, les provisions éventuelles et les frais annexes.
 
         Vous savez ainsi dès le début ce que votre dossier va coûter, et vous pouvez être informé à tout moment de l'évolution des frais.
+  - vitrine.onglets:
+      id: formules
+      title: Trois façons de nous rémunérer
+      items:
+        - label: Au forfait
+          text: "Le forfait fixe un prix global pour une mission définie."
+        - label: Au temps passé
+          text: "Le temps passé repose sur un taux horaire et s'adapte à la durée réelle du dossier."
+        - label: Aide juridictionnelle
+          text: "Selon vos ressources, l'aide juridictionnelle peut prendre en charge tout ou partie des frais. Nous vous renseignons lors du rendez-vous."
   - faq:
       title: Questions sur les honoraires
       items:

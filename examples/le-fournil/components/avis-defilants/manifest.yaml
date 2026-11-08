@@ -1,0 +1,30 @@
+name: avis-defilants
+description: "Carrousel d'avis clients : note en étoiles, texte, prénom et date, boutons précédent et suivant, défilement lent."
+behaviors: [carousel]
+props:
+  type: object
+  required: [items]
+  properties:
+    title: { type: string, description: titre de la section }
+    intro: { type: string, description: phrase sous le titre }
+    items:
+      type: array
+      minItems: 1
+      items:
+        type: object
+        additionalProperties: false
+        required: [text, author]
+        properties:
+          rating: { type: integer, minimum: 1, maximum: 5, description: note sur 5 }
+          text: { type: string, description: texte de l'avis }
+          author: { type: string, description: prénom }
+          date: { type: string, description: "date de l'avis (AAAA-MM-JJ)" }
+    link: { $ref: "#/$defs/link", description: lien vers tous les avis }
+example: |
+  - avis-defilants:
+      title: Ils parlent de nous
+      items:
+        - { rating: 5, text: "Le meilleur pain du quartier, croustillant à souhait.", author: Claire, date: "2026-10-02" }
+        - { rating: 4, text: Des viennoiseries généreuses., author: Hugo }
+      link: { label: Tous les avis, to: /contact }
+intents: [avis, témoignages, ce que disent les clients, note]

@@ -1,0 +1,28 @@
+name: onglets
+description: "Contenus en onglets : un bouton par onglet, un seul panneau visible à la fois (clavier : flèches). Sans JavaScript, tous les panneaux restent lisibles."
+behaviors: [tabs]
+props:
+  type: object
+  required: [items]
+  properties:
+    title: { type: string, description: titre de la section }
+    intro: { type: string }
+    items:
+      type: array
+      minItems: 2
+      items:
+        type: object
+        additionalProperties: false
+        required: [label, text]
+        properties:
+          label: { type: string, description: texte du bouton }
+          title: { type: string, description: titre du panneau (défaut label) }
+          text: { type: string, description: "texte du panneau, balisage léger et listes acceptés" }
+          link: { $ref: "#/$defs/link" }
+example: |
+  - vitrine.onglets:
+      title: Nos formules
+      items:
+        - { label: Forfait, text: Un prix global pour une mission définie. }
+        - { label: Temps passé, text: Un taux horaire adapté à la durée réelle. }
+intents: [formules, comparer, options]

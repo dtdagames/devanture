@@ -38,6 +38,12 @@ export function compileTemplate(src, { name = 'composant', props = null, effects
   const errors = [];
   const fail = (message, line) => { errors.push({ message, line }); };
   if (/<\?(php|=)?/i.test(src)) fail('PHP interdit dans un gabarit : seul le vocabulaire {{ }} / {% %} est accepté.', (src.split(/<\?/)[0].match(/\n/g) || []).length + 1);
+  // Pas de code navigateur dans le balisage : le comportement passe par behaviors (attributs data-sl-…), jamais par du script inline.
+  const lineOf = re => { const m = re.exec(src); return m ? src.slice(0, m.index).split('\n').length : 1; };
+  if (/<script\b/i.test(src)) fail('<script> interdit dans un gabarit : déclarez un comportement (behaviors: [tabs, carousel…]) ou, en dernier recours, un module.js.', lineOf(/<script\b/i));
+  if (/<[a-z][^>]*\son[a-z]+\s*=/i.test(src)) fail('attribut d\'événement (onclick=…) interdit : utilisez un comportement déclaré.', lineOf(/\son[a-z]+\s*=/i));
+  if (/javascript:/i.test(src)) fail('lien javascript: interdit.', lineOf(/javascript:/i));
+  if (/<(iframe|object|embed|link|meta|base)\b/i.test(src)) fail('balise <iframe>, <object>, <embed>, <link>, <meta> ou <base> interdite dans un composant.', lineOf(/<(iframe|object|embed|link|meta|base)\b/i));
   const toks = lex(src);
   const propNames = props?.properties ? new Set([...Object.keys(props.properties), ...META_PROPS]) : null;
   // Portée statique : nom → { php, schema } ; schema sert à vérifier les clés connues (props et éléments de liste).

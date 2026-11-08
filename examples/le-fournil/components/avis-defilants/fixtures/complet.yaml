@@ -1,0 +1,7 @@
+title: Ils parlent de nous
+intro: Quelques mots de nos clients.
+items:
+  - { rating: 5, text: "Le meilleur pain du quartier.", author: Claire, date: "2026-10-02" }
+  - { rating: 4, text: Des viennoiseries généreuses., author: Hugo, date: "2026-09-14" }
+  - { rating: 5, text: "Accueil chaleureux, pièce montée parfaite.", author: Inès }
+link: { label: Tous les avis, to: /contact }

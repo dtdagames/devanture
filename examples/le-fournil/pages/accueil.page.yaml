@@ -51,20 +51,17 @@ sections:
         - { src: pains.svg, alt: Pains au levain sur la grille, caption: Pains au levain du matin }
         - { src: viennoiseries.svg, alt: Croissants et pains au chocolat, caption: Viennoiseries pur beurre }
         - { src: patisseries.svg, alt: Pâtisseries de saison, caption: Pâtisseries de saison }
-  - testimonials:
+  - avis-defilants:
       title: Ce que disent nos clients
       items:
-        - quote: Le pain au levain se garde quatre jours sans problème. On n'achète plus ailleurs depuis qu'on habite le quartier.
+        - text: Le pain au levain se garde quatre jours sans problème. On n'achète plus ailleurs depuis qu'on habite le quartier.
           author: Claire D.
-          role: Nantes, Bouffay
           rating: 5
-        - quote: La tradition est vraiment au niveau de sa médaille. Et les croissants du dimanche, une habitude familiale.
+        - text: La tradition est vraiment au niveau de sa médaille. Et les croissants du dimanche, une habitude familiale.
           author: Julien M.
-          role: Nantes, Decré
           rating: 5
-        - quote: Ils ont fait la pièce montée de notre mariage pour 90 personnes. Tout était prêt à l'heure, et délicieux.
+        - text: Ils ont fait la pièce montée de notre mariage pour 90 personnes. Tout était prêt à l'heure, et délicieux.
           author: Sophie et Thomas R.
-          role: Rezé
           rating: 5
   - cta:
       title: Ouvert du mardi au dimanche, de 6 h 30 à 19 h 30

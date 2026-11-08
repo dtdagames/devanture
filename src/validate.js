@@ -12,6 +12,8 @@ import { checkRuntimeExpressions } from './lang/resolve.js';
 import { buildComponent } from './catalog.js';
 import { compileTemplate } from './lang/template.js';
 import { loadComposites, expandComposites } from './composition.js';
+import { lintComponentCss } from './lang/css-lint.js';
+import { BEHAVIORS, BEHAVIOR_NAMES, behaviorsUsedIn } from './lang/behaviors.js';
 
 /** Versions du langage que ce compilateur sait lire (site.yaml › language). */
 export const LANGUAGE_VERSIONS = [1];
@@ -252,6 +254,23 @@ export function validateProject(project, catalog) {
         f._fields = nf.fields;
       }
     }
+    // CSS encadré : la feuille d'un composant de projet ou de paquet ne touche que ce composant et prend son design au thème.
+    const cssFile = src.dir + '/styles.css';
+    if (typeof entry.files['styles.css'] === 'string') {
+      const lint = lintComponentCss(entry.files['styles.css'], entry.name);
+      for (const e of lint.errors) errors.push(err('E_CSS', { file: cssFile, path: `ligne ${e.line}`, message: `${entry.name} : ${e.message}.`, hint: 'Règles du CSS des composants : docs/LANGAGE.md, section 6.' }));
+      for (const w of lint.warnings) (project.componentWarnings ||= []).push({ level: 'warning', code: 'W_CSS', file: cssFile, path: `ligne ${w.line}`, message: `${entry.name} : ${w.message}.` });
+    }
+    // Comportements déclarés : vocabulaire fermé, attributs du gabarit et déclaration du manifeste cohérents.
+    const declared = entry.manifest.behaviors;
+    if (declared !== undefined && (!Array.isArray(declared) || declared.some(b => typeof b !== 'string'))) errors.push(err('E_TYPE', { file: mf, path: 'behaviors', message: 'behaviors attend une liste : [tabs, carousel].', expected: BEHAVIOR_NAMES }));
+    else {
+      for (const b of declared || []) if (!BEHAVIORS[b]) { const s = nearest(b, BEHAVIOR_NAMES); errors.push(err('E_ENUM', { file: mf, path: 'behaviors', message: `Comportement inconnu : ${b}.`, expected: BEHAVIOR_NAMES, hint: s ? `Vouliez-vous dire ${s} ?` : 'sitec explain langage', fix: s ? { set: s } : undefined })); }
+      const used = typeof entry.files['template.html'] === 'string' ? behaviorsUsedIn(entry.files['template.html']) : [];
+      for (const b of used) if (!(declared || []).includes(b)) errors.push(err('E_BEHAVIOR', { file: mf, path: 'behaviors', message: `Le gabarit de ${entry.name} utilise les attributs du comportement ${b} sans le déclarer.`, hint: `Ajoutez behaviors: [${[...(declared || []), b].join(', ')}] au manifeste.`, fix: { set: [...(declared || []), b] } }));
+      for (const b of declared || []) if (BEHAVIORS[b] && !used.includes(b)) (project.componentWarnings ||= []).push({ level: 'warning', code: 'W_BEHAVIOR', file: mf, path: 'behaviors', message: `${entry.name} déclare ${b} mais son gabarit n'en pose pas les attributs (${BEHAVIORS[b].attrs[0]}…).` });
+    }
+    if (typeof entry.files['module.js'] === 'string' && entry.files['module.js'].trim()) (project.componentWarnings ||= []).push({ level: 'warning', code: 'W_MODULE_JS', file: src.dir + '/module.js', path: '', message: `${entry.name} : JavaScript libre, non vérifié. Un comportement déclaré (${BEHAVIOR_NAMES.join(', ')}) convient-il ?` });
     entries.push(entry);
   }
   const cat = entries.length ? catalog.extend(entries) : catalog;
@@ -392,6 +411,7 @@ export function validateProject(project, catalog) {
 /** Avertissements (n'empêchent pas la compilation) : blocs custom hors validation, paquets hors du dossier avec l'atelier embarqué, version de langage implicite. */
 export function collectWarnings(project) {
   const out = [];
+  out.push(...(project.componentWarnings || []));
   if (project.site && typeof project.site === 'object' && project.site.language === undefined) out.push({ level: 'warning', code: 'W_LANGUAGE', file: project.siteFile, path: 'language', message: 'Version du langage non déclarée : lue comme 1. « sitec migrate <dossier> » l\'ajoute en tête de site.yaml.' });
   if (project.site?.site?.studio?.enabled === true) for (const pkg of project.packages || []) if (!pkg.missing && !pkg.dir.replaceAll('\\', '/').startsWith(project.root.replaceAll('\\', '/') + '/')) out.push({ level: 'warning', code: 'W_PACKAGE_STUDIO', file: project.siteFile, path: 'packages', message: `Le paquet ${pkg.spec} est hors du dossier du site : l'atelier embarqué (/_studio) ne pourra pas compiler. Copiez-le sous le site (./paquets/…).` });
   for (const page of project.pages) {

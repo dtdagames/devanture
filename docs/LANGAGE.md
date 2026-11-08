@@ -118,7 +118,35 @@ Le nom ne peut pas être celui d'un composant natif. Le manifeste a le format du
 
 Variables : `p` (props, vérifiées contre le manifeste), `site`, `page`, `item`, `product`, `order`, `form`, `loop`, `shop`. Fonctions : `link(lien, classe)`, `img(chemin, alt, sizes, eager)`, `img_src(chemin, largeur)`, `asset(chemin)`, `url(cible)`, `icon(nom)`, `paragraphs(texte)`, `markup(texte)`, `lines(texte)` (retours à la ligne conservés), `money(n)`, `field(nom)`.
 
-La vérification refuse, avec le numéro de ligne : PHP ou tout code de cible, variable inconnue, prop absente du manifeste, clé inconnue d'un élément de liste typé, balise déséquilibrée, filtre ou fonction inconnus, `form` sans `effects.form`.
+La vérification refuse, avec le numéro de ligne : PHP ou tout code de cible, variable inconnue, prop absente du manifeste, clé inconnue d'un élément de liste typé, balise déséquilibrée, filtre ou fonction inconnus, `form` sans `effects.form`. Le balisage ne contient pas de code navigateur : `<script>`, attributs `on…=`, liens `javascript:`, `<iframe>`, `<object>`, `<embed>`, `<link>`, `<meta>`, `<base>` sont refusés.
+
+### Feuille de style encadrée
+
+La feuille d'un composant de projet ou de paquet ne touche que ce composant et prend son design au thème :
+
+| Règle | Niveau |
+|---|---|
+| Chaque sélecteur commence par une classe préfixée du nom du composant (`.avis-defilants`, `.avis-defilants-carte`, `.avis-defilants h3` ; pour `vitrine.encart`, `.encart…` ou `.vitrine-encart…`) | erreur `E_CSS` |
+| Pas de sélecteur global (`:root`, `html`, `body`, `*`, élément seul) | erreur |
+| Pas de `@import`, `@font-face`, ni de ressource externe (`url(https://…)`, `url(//…)`) ; `@keyframes` préfixés | erreur |
+| Couleurs et polices par les jetons du thème (`var(--color-primary)`, `var(--color-success)`, `var(--font-heading)`…) ; pas de `!important` | avertissement `W_CSS` |
+
+Jetons de couleur : `bg`, `surface`, `fg`, `muted`, `primary`, `primary-fg`, `accent`, `border`, `success`, `warning`, `danger`.
+
+### Comportements déclarés
+
+Le côté navigateur d'un composant passe par des comportements fournis par le compilateur, déclarés dans le manifeste et posés par des attributs dans le gabarit. Le code n'est inclus que si un composant utilisé le déclare ; il pose les rôles ARIA, gère le clavier et respecte `prefers-reduced-motion`. Sans JavaScript, le contenu reste lisible.
+
+| Comportement | Attributs |
+|---|---|
+| `toggle` | bouton `data-sl-toggle="id"` qui montre ou cache l'élément `id` |
+| `tabs` | conteneur `data-sl-tabs`, boutons `data-sl-tab="clé"`, panneaux `data-sl-panel="clé"` |
+| `carousel` | conteneur `data-sl-carousel` (`data-sl-autoplay="ms"` facultatif), rangée `data-sl-track`, boutons `data-sl-prev` / `data-sl-next` |
+| `lightbox` | lien `data-sl-lightbox` vers une image |
+| `filter` | barre `data-sl-filters`, boutons `data-sl-filter="valeur"` (`*` pour tout), éléments `data-sl-filter-item="a b"` |
+| `copy` | bouton `data-sl-copy="texte"` |
+
+Attributs posés sans déclaration : erreur `E_BEHAVIOR` ; comportement déclaré mais absent du gabarit : avertissement. Un `module.js` reste possible pour un besoin hors de cette liste, avec l'avertissement `W_MODULE_JS` : son code n'est pas vérifié.
 
 ### Effets déclarés
 
@@ -150,6 +178,12 @@ Un paquet regroupe des composants à gabarit et des composés, partagés par plu
 
 Un site les déclare à la racine de `site.yaml` : `packages: [ ./paquets/vitrine, @acme/devanture-composants ]`. Un chemin commençant par `.` ou `/` est relatif au site ; un nom est cherché dans `node_modules/` (paquet npm ou dépôt git installé). Les composants sont exposés préfixés : `vitrine.encart`, `vitrine.contact-rapide` ; un composé du paquet cite les composants du paquet par leur nom complet. Le préfixe est unique, ne peut pas être une famille du catalogue natif (`products`, `order`…), et un paquet écrit pour une version de langage inconnue est refusé. L'atelier navigateur ne voit que les fichiers du site : pour un site qui l'embarque, le paquet se range sous le site (`./paquets/…`), sinon `check` avertit (`W_PACKAGE_STUDIO`).
 
+## 6 quater. Composants décrits en langage naturel
+
+`sitec component new <dossier> <nom> --describe "…"` (ou `--from description.md`) fait écrire le composant par un modèle (Claude Opus 5.5 par défaut, `--model`), en formats neutres seulement : manifeste, gabarit, feuille de style, cas de test. Le guide donné au modèle est construit depuis le compilateur (vocabulaire du gabarit, filtres, comportements, jetons, pictogrammes, deux composants natifs de référence) et le contexte du site (thème, images, noms déjà pris). La proposition est écrite dans `components/<nom>/`, puis vérifiée comme tout composant (`check`, règles CSS, comportements, cas de test rendus) ; les erreurs et avertissements sont renvoyés au modèle, jusqu'à trois tours (`--rounds`). La description reste dans `components/<nom>/description.md`, source lisible ; le reste est figé et versionné. La compilation n'appelle jamais le modèle.
+
+Sans clé d'API : `--export prompt.json` écrit le prompt et le schéma de sortie ; la réponse d'un modèle (ou d'un agent) s'importe par `--import reponse.json`, vérifiée, avec `--export reparation.json` pour le tour suivant si elle ne passe pas.
+
 ## 6 ter. Éditeur
 
 `sitec schema <dossier>` produit des schémas JSON dérivés du catalogue réel du site (`.devanture/schema/` : site, pages, composés, manifestes, paquet, cas de test, chaque collection, produits) et les déclare à l'extension YAML de VS Code (`.vscode/settings.json`, extension recommandée `redhat.vscode-yaml`). L'éditeur propose alors les composants et leurs props avec leur description et leur exemple, les fichiers d'`assets/`, les routes et les sources ; il souligne une prop, un composant, une image ou une route inconnus. Les expressions `{{ … }}` sont acceptées partout, `{ for, as, item }` dans les composés. Les schémas aident à la frappe, `sitec check` reste l'autorité (expressions, références croisées, gabarits).
@@ -169,4 +203,4 @@ Treize composants natifs sont écrits dans le gabarit neutre : bandeau, texte, g
 `sitec migrate <dossier>` fait passer un site à la dernière version, étape par étape, en modifiant le texte des fichiers (commentaires et mise en forme conservés), puis vérifie que le site migré passe `check`. `--dry-run` montre les changements sans écrire. Chaque migration propose aussi des suggestions non appliquées : ce que la nouvelle version permet d'écrire mieux (coordonnées recopiées en dur, valeurs répétées à mettre en constantes). Un site sans `language` est lu comme version 1 avec l'avertissement `W_LANGUAGE`.
 
 - **0** : sites écrits avant la déclaration de version (compilateur ≤ 0.1.3). Migration vers 1 : ajout de `language: 1`, aucune construction ne change.
-- **1** (2026-11-08) : première version écrite. Expressions, constantes, collections, composants composés, composants de projet avec gabarit neutre et effet `form`, paquets de composants, tests de composants.
+- **1** (2026-11-08) : première version écrite. Expressions, constantes, collections, composants composés, composants de projet avec gabarit neutre et effet `form`, paquets de composants, tests de composants, feuille de style encadrée, comportements déclarés.

@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SITEC = path.join(ROOT, 'bin', 'sitec.js');
@@ -90,6 +90,63 @@ try {
   const vsBefore = { ...vs, 'editor.tabSize': 2 }; await fs.writeFile(path.join(plomberie, '.vscode', 'settings.json'), JSON.stringify(vsBefore));
   run('schema', plomberie);
   ok('schema : réglages VS Code existants conservés', JSON.parse(await fs.readFile(path.join(plomberie, '.vscode', 'settings.json'), 'utf8'))['editor.tabSize'] === 2);
+
+  // --- CSS encadré, comportements déclarés, gabarit sans script
+  const fournil0 = await copy('examples/le-fournil', 'fournil-composants');
+  const cdir = path.join(fournil0, 'components', 'avis-defilants');
+  const css0 = await fs.readFile(path.join(cdir, 'styles.css'), 'utf8');
+  const tpl0 = await fs.readFile(path.join(cdir, 'template.html'), 'utf8');
+  const man0 = await fs.readFile(path.join(cdir, 'manifest.yaml'), 'utf8');
+  r = run('check', fournil0);
+  ok('composant généré (exemple fournil) : valide, sans avertissement', r.code === 0 && lines(r.out).find(x => x.ok)?.warnings === 0, r.out.slice(-300));
+  const expectCheck = async (file, content, re, label, code = 1) => { await fs.writeFile(path.join(cdir, file), content); const x = run('check', fournil0); ok(label, x.code === code && re.test(x.out), x.out.slice(0, 300)); };
+  await expectCheck('styles.css', css0 + 'h2{color:var(--color-fg)}\n', /E_CSS.*sélecteur « h2 » hors du composant/, 'CSS : sélecteur hors du composant → E_CSS');
+  await expectCheck('styles.css', css0 + ':root{--x:1}\n', /E_CSS.*sélecteur global/, 'CSS : sélecteur global → E_CSS');
+  await expectCheck('styles.css', css0 + '.avis-defilants-bg{background:url(https://cdn.exemple.fr/x.png)}\n', /E_CSS.*ressource externe/, 'CSS : ressource externe → E_CSS');
+  await expectCheck('styles.css', css0 + '.avis-defilants-x{color:#ff0000}\n', /W_CSS.*couleur écrite en dur/, 'CSS : couleur en dur → avertissement W_CSS', 0);
+  await fs.writeFile(path.join(cdir, 'styles.css'), css0);
+  await expectCheck('manifest.yaml', man0.replace('behaviors: [carousel]\n', ''), /E_BEHAVIOR.*carousel sans le déclarer/, 'comportements : attributs posés sans déclaration → E_BEHAVIOR');
+  await expectCheck('manifest.yaml', man0.replace('behaviors: [carousel]', 'behaviors: [carousel, carousell]'), /E_ENUM.*Comportement inconnu : carousell/, 'comportements : nom inconnu → E_ENUM avec suggestion');
+  await expectCheck('manifest.yaml', man0.replace('behaviors: [carousel]', 'behaviors: [carousel, tabs]'), /W_BEHAVIOR.*déclare tabs/, 'comportements : déclaré mais inutilisé → W_BEHAVIOR', 0);
+  await fs.writeFile(path.join(cdir, 'manifest.yaml'), man0);
+  await expectCheck('template.html', tpl0 + '<script>alert(1)</script>\n', /E_TEMPLATE.*<script> interdit/, 'gabarit : <script> → E_TEMPLATE');
+  await expectCheck('template.html', tpl0.replace('<button type="button" class="avis-defilants-nav" data-sl-prev>', '<button type="button" class="avis-defilants-nav" data-sl-prev onclick="x()">'), /E_TEMPLATE.*attribut d'événement/, 'gabarit : onclick= → E_TEMPLATE');
+  await fs.writeFile(path.join(cdir, 'template.html'), tpl0);
+  await fs.writeFile(path.join(cdir, 'module.js'), 'console.log(1);');
+  r = run('check', fournil0);
+  ok('module.js libre → avertissement W_MODULE_JS', r.code === 0 && /W_MODULE_JS/.test(r.out));
+  await fs.rm(path.join(cdir, 'module.js'));
+  r = run('build', fournil0, '--out', path.join(tmp, 'fournil-dist'));
+  const sitejs = await fs.readFile(path.join(tmp, 'fournil-dist', 'assets', 'site.js'), 'utf8');
+  ok('comportements : seul le code du comportement utilisé est inclus', r.code === 0 && /comportements déclarés : carousel/.test(sitejs) && !/data-sl-tabs/.test(sitejs));
+
+  // --- Générateur : boucle de réparation avec un modèle simulé (sans clé d'API)
+  const gen = await import(pathToFileURL(path.join(ROOT, 'src', 'component-gen.js')).href);
+  const { loadCatalog } = await import(pathToFileURL(path.join(ROOT, 'src', 'catalog.js')).href);
+  const catalog = await loadCatalog();
+  const good = { manifest: man0, template: tpl0, styles: css0, fixtures: [{ name: 'complet', yaml: await fs.readFile(path.join(cdir, 'fixtures', 'complet.yaml'), 'utf8') }, { name: 'minimal', yaml: await fs.readFile(path.join(cdir, 'fixtures', 'minimal.yaml'), 'utf8') }], notes: 'ok' };
+  const bad = { ...good, manifest: man0.replace('behaviors: [carousel]\n', ''), styles: css0.replace('var(--color-accent)', '#e0a100'), notes: 'premier jet' };
+  const site2 = await copy('examples/le-fournil', 'fournil-gen');
+  await fs.rm(path.join(site2, 'components', 'avis-defilants'), { recursive: true });
+  await fs.writeFile(path.join(site2, 'pages', 'accueil.page.yaml'), (await fs.readFile(path.join(ROOT, 'examples', 'le-fournil', 'pages', 'accueil.page.yaml'), 'utf8')).replace('  - avis-defilants:', '  - testimonials:').replace(/        - text: /g, '        - quote: '));
+  const prompts = [];
+  let res = await gen.generateComponent({ root: site2, name: 'avis-defilants', description: 'Un carrousel d\'avis clients.', catalog, rounds: 3, ask: async (system, user, round) => { prompts.push({ system, user }); return JSON.stringify(round === 1 ? bad : good); } });
+  ok('générateur : premier jet refusé, réparé au deuxième tour', res.ok && res.rounds === 2, JSON.stringify({ ok: res.ok, rounds: res.rounds, problems: res.problems }));
+  ok('générateur : le prompt de réparation cite les problèmes et les fichiers précédents', /E_BEHAVIOR/.test(prompts[1]?.user || '') && /W_CSS/.test(prompts[1]?.user || '') && /## Fichiers précédents/.test(prompts[1]?.user || ''));
+  ok('générateur : le guide système vient du code (comportements, filtres, composants de référence)', /carousel : carrousel/.test(prompts[0]?.system || '') && /truncate/.test(prompts[0]?.system || '') && /Composant de référence : features/.test(prompts[0]?.system || ''));
+  const written = await fs.readdir(path.join(site2, 'components', 'avis-defilants', 'fixtures'));
+  ok('générateur : description.md, cas de test et instantanés écrits', written.includes('complet.html') && (await fs.readFile(path.join(site2, 'components', 'avis-defilants', 'description.md'), 'utf8')).includes('Un carrousel d\'avis clients.'));
+  res = await gen.generateComponent({ root: site2, name: 'avis-defilants', description: 'x', catalog, rounds: 2, ask: async (s2, u, round) => round === 1 ? 'Voici le composant : pas de JSON' : JSON.stringify(good) });
+  ok('générateur : réponse sans JSON → nouveau tour', res.ok && res.rounds === 2);
+  res = await gen.generateComponent({ root: site2, name: 'avis-defilants', description: 'x', catalog, rounds: 2, ask: async () => JSON.stringify(bad) });
+  ok('générateur : toujours faux → échec après le nombre de tours, problèmes rendus', !res.ok && res.rounds === 2 && res.problems.some(p => p.code === 'E_BEHAVIOR'));
+  r = run('component', 'new', site2, 'autre-bloc', '--describe', 'Un bloc simple.', '--export', path.join(tmp, 'p.json'));
+  const exported = JSON.parse(await fs.readFile(path.join(tmp, 'p.json'), 'utf8'));
+  ok('générateur sans clé : --export écrit system, user et schéma de sortie', r.code === 0 && exported.system && /Nom du composant : autre-bloc/.test(exported.user) && exported.output_schema?.required?.includes('template'));
+  await fs.writeFile(path.join(tmp, 'r.json'), JSON.stringify(bad));
+  await fs.rm(path.join(site2, 'components', 'avis-defilants'), { recursive: true });
+  r = run('component', 'new', site2, 'avis-defilants', '--import', path.join(tmp, 'r.json'), '--export', path.join(tmp, 'rep.json'));
+  ok('générateur sans clé : --import d\'une réponse fautive → code 1 et prompt de réparation', r.code === 1 && /prompt de réparation écrit/.test(r.out) && /Ta proposition précédente/.test(JSON.parse(await fs.readFile(path.join(tmp, 'rep.json'), 'utf8')).user));
 
   // --- migrate
   const fournil = await copy('examples/le-fournil', 'fournil');

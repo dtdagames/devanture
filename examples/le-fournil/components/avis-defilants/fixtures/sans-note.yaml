@@ -1,0 +1,4 @@
+title: Avis
+items:
+  - { text: "Un texte d'avis assez long pour vérifier que la carte garde sa largeur et que le carrousel reste lisible sur petit écran.", author: Léa, date: "2025-01-05" }
+  - { rating: 1, text: Trop cuit ce jour-là., author: Marc }

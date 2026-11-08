@@ -1,6 +1,6 @@
 <section class="section devis-express">
-  <div class="container devis-inner">
-    <div class="devis-text">
+  <div class="container devis-express-inner">
+    <div class="devis-express-text">
       <h2>{{ p.title }}</h2>
       {% if p.intro %}<p>{{ p.intro }}</p>{% endif %}
       {% if p.delai %}<p class="muted">Réponse sous {{ p.delai }}, du lundi au samedi. Ou appelez le <a href="tel:{{ site.contact.phone | replace(' ', '') }}">{{ site.contact.phone }}</a>.</p>{% endif %}

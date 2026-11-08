@@ -1,6 +1,14 @@
 # Journal des versions
 
-Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.4.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.5.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+
+## v0.5.0 — 2026-11-08 — composants décrits en langage naturel
+
+- **CSS encadré** des composants de projet et de paquet : sélecteurs préfixés du nom du composant, ni global ni externe (`E_CSS`) ; couleurs, polices et `!important` signalés (`W_CSS`). Nouveaux jetons `color.success`, `color.warning`, `color.danger` dans les trois thèmes ; les erreurs de formulaire utilisent `danger`.
+- **Comportements déclarés** : `behaviors: [toggle, tabs, carousel, lightbox, filter, copy]`, posés par des attributs `data-sl-…`, code navigateur fourni par le compilateur (ARIA, clavier, mouvement réduit) et inclus seulement s'il sert. Attributs sans déclaration refusés (`E_BEHAVIOR`), `module.js` libre signalé (`W_MODULE_JS`). Exemple : `vitrine.onglets` sur la page des honoraires du cabinet.
+- **Gabarit** : `<script>`, attributs `on…=`, `javascript:`, `<iframe>`, `<object>`, `<embed>`, `<link>`, `<meta>`, `<base>` refusés.
+- **`sitec component new <dossier> <nom> --describe "…"`** : Claude Opus 5.5 écrit le composant en formats neutres (sortie structurée, effort élevé, repli serveur automatique en cas de refus), le compilateur le vérifie (check, CSS, comportements, cas de test rendus) et renvoie erreurs et avertissements jusqu'à trois tours. La description reste dans `description.md`. Sans clé : `--export` / `--import`, avec prompt de réparation. Exemple : `avis-defilants` (carrousel d'avis) sur l'accueil du fournil, produit par ce chemin en deux tours.
+- Bancs : 48 contrôles d'outillage (dont la boucle de réparation avec un modèle simulé), CSS de devis et d'encart mis en conformité.
 
 ## v0.4.0 — 2026-11-08 — l'éditeur connaît le langage
 

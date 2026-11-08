@@ -1,3 +1,4 @@
+import { behaviorsAssets } from '../../lang/behaviors.js';
 const BASE_JS = `
 (function(){
   var t=document.querySelector('.nav-toggle'),n=document.querySelector('.site-nav');
@@ -158,5 +159,6 @@ const BASE_JS = `
 
 export function buildJs(usedComponents) {
   const comps = usedComponents.map(c => c.files['module.js'] ? `/* ${c.name} */\n${c.files['module.js'].trim()}` : '').filter(Boolean).join('\n\n');
-  return `${BASE_JS.trim()}\n\n${comps}\n`;
+  const beh = behaviorsAssets(usedComponents).js;
+  return `${BASE_JS.trim()}\n\n${comps}${beh ? '\n\n' + beh : ''}\n`;
 }

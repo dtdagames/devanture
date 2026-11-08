@@ -1,6 +1,6 @@
 .devis-express{background:var(--color-surface)}
-.devis-inner{display:grid;gap:32px;grid-template-columns:1fr 1.2fr;align-items:start}
-.devis-text h2{margin-top:0}
+.devis-express-inner{display:grid;gap:32px;grid-template-columns:1fr 1.2fr;align-items:start}
+.devis-express-text h2{margin-top:0}
 .devis-express .sl-form{padding:22px}
 .devis-express .field{margin-bottom:14px}
-@media (max-width:760px){.devis-inner{grid-template-columns:1fr}}
+@media (max-width:760px){.devis-express-inner{grid-template-columns:1fr}}

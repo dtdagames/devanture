@@ -1,0 +1,4 @@
+title: Nos formules
+items:
+  - { label: Forfait, text: Un prix global pour une mission définie. }
+  - { label: Temps passé, title: Au temps passé, text: "Un taux horaire, **adapté** à la durée réelle.", link: { label: Nous écrire, to: /contact } }

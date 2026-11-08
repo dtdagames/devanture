@@ -1,19 +1,20 @@
+import { behaviorsAssets } from '../../lang/behaviors.js';
 export const THEME_PRESETS = {
   clair: {
     'color.bg': '#ffffff', 'color.surface': '#f5f6f8', 'color.fg': '#1b1f24', 'color.muted': '#5b6470',
-    'color.primary': '#1f3a5f', 'color.primary-fg': '#ffffff', 'color.accent': '#c8a24a', 'color.border': '#e1e5ea',
+    'color.primary': '#1f3a5f', 'color.primary-fg': '#ffffff', 'color.accent': '#c8a24a', 'color.border': '#e1e5ea', 'color.success': '#2e7d4f', 'color.warning': '#b36b00', 'color.danger': 'var(--color-danger)',
     'font.body': 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif', 'font.heading': 'Georgia, "Times New Roman", serif',
     'radius': '10px', 'max-width': '1100px',
   },
   sombre: {
     'color.bg': '#0f1216', 'color.surface': '#171c22', 'color.fg': '#e8ebef', 'color.muted': '#9aa4b1',
-    'color.primary': '#8fb4e3', 'color.primary-fg': '#0f1216', 'color.accent': '#e0b85a', 'color.border': '#2a323d',
+    'color.primary': '#8fb4e3', 'color.primary-fg': '#0f1216', 'color.accent': '#e0b85a', 'color.border': '#2a323d', 'color.success': '#5cc28a', 'color.warning': '#f0b45a', 'color.danger': '#ff7a6b',
     'font.body': 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif', 'font.heading': 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
     'radius': '8px', 'max-width': '1100px',
   },
   chaleureux: {
     'color.bg': '#fdfaf5', 'color.surface': '#f3ebdd', 'color.fg': '#2b2118', 'color.muted': '#6f6256',
-    'color.primary': '#8a4b2a', 'color.primary-fg': '#ffffff', 'color.accent': '#5d7a4a', 'color.border': '#e3d6c2',
+    'color.primary': '#8a4b2a', 'color.primary-fg': '#ffffff', 'color.accent': '#5d7a4a', 'color.border': '#e3d6c2', 'color.success': '#4f7a3a', 'color.warning': '#a8650f', 'color.danger': '#b23a2a',
     'font.body': 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif', 'font.heading': '"Palatino Linotype", Palatino, Georgia, serif',
     'radius': '14px', 'max-width': '1100px',
   },
@@ -71,8 +72,8 @@ main > .section ~ .section{padding-top:0}
 .sl-form label,.contact-form label{display:block;font-weight:600;margin-bottom:6px}
 .sl-form input,.sl-form textarea,.sl-form select,.contact-form input,.contact-form textarea,.contact-form select{width:100%;padding:10px 12px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-bg);color:var(--color-fg);font:inherit}
 .sl-form input:focus,.sl-form textarea:focus,.sl-form select:focus,.contact-form input:focus,.contact-form textarea:focus,.contact-form select:focus{outline:2px solid var(--color-primary);outline-offset:1px}
-.sl-form .has-error input,.sl-form .has-error textarea,.sl-form .has-error select,.contact-form .has-error input,.contact-form .has-error textarea,.contact-form .has-error select{border-color:#c0392b}
-.field-error,.form-error{color:#c0392b;font-size:.9rem;margin-top:4px}
+.sl-form .has-error input,.sl-form .has-error textarea,.sl-form .has-error select,.contact-form .has-error input,.contact-form .has-error textarea,.contact-form .has-error select{border-color:var(--color-danger)}
+.field-error,.form-error{color:var(--color-danger);font-size:.9rem;margin-top:4px}
 .form-error{margin-bottom:12px}
 .hp{position:absolute;left:-9999px;opacity:0;height:0;overflow:hidden}
 .contact-success{border-color:var(--color-accent)}
@@ -103,5 +104,6 @@ export function buildCss(site, usedComponents) {
   const tokens = { ...preset, ...(site.theme?.tokens || {}) };
   const vars = Object.entries(tokens).map(([k, v]) => `  --${k.replace(/\./g, '-')}: ${v};`).join('\n');
   const comps = usedComponents.map(c => c.files['styles.css'] ? `/* ${c.name} */\n${c.files['styles.css'].trim()}` : '').filter(Boolean).join('\n\n');
-  return `:root {\n${vars}\n}\n${BASE_CSS}\n${comps}\n`;
+  const beh = behaviorsAssets(usedComponents).css;
+  return `:root {\n${vars}\n}\n${BASE_CSS}\n${beh ? '/* comportements déclarés */\n' + beh + '\n' : ''}${comps}\n`;
 }

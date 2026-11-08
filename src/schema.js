@@ -9,6 +9,7 @@ import { SITE_SCHEMA, PAGE_SCHEMA, LANGUAGE_VERSIONS } from './validate.js';
 import { FIELD_TYPES } from './collections.js';
 import { PARAM_TYPES } from './composition.js';
 import { PRODUCT_KEYS } from './shop.js';
+import { BEHAVIOR_NAMES } from './lang/behaviors.js';
 
 const clone = v => JSON.parse(JSON.stringify(v));
 const EXPR = { type: 'string', pattern: '\\{\\{', description: 'expression {{ … }} (sitec explain langage)' };
@@ -94,6 +95,7 @@ export function buildSchemas(project, catalog) {
     props: { type: 'object', description: 'schéma JSON des props : { type: object, required: [...], properties: { … } } ; liens : { $ref: "#/$defs/link" }' },
     example: { type: 'string', description: 'exemple YAML d\'usage, montré par sitec explain et rendu par sitec test' },
     intents: { type: 'array', items: { type: 'string' } },
+    behaviors: { type: 'array', items: { type: 'string', enum: BEHAVIOR_NAMES }, description: 'comportements navigateur fournis par le compilateur, posés par des attributs data-sl-… dans le gabarit' },
     effects: { type: 'object', additionalProperties: false, properties: { form: { type: 'object', additionalProperties: false, required: ['store'], properties: { store: { type: 'string', pattern: '^[a-z][a-z0-9_]*$', description: 'collection d\'exploitation des réponses' }, notify: { anyOf: [{ type: 'boolean' }, { type: 'string', format: 'email' }] }, to: { type: 'string', format: 'email' }, success: { type: 'string' }, required: { type: 'array', items: { type: 'string' } }, fields: { type: 'array', items: { anyOf: [{ type: 'string', enum: ['name', 'email', 'phone', 'subject', 'message'] }, { type: 'object', required: ['name', 'label'], additionalProperties: false, properties: { name: { type: 'string', pattern: '^[a-z][a-z0-9_]*$' }, label: { type: 'string' }, type: { type: 'string', enum: ['text', 'email', 'tel', 'number', 'date', 'select', 'textarea'] }, required: { type: 'boolean' }, options: { type: 'array', items: { type: 'string' } }, placeholder: { type: 'string' }, when: { type: 'object' } } }] } } } } } },
   } };
   out['package.schema.json'] = { $schema: 'http://json-schema.org/draft-07/schema#', title: 'Paquet de composants (package.yaml)', type: 'object', additionalProperties: false, required: ['name'], properties: { name: { type: 'string', pattern: '^[a-z][a-z0-9-]*$', description: 'préfixe des composants du paquet' }, description: { type: 'string' }, version: { type: 'string' }, language: { type: 'integer', enum: LANGUAGE_VERSIONS } } };

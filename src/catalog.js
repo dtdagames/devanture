@@ -21,7 +21,7 @@ export const SHARED_DEFS = {
 };
 
 const SCHEMA_KEYS = new Set(['type', 'description', 'enum', 'items', 'properties', 'required', 'additionalProperties', 'minItems', 'maxItems', 'minimum', 'maximum', 'minLength', 'format', 'pattern', '$ref', '$defs', 'default']);
-const MANIFEST_KEYS = new Set(['name', 'order', 'description', 'props', 'example', 'intents', 'effects', 'readable']);
+const MANIFEST_KEYS = new Set(['name', 'order', 'description', 'props', 'example', 'intents', 'effects', 'behaviors', 'readable']);
 
 /** Garde-fou pour les auteurs de manifestes : une virgule non protégée dans une description crée des clés parasites. */
 function lintManifest(name, schema, errors, p = 'props') {

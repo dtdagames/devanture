@@ -7,6 +7,7 @@ import { formatErrors } from './errors.js';
 import { THEME_PRESETS } from './emit/php/css.js';
 import { describeComposite } from './composition.js';
 import { TEMPLATE_VOCABULARY } from './lang/template.js';
+import { BEHAVIORS } from './lang/behaviors.js';
 import fs from 'node:fs/promises';
 
 const HELP = `sitec — compilateur Devanture (sites vitrines → PHP + JS)
@@ -18,6 +19,8 @@ Usage :
   sitec catalog [dossier-projet]             Liste compacte des composants (natifs, puis ceux du projet : composés et gabarits)
   sitec explain <composant> [dossier-projet] Fiche détaillée d'un composant (ou : explain site, explain langage)
   sitec component new <dossier> <nom>        Squelette d'un composant de projet : components/<nom>/ (manifest.yaml, template.html, styles.css)
+  sitec component new <dossier> <nom> --describe "texte" | --from f.md [--model id] [--rounds n] [--force]
+                                             Génère le composant depuis une description en langage naturel (modèle Claude), vérifié et réparé jusqu'à passer ; --export p.json puis --import r.json sans clé d'API
   sitec schema <dossier> [--no-vscode]       Schémas JSON du site pour l'éditeur (.devanture/schema) et réglages VS Code : complétion des composants, props, assets et routes
   sitec migrate <dossier> [--dry-run] [--to N]
                                              Fait passer le site à la dernière version du langage (texte modifié, commentaires conservés) et suggère ce qu'elle permet d'écrire mieux
@@ -119,6 +122,43 @@ export async function run(argv) {
       if (!/^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*$/.test(name)) { console.error(`Nom de composant mal formé : ${name} (minuscules, chiffres, tirets ; points pour une famille).`); return 2; }
       if (catalog.has(name)) { console.error(`${name} existe déjà dans le catalogue natif : choisissez un autre nom.`); return 2; }
       const cdir = path.join(path.resolve(dir), 'components', name);
+      const opt = k => { const i = rest.indexOf(k); return i >= 0 ? rest[i + 1] : null; };
+      // Génération depuis une description en langage naturel : --describe "…" ou --from fichier.md (et --export / --import sans clé d'API).
+      if (opt('--describe') || opt('--from') || opt('--import')) {
+        const root = path.resolve(dir);
+        let exists = false; try { await fs.access(cdir); exists = true; } catch { /* libre */ }
+        if (exists && !flags.has('--force') && !opt('--import')) { console.error(`${path.relative(process.cwd(), cdir)} existe déjà : --force pour le régénérer depuis sa description.`); return 2; }
+        const gen = await import('./component-gen.js');
+        let description = opt('--describe') || (opt('--from') ? await fs.readFile(path.resolve(opt('--from')), 'utf8') : null);
+        if (!description && opt('--import')) description = (await fs.readFile(path.join(cdir, 'description.md'), 'utf8').catch(() => '')).replace(/^# .*\n+/, '').replace(/<!--[\s\S]*?-->/g, '').trim() || '(description importée)';
+        const show = ({ round, problems, warnings, notes }) => { console.log(`TOUR ${round} : ${problems.length} problème(s), ${warnings.length} avertissement(s)`); for (const p of [...problems, ...warnings]) console.log(`      [${p.code}] ${p.file}${p.path ? ' › ' + p.path : ''} : ${p.message}`); if (notes) console.log(`      notes du modèle : ${notes}`); };
+        const project = await loadProject(root); validateProject(project, catalog);
+        if (opt('--export') && !opt('--import')) {
+          await fs.writeFile(path.resolve(opt('--export')), JSON.stringify({ name, description, model: opt('--model') || gen.DEFAULT_MODEL, system: await gen.buildSystemPrompt(), user: gen.buildUserPrompt({ name, description, project }), output_schema: gen.OUTPUT_SCHEMA }, null, 2));
+          console.log(JSON.stringify({ ok: true, exported: opt('--export'), hint: `Soumettez system + user à un modèle (sortie JSON conforme à output_schema), enregistrez la réponse, puis : sitec component new ${dir} ${name} --import reponse.json [--export reparation.json]` }));
+          return 0;
+        }
+        if (opt('--import')) {
+          let files;
+          try { files = gen.parseResponse(await fs.readFile(path.resolve(opt('--import')), 'utf8')); } catch (e) { console.error('Réponse illisible : ' + e.message); return 1; }
+          await gen.writeComponent(root, name, files, description);
+          const v = await gen.verifyComponent(root, name, catalog);
+          show({ round: 1, ...v, notes: files.notes });
+          if ((v.problems.length || v.warnings.length) && opt('--export')) {
+            await fs.writeFile(path.resolve(opt('--export')), JSON.stringify({ name, description, system: await gen.buildSystemPrompt(), user: gen.buildUserPrompt({ name, description, project, previous: files, problems: [...v.problems, ...v.warnings] }), output_schema: gen.OUTPUT_SCHEMA }, null, 2));
+            console.log(`      prompt de réparation écrit : ${opt('--export')}`);
+          }
+          console.log(JSON.stringify({ ok: !v.problems.length, component: name, problems: v.problems.length, warnings: v.warnings.length, cases: v.tests?.length ?? null }));
+          return v.problems.length ? 1 : 0;
+        }
+        const model = opt('--model') || gen.DEFAULT_MODEL;
+        console.error(`Génération de ${name} par ${model} (sortie structurée, repli automatique en cas de refus), vérification et réparation jusqu'à ${opt('--rounds') || 3} tours…`);
+        let r;
+        try { r = await gen.generateComponent({ root, name, description, catalog, model, rounds: Number(opt('--rounds') || 3), onRound: show }); }
+        catch (e) { console.error('Erreur : ' + e.message + (/api.?key|auth/i.test(e.message) ? ' (définissez ANTHROPIC_API_KEY, ou utilisez --export puis --import)' : '')); return 1; }
+        console.log(JSON.stringify({ ok: r.ok, component: name, rounds: r.rounds, problems: r.problems.length, warnings: r.warnings.length, dir: path.relative(process.cwd(), cdir).replaceAll('\\', '/') }));
+        return r.ok ? 0 : 1;
+      }
       try { await fs.access(cdir); console.error(`${cdir} existe déjà.`); return 2; } catch { /* libre */ }
       await fs.mkdir(cdir, { recursive: true });
       const cls = name.replace(/\./g, '-');
@@ -367,7 +407,9 @@ Constantes : site.yaml › constants: { delai: 1 h, zone: Lyon } → {{ const.de
 Collections : site.yaml › collections: { nom: { label, fields: { champ: type }, sort } } ; data/<nom>.yaml ; page route: /chemin/[id] + source: nom ; composant collection.list.
   types de champ : string, text, number, boolean, date, asset, list, link.
 Composants composés : components.yaml › components: { nom: { params, sections } } ; dans sections, {{ p.param }} et { for: p.liste, as: x, item: {…} }.
-Composants de projet : components/<nom>/manifest.yaml + template.html (+ styles.css, module.js) ; sitec component new <dossier> <nom>.
+Composants de projet : components/<nom>/manifest.yaml + template.html (+ styles.css) ; sitec component new <dossier> <nom> [--describe "texte"].
+  CSS : sélecteurs préfixés du nom du composant, jetons du thème (var(--color-…), var(--font-…)), rien d'externe.
+  comportements : behaviors: [${Object.keys(BEHAVIORS).join(', ')}] et attributs data-sl-… dans le gabarit (docs/LANGAGE.md).
   gabarit : {{ expr }} échappé ; balises ${TEMPLATE_VOCABULARY.tags.join(', ')} ; variables ${TEMPLATE_VOCABULARY.variables.join(', ')} ; fonctions ${TEMPLATE_VOCABULARY.functions.join(', ')} (HTML sûr : ${TEMPLATE_VOCABULARY.safe.join(', ')})
   effets déclarés : manifest.yaml › effects.form { store, fields, notify, to, success } → {% form %} … {% endform %}, {{ field('nom') }}, form.ok, form.failed, form.message, form.success.
 Spécification complète : docs/LANGAGE.md.`);

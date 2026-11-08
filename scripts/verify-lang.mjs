@@ -96,7 +96,7 @@ try {
   ok('composition : ancres dérivées de l\'usage (offre-depannage, -2, -3)', /id="offre-depannage"/.test(services.text) && /id="offre-depannage-2"/.test(services.text) && /id="offre-depannage-3"/.test(services.text));
   ok('composant de projet : rendu (titre, délai constante, téléphone du site)', /Un devis en quelques minutes/.test(services.text) && /Réponse sous 48 h/.test(services.text) && /tel:0472001122/.test(services.text));
   ok('composant de projet : formulaire déclaré (_form, _csrf, pot de miel, 4 champs)', /name="_form" value="devis-express"/.test(services.text) && /name="_csrf" value="[a-f0-9]{16,}"/.test(services.text) && /name="website"/.test(services.text) && /name="type_travaux"/.test(services.text));
-  ok('composant de projet : styles propres inclus dans site.css', (await get('/assets/site.css')).text.includes('.devis-inner'));
+  ok('composant de projet : styles propres inclus dans site.css', (await get('/assets/site.css')).text.includes('.devis-express-inner'));
   const csrf = /name="_csrf" value="([a-f0-9]+)"/.exec(services.text)?.[1] || '';
   const enc = o => Object.entries(o).map(([k, v]) => encodeURIComponent(k) + '=' + encodeURIComponent(v)).join('&');
   const post = (body) => get('/services', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: enc(body) });
