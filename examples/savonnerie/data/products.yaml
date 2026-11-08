@@ -41,7 +41,7 @@ products:
     name: Coffret découverte
     price: 24
     category: coffrets
-    image: coffret-decouverte.svg
+    image: coffret-decouverte.jpg
     featured: true
     badge: Idée cadeau
     stock: 0

@@ -23,7 +23,7 @@ $showAdd = $p['show_add'] ?? true;
     <div class="grid grid-<?= $cols ?> products-grid">
       <?php foreach ($list as $pr): $url = shop_product_url($pr['id']); ?>
       <article class="card product-card">
-        <?php if (!empty($pr['image'])): ?><a href="<?= e($url ?? '#') ?>" class="product-img"><img src="<?= e(asset($pr['image'])) ?>" alt="<?= e($pr['name']) ?>" loading="lazy"></a><?php endif; ?>
+        <?php if (!empty($pr['image'])): ?><a href="<?= e($url ?? '#') ?>" class="product-img"><?= img($pr['image'], $pr['name'], ['sizes' => '(max-width: 700px) 50vw, 25vw']) ?></a><?php endif; ?>
         <h3><?php if ($url): ?><a href="<?= e($url) ?>"><?= e($pr['name']) ?></a><?php else: ?><?= e($pr['name']) ?><?php endif; ?><?php if (!empty($pr['badge'])): ?> <span class="badge"><?= e($pr['badge']) ?></span><?php elseif ($pr['stock'] !== null && $pr['stock'] > 0 && $pr['stock'] <= 3): ?> <span class="badge badge-low">Plus que <?= (int)$pr['stock'] ?></span><?php endif; ?></h3>
         <?php if (!empty($pr['description'])): ?><p class="muted product-desc"><?= e(str_cut($pr['description'], 110)) ?><?= strlen($pr['description']) > 110 ? '…' : '' ?></p><?php endif; ?>
         <div class="product-foot">

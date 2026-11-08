@@ -15,6 +15,7 @@ Les noms de routes commençant par `_` sont techniques et réservés. Les cookie
 | SEO | `<title>`, `<meta name="description">`, JSON-LD du type d'activité, `<link rel="alternate">` vers `/site.json` et la version texte. |
 | Fichiers publics | Seuls `assets/`, `cache/`, `sw.js`, `manifest.webmanifest`, `offline.html` sont servis tels quels ; `data/`, `lib/`, `pages/`, `components/`, `custom/` jamais. |
 | Assets | `site.css` et `site.js` référencés avec `?v=<empreinte>` et attribut `integrity`. |
+| Images | Chaque JPEG, PNG ou WebP de `assets/` est copié et décliné en variantes WebP aux largeurs de `site.images.widths` (jamais agrandi), nommées `<nom>.<largeur>.webp` à côté de l'original. Les `<img>` des composants portent `width`, `height`, `srcset`, `sizes` et `loading="lazy"` (sauf l'image principale d'une fiche produit, `fetchpriority="high"`) ; un fond de bandeau ou un lien d'agrandissement prend la variante la plus proche de 1600 px. Sans redimensionneur, les dimensions restent déclarées et l'original est servi. Le pipeline (`src/images/`) est indépendant de la cible, seul le rendu des balises lui appartient. |
 | Version texte | `/lisible<route>` sert `lisible/<page>.html`, HTML simplifié compilé. |
 
 ## 2. Formulaire de contact

@@ -1,5 +1,5 @@
 <?php $hasImg = !empty($p['image']); $align = $p['align'] ?? 'center'; ?>
-<section class="hero<?= $hasImg ? ' hero-img' : '' ?> hero-<?= e($align) ?>"<?= $hasImg ? ' style="--hero-bg:url(' . e(asset($p['image'])) . ')"' : '' ?>>
+<section class="hero<?= $hasImg ? ' hero-img' : '' ?> hero-<?= e($align) ?>"<?= $hasImg ? ' style="--hero-bg:url(' . e(img_src($p['image'], 1600)) . ')"' : '' ?>>
   <div class="container hero-inner">
     <h1><?= e($p['title']) ?></h1>
     <?php if (!empty($p['subtitle'])): ?><p class="hero-sub"><?= e($p['subtitle']) ?></p><?php endif; ?>

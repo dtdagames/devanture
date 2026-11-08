@@ -6,6 +6,6 @@
       <?= paragraphs($p['text']) ?>
       <?php if (!empty($p['cta'])) echo render_link($p['cta'], 'btn'); ?>
     </div>
-    <?php if ($hasImg): ?><div class="richtext-media"><img src="<?= e(asset($p['image'])) ?>" alt="<?= e($p['title'] ?? '') ?>" loading="lazy"></div><?php endif; ?>
+    <?php if ($hasImg): ?><div class="richtext-media"><?= img($p['image'], $p['title'] ?? '', ['sizes' => '(max-width: 700px) 100vw, 50vw']) ?></div><?php endif; ?>
   </div>
 </section>

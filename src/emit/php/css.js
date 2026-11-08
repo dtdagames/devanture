@@ -23,7 +23,7 @@ const BASE_CSS = `
 *,*::before,*::after{box-sizing:border-box}
 html{scroll-behavior:smooth}
 body{margin:0;background:var(--color-bg);color:var(--color-fg);font:16px/1.6 var(--font-body)}
-img{max-width:100%;display:block}
+img{max-width:100%;height:auto;display:block}
 a{color:var(--color-primary)}
 h1,h2,h3{font-family:var(--font-heading);line-height:1.2;margin:0 0 .5em}
 h1{font-size:clamp(2rem,4vw,3rem)}h2{font-size:clamp(1.5rem,3vw,2.1rem)}h3{font-size:1.2rem}

@@ -76,7 +76,9 @@ export async function run(argv) {
       const target = targetIdx >= 0 ? rest[targetIdx + 1] : 'php';
       if (!TARGETS[target]) { console.error(`Cible inconnue : ${target}. Cibles : ${Object.entries(TARGETS).map(([k, v]) => k + ' (' + v.description + ')').join(' ; ')}`); return 2; }
       const report = await emit(project, catalog, out, { target });
-      console.log(`OK  ${report.pages} pages, ${report.components} composants → ${path.relative(process.cwd(), out) || '.'}`);
+      const im = report.images;
+      const imgInfo = im?.images ? `, ${im.images} image${im.images > 1 ? 's' : ''} (${im.resizer ? im.variants + ' variantes WebP' : im.disabled ? 'variantes désactivées' : 'sans variantes : npm install sharp'})` : '';
+      console.log(`OK  ${report.pages} pages, ${report.components} composants${imgInfo} → ${path.relative(process.cwd(), out) || '.'}`);
       return 0;
     }
 
@@ -240,6 +242,7 @@ ${Object.entries(THEME_PRESETS.clair).map(([k, v]) => `          ${k.padEnd(18)}
   static: objet — { enabled: true } cache statique des pages sans état pour les visiteurs sans cookie (servi par Apache sans PHP) ; défaut : activé
   studio: objet — { enabled: false } embarque l'atelier (compilateur navigateur + source du site) sur /_studio, derrière ADMIN_TOKEN ; défaut : désactivé
   offline: objet — { enabled: false, short_name, theme_color } service worker : assets et versions texte consultables hors ligne ; défaut : désactivé
+  images: objet — { enabled: true, widths: [480, 960, 1600], quality: 80 } variantes WebP redimensionnées à la compilation pour les JPEG, PNG et WebP de assets/ (srcset, width/height, chargement différé) ; défaut : activé si sharp est installé
 Exploitation (hors DSL) : back-office /_admin (ADMIN_TOKEN dans .env), stockage SQLite ou fichiers (STORE), déploiement signé /_deploy (DEPLOY_SECRET, commande sitec deploy), multi-sites : sitec host
       .enabled: boolean (défaut true)   .requires_consent: boolean (défaut true)   .consent_text: string
   shop: objet — boutique (data/products.yaml + composants products.grid, product.hero, cart.page, checkout.page, order.confirmation)

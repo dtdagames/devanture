@@ -2,7 +2,7 @@
 <section class="section product-hero">
   <span hidden data-sl-event="product_view" data-sl-data="<?= e(json_encode(['product' => $pr['id'], 'category' => $pr['category'] ?? ''])) ?>"></span>
   <div class="container product-hero-inner">
-    <?php if (!empty($pr['image'])): ?><div class="product-hero-media"><img src="<?= e(asset($pr['image'])) ?>" alt="<?= e($pr['name']) ?>"></div><?php endif; ?>
+    <?php if (!empty($pr['image'])): ?><div class="product-hero-media"><?= img($pr['image'], $pr['name'], ['sizes' => '(max-width: 700px) 100vw, 50vw', 'eager' => true]) ?></div><?php endif; ?>
     <div class="product-hero-body">
       <?php if (!empty($p['back'])) echo render_link($p['back'], 'product-back'); ?>
       <h1><?= e($pr['name']) ?><?php if (!empty($pr['badge'])): ?> <span class="badge"><?= e($pr['badge']) ?></span><?php endif; ?></h1>

@@ -26,6 +26,38 @@ function asset(string $path): string { return '/assets/' . ltrim($path, '/'); }
 /** URL d'une route interne ou lien externe tel quel. */
 function url(string $to): string { return $to; }
 
+/** Manifeste des images compilées (dimensions, variantes WebP), produit à la compilation dans lib/images.php. */
+function sl_images(): array {
+    static $m = null;
+    if ($m === null) { $f = __DIR__ . '/images.php'; $m = is_file($f) ? (require $f) : []; }
+    return $m;
+}
+
+/** Balise <img> complète : width/height (pas de saut de mise en page), srcset des variantes WebP, chargement différé. $o : sizes, eager, class. */
+function img(string $path, string $alt = '', array $o = []): string {
+    $m = sl_images()[ltrim($path, '/')] ?? null;
+    $a = '<img src="' . e(asset($path)) . '" alt="' . e($alt) . '"';
+    if ($m) {
+        $a .= ' width="' . (int)$m['w'] . '" height="' . (int)$m['h'] . '"';
+        if (!empty($m['v'])) {
+            $set = array_map(fn($v) => asset($v[1]) . ' ' . $v[0] . 'w', $m['v']);
+            $a .= ' srcset="' . e(implode(', ', $set)) . '" sizes="' . e($o['sizes'] ?? '100vw') . '"';
+        }
+    }
+    if (!empty($o['class'])) $a .= ' class="' . e($o['class']) . '"';
+    $a .= empty($o['eager']) ? ' loading="lazy" decoding="async"' : ' fetchpriority="high"';
+    return $a . '>';
+}
+
+/** URL de la plus petite variante WebP au moins aussi large que demandé (fond de bandeau, agrandissement), sinon l'original. */
+function img_src(string $path, int $width = 1600): string {
+    $m = sl_images()[ltrim($path, '/')] ?? null;
+    if (!$m || empty($m['v'])) return asset($path);
+    foreach ($m['v'] as $v) if ($v[0] >= $width) return asset($v[1]);
+    $vs = $m['v'];
+    return asset(end($vs)[1]);
+}
+
 /** Balisage léger sur un texte déjà échappé : **gras**, *italique*, [texte](/lien). Liens limités à /, #, https, mailto, tel. */
 function inline_markup(string $escaped): string {
     $s = preg_replace('/\\*\\*(.+?)\\*\\*/s', '<strong>$1</strong>', $escaped);

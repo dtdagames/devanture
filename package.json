@@ -1,6 +1,6 @@
 {
   "name": "devanture",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Devanture : langage déclaratif (YAML) pour sites vitrines et petites boutiques. Le compilateur sitec produit un site complet pour une cible d'hébergement bon marché, aujourd'hui PHP + JS + CSS sans framework. Pensé pour être écrit par un modèle de langage autant que par un humain : peu de tokens, un vérificateur qui explique ses erreurs, aucun code à écrire.",
   "type": "module",
   "bin": {
@@ -51,5 +51,11 @@
   "homepage": "https://github.com/dtdagames/devanture#readme",
   "bugs": {
     "url": "https://github.com/dtdagames/devanture/issues"
+  },
+  "optionalDependencies": {
+    "sharp": "^0.35.5"
+  },
+  "imports": {
+    "#resize": "./src/images/resize.js"
   }
 }

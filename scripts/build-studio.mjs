@@ -32,6 +32,7 @@ const plugin = {
   setup(b) {
     b.onResolve({ filter: /^virtual:snapshot$/ }, () => ({ path: 'snapshot', namespace: 'virtual' }));
     b.onLoad({ filter: /.*/, namespace: 'virtual' }, () => ({ contents: 'export default ' + snapshot + ';', loader: 'js' }));
+    b.onResolve({ filter: /^#resize$/ }, () => ({ path: path.join(ROOT, 'src', 'studio', 'shim-images.js') }));
     b.onResolve({ filter: /^node:/ }, args => { const s = shims[args.path]; if (!s) throw new Error('module Node non pris en charge dans le navigateur : ' + args.path); return { path: path.join(ROOT, 'src', 'studio', s) }; });
   },
 };

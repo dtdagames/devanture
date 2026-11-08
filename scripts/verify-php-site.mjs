@@ -48,8 +48,10 @@ try {
   const navRoutes = new Set([...navHtml.matchAll(/href="(\/[a-z0-9\-\/]*)"/g)].map(m => m[1].replace(/\/+$/, '') || '/'));
 
   let contactPath = null;
+  const pagesHtml = [];
   for (const r of routes) {
     const res = await get(r);
+    pagesHtml.push(res.text);
     const title = /<title>([^<]+)<\/title>/.exec(res.text)?.[1]?.trim();
     const desc = /<meta\s+name="description"\s+content="([^"]*)"/i.exec(res.text) || /<meta\s+content="([^"]*)"\s+name="description"/i.exec(res.text);
     ok(`GET ${r} → 200`, res.status === 200, String(res.status));
@@ -59,6 +61,18 @@ try {
     if (r !== '/' && navRoutes.has(r)) ok(`GET ${r} marque la nav (aria-current)`, /aria-current="page"/.test(res.text));
     const isContact = /<form[^>]+method="post"/i.test(res.text) && /_csrf|csrf|token/i.test(res.text) && !/name="action" value="add"|name="_form" value="checkout"/.test(res.text);
     if (isContact) contactPath = contactPath || r;
+  }
+
+  // Images : si le site compilé a des variantes WebP, les <img> des pages doivent porter dimensions, srcset et chargement différé.
+  let imagesPhp = ''; try { imagesPhp = await fs.readFile(path.join(root, 'lib', 'images.php'), 'utf8'); } catch { /* pas de manifeste */ }
+  if (/\.webp'/.test(imagesPhp)) {
+    const imgs = pagesHtml.flatMap(h => [...h.matchAll(/<img ([^>]*srcset="[^"]+"[^>]*)>/g)].map(m => m[1]));
+    ok('Images : au moins une <img> avec srcset', imgs.length > 0);
+    ok('Images : width et height sur chaque <img srcset>', imgs.length > 0 && imgs.every(a => /width="\d+"/.test(a) && /height="\d+"/.test(a)));
+    ok('Images : loading="lazy" ou fetchpriority sur chaque <img srcset>', imgs.length > 0 && imgs.every(a => /loading="lazy"|fetchpriority="high"/.test(a)));
+    ok('Images : attribut sizes présent', imgs.length > 0 && imgs.every(a => /sizes="[^"]+"/.test(a)));
+    const variant = imgs[0]?.match(/srcset="([^\s,"]+)/)?.[1];
+    ok('Images : variante WebP servie (200)', variant ? (await get(variant)).status === 200 : false, variant || 'aucune');
   }
 
   const nf = await get('/page-qui-nexiste-pas-xyz');

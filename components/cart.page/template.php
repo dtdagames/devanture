@@ -11,7 +11,7 @@
       <tbody>
       <?php foreach ($lines as $l): ?>
         <tr>
-          <td class="cart-item"><?php if (!empty($l['image'])): ?><img src="<?= e(asset($l['image'])) ?>" alt=""><?php endif; ?><?php $u = shop_product_url($l['id']); ?><?= $u ? '<a href="' . e($u) . '">' . e($l['name']) . '</a>' : e($l['name']) ?></td>
+          <td class="cart-item"><?php if (!empty($l['image'])): ?><?= img($l['image'], '', ['sizes' => '64px']) ?><?php endif; ?><?php $u = shop_product_url($l['id']); ?><?= $u ? '<a href="' . e($u) . '">' . e($l['name']) . '</a>' : e($l['name']) ?></td>
           <td><?= e(shop_money($l['price'])) ?></td>
           <td>
             <form method="post" action="/_cart" class="cart-qty"><input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="set"><input type="hidden" name="id" value="<?= e($l['id']) ?>">

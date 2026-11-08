@@ -2,7 +2,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { buildCss } from './css.js';
 import { buildJs } from './js.js';
-import { RENDER_PHP, FORMS_PHP, LAYOUT_PHP, htaccess, DENY_HTACCESS, SHOP_PHP, indexPhp, pagePhp, segmentsPhp } from './php.js';
+import { RENDER_PHP, FORMS_PHP, LAYOUT_PHP, htaccess, DENY_HTACCESS, SHOP_PHP, indexPhp, pagePhp, segmentsPhp, phpValue } from './php.js';
+import { processAssets } from '../../images/index.js';
 import { DEPLOY_PHP, buildServiceWorker, buildOfflinePage, buildWebManifest } from './deploy.js';
 import { THEME_PRESETS } from './css.js';
 import { normalizeContactFields } from '../../forms.js';
@@ -158,7 +159,9 @@ export async function emit(project, catalog, out) {
     await fs.writeFile(path.join(out, 'manifest.webmanifest'), buildWebManifest(site, themeColor));
   }
   await fs.writeFile(path.join(out, 'custom', '.htaccess'), DENY_HTACCESS);
-  try { await fs.cp(path.join(project.root, 'assets'), path.join(out, 'assets'), { recursive: true }); } catch { /* pas d'assets */ }
+  // Images : copie des assets, variantes WebP redimensionnées (site.images), manifeste des dimensions pour l'aide PHP img().
+  const images = await processAssets(path.join(project.root, 'assets'), path.join(out, 'assets'), site.images || {});
+  await fs.writeFile(path.join(out, 'lib', 'images.php'), '<?php\n// Généré : dimensions et variantes WebP des images de assets/ (voir img() dans lib/render.php).\nreturn ' + phpValue(images.manifest) + ';\n');
 
   // Empreintes de tous les fichiers compilés, pour la vérification d'intégrité (back-office et cron).
   const manifest = {};
@@ -166,5 +169,5 @@ export async function emit(project, catalog, out) {
   await walkAll(out);
   await fs.writeFile(path.join(out, 'manifest.sha256.json'), JSON.stringify(manifest, null, 1));
 
-  return { pages: project.pages.length, components: usedList.length, staticRoutes: staticEnabled ? staticRoutes : [], version };
+  return { pages: project.pages.length, components: usedList.length, staticRoutes: staticEnabled ? staticRoutes : [], version, images: images.report };
 }

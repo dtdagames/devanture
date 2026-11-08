@@ -8,7 +8,7 @@ if (!$list) return; ?>
     <div class="grid grid-3 products-grid">
       <?php foreach ($list as $pr): $url = shop_product_url($pr['id']); ?>
       <article class="card product-card">
-        <?php if (!empty($pr['image'])): ?><a href="<?= e($url) ?>" class="product-img"><img src="<?= e(asset($pr['image'])) ?>" alt="<?= e($pr['name']) ?>" loading="lazy"></a><?php endif; ?>
+        <?php if (!empty($pr['image'])): ?><a href="<?= e($url) ?>" class="product-img"><?= img($pr['image'], $pr['name'], ['sizes' => '(max-width: 700px) 50vw, 25vw']) ?></a><?php endif; ?>
         <h3><a href="<?= e($url) ?>"><?= e($pr['name']) ?></a></h3>
         <div class="product-foot"><span class="product-price"><?= e(shop_money($pr['price'])) ?></span><a class="btn btn-outline" href="<?= e($url) ?>">Voir</a></div>
       </article>

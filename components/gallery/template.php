@@ -10,7 +10,7 @@
     <div class="grid grid-<?= $cols ?> gallery-grid">
       <?php foreach ($p['images'] as $img): ?>
       <figure class="gallery-item">
-        <a href="<?= e(asset($img['src'])) ?>" data-lightbox><img src="<?= e(asset($img['src'])) ?>" alt="<?= e($img['alt'] ?? $img['caption'] ?? '') ?>" loading="lazy"></a>
+        <a href="<?= e(img_src($img['src'], 1600)) ?>" data-lightbox><?= img($img['src'], $img['alt'] ?? $img['caption'] ?? '', ['sizes' => '(max-width: 700px) 100vw, ' . (int)round(100 / max(1, $cols)) . 'vw']) ?></a>
         <?php if (!empty($img['caption'])): ?><figcaption><?= e($img['caption']) ?></figcaption><?php endif; ?>
       </figure>
       <?php endforeach; ?>

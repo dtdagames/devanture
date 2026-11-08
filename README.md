@@ -33,6 +33,7 @@ Le mode d'emploi du langage, écrit pour un auteur humain ou modèle : [CLAUDE.m
 ## Ce que produit le compilateur
 
 - Un site PHP sans framework ni extension optionnelle, un routeur, des pages, des composants, un CSS à jetons et un JS vanille.
+- Images optimisées à la compilation : variantes WebP redimensionnées, `srcset`, dimensions déclarées, chargement différé (sharp sous Node, canvas dans l'atelier).
 - Formulaires avec champs libres et conditionnels, navigation par intention (recherche qui répond), personnalisation par segments, boutique (catalogue, panier, commande, stock, Stripe), version texte de chaque page, jumeau pour agents (`/site.json`, `/llms.txt`, JSON-LD, API).
 - Une couche d'exploitation : back-office compilé (`/_admin`), stockage SQLite ou fichiers, cache statique servi sans PHP, fragments personnalisés, hors-ligne, intégrité par empreintes, déploiement signé (`/_deploy`), plusieurs sites par hébergement (`sitec host`).
 - Un atelier dans le navigateur ([studio/](studio/), `npm run build:studio`) qui fait tourner le même compilateur : éditer, vérifier, compiler, déployer. Un site peut l'embarquer sur `/_studio`.
@@ -56,7 +57,8 @@ Le mode d'emploi du langage, écrit pour un auteur humain ou modèle : [CLAUDE.m
 bin/            sitec
 src/            compilateur : chargement, validation (ajv), revue, mots-clés, hôte, init
 src/emit/php/   émetteur de la cible PHP (PHP, JS, CSS, back-office, déploiement) ; src/emit/index.js choisit la cible
-src/studio/     remplaçants Node pour l'atelier navigateur (fichiers en mémoire, chemins, sha256)
+src/images/     pipeline d'images : dimensions, variantes WebP (sharp sous Node, canvas dans l'atelier), manifeste
+src/studio/     remplaçants Node pour l'atelier navigateur (fichiers en mémoire, chemins, sha256, canvas)
 components/     un dossier par composant : manifest.yaml (props), template.php, styles.css, module.js
 studio/         atelier navigateur (index.html, app.js ; sitec-browser.js est produit par npm run build:studio)
 examples/       sites de démonstration (plomberie, boutique savonnerie, cabinet, fournil, hôte multi-sites)
@@ -75,6 +77,8 @@ node scripts/verify-php-site.mjs examples/savonnerie/dist 8971    # routes, SEO,
 ```
 
 Les bancs démarrent eux-mêmes un serveur PHP de développement ; indiquer le chemin de `php` dans `PHP_BIN` s'il n'est pas dans le `PATH`.
+
+Les variantes WebP des images demandent `sharp` (dépendance optionnelle, installée avec `npm install` quand un binaire existe pour la plateforme) ; sans lui, le compilateur déclare les dimensions et sert les originaux. Historique des versions : [CHANGELOG.md](CHANGELOG.md).
 
 ## État et limites
 

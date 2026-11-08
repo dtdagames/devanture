@@ -56,6 +56,10 @@ const SITE_SCHEMA = {
           type: 'object', additionalProperties: false,
           properties: { enabled: { type: 'boolean' } },
         },
+        images: {
+          type: 'object', additionalProperties: false,
+          properties: { enabled: { type: 'boolean' }, widths: { type: 'array', minItems: 1, maxItems: 6, items: { type: 'integer', minimum: 64, maximum: 4000 } }, quality: { type: 'integer', minimum: 30, maximum: 100 } },
+        },
         offline: {
           type: 'object', additionalProperties: false,
           properties: { enabled: { type: 'boolean' }, short_name: { type: 'string', maxLength: 12 }, theme_color: { type: 'string', pattern: '^#[0-9a-fA-F]{6}$' } },
