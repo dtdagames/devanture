@@ -14,7 +14,7 @@ sections:
       items:
         - icon: clock
           title: Dépannage 7j/7
-          text: Fuites, débouchage, chasse d'eau, robinetterie. Déplacement + 1 h de main-d'œuvre à partir de 95 € TTC.
+          text: "Fuites, débouchage, chasse d'eau, robinetterie. Déplacement + {{ const.delai_depannage }} de main-d'œuvre à partir de {{ const.tarif_deplacement }}."
         - icon: tools
           title: Salle de bain et cuisine
           text: Création ou rénovation complète, douche à l'italienne, meubles vasques, raccordements électroménager.
@@ -31,6 +31,21 @@ sections:
           title: Recherche de fuite
           text: Détection non destructive par caméra thermique et gaz traceur. Rapport pour votre assurance.
       keywords: [ débouchage, chasse d'eau qui fuit, robinetterie, douche à l'italienne, meuble vasque, raccordement lave-vaisselle, chaudière gaz, pompe à chaleur air eau, plancher chauffant, entretien chaudière annuel, remplacement chauffe-eau, recherche de fuite, caméra thermique, attestation d'entretien ]
+  - offre:
+      id: offre-depannage
+      titre: Dépannage express
+      prix: "{{ const.tarif_deplacement }}"
+      detail: "Déplacement et première heure de main-d'œuvre, sur {{ const.zone }}."
+      points:
+        - "Intervention sous {{ const.delai_depannage }}"
+        - Prix annoncé avant de commencer
+        - Pièces courantes dans le camion
+      cta: { label: Appeler maintenant, to: "tel:+33472001122" }
+  - devis-express:
+      id: devis
+      title: Un devis en quelques minutes
+      intro: Décrivez les travaux, un plombier vous rappelle avec un prix.
+      delai: "{{ const.delai_devis }}"
   - steps:
       id: deroulement
       title: Comment se passe une intervention

@@ -25,7 +25,14 @@ function sl_store_db(): PDO {
     foreach (['messages', 'orders', 'events'] as $t) { $f = sl_store_dir() . "/$t.jsonl"; if (is_file($f) && !is_file("$f.imported")) { foreach (file($f, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) { $d = json_decode($line, true); if ($d) sl_store_sqlite_insert($t, $d); } @rename($f, "$f.imported"); } }
     return $pdo;
 }
-function sl_store_sqlite_insert(string $t, array $doc): void { $st = sl_store_db()->prepare("INSERT INTO $t (id, at, doc) VALUES (?, ?, ?)"); $st->execute([$doc['id'] ?? null, $doc['at'] ?? date('c'), json_encode($doc, JSON_UNESCAPED_UNICODE)]); }
+/** Nom de collection sûr ; table créée à la demande (formulaires déclarés par les composants). */
+function sl_store_table(string $t): string {
+    static $known = ['messages' => true, 'orders' => true, 'events' => true];
+    if (!preg_match('/^[a-z][a-z0-9_]{0,40}$/', $t)) throw new RuntimeException('collection invalide');
+    if (empty($known[$t]) && sl_store_kind() === 'sqlite') { sl_store_db()->exec("CREATE TABLE IF NOT EXISTS $t (seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT, at TEXT, doc TEXT NOT NULL)"); $known[$t] = true; }
+    return $t;
+}
+function sl_store_sqlite_insert(string $t, array $doc): void { $t = sl_store_table($t); $st = sl_store_db()->prepare("INSERT INTO $t (id, at, doc) VALUES (?, ?, ?)"); $st->execute([$doc['id'] ?? null, $doc['at'] ?? date('c'), json_encode($doc, JSON_UNESCAPED_UNICODE)]); }
 
 /** Ajoute un document. */
 function sl_store_append(string $t, array $doc): void {
@@ -34,6 +41,7 @@ function sl_store_append(string $t, array $doc): void {
 }
 /** Tous les documents, dans l'ordre d'insertion (dernière version d'un id pour les collections à identité). */
 function sl_store_all(string $t): array {
+    $t = sl_store_table($t);
     if (sl_store_kind() === 'sqlite') { $rows = sl_store_db()->query("SELECT doc FROM $t ORDER BY seq")->fetchAll(PDO::FETCH_COLUMN); return array_map(fn($d) => json_decode($d, true), $rows); }
     $f = sl_store_dir() . "/$t.jsonl"; if (!is_file($f)) return [];
     $out = []; foreach (file($f, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) { $d = json_decode($line, true); if ($d) $out[] = $d; }
@@ -41,11 +49,13 @@ function sl_store_all(string $t): array {
 }
 /** Un document par id (le plus récent). */
 function sl_store_get(string $t, string $id): ?array {
+    $t = sl_store_table($t);
     if (sl_store_kind() === 'sqlite') { $st = sl_store_db()->prepare("SELECT doc FROM $t WHERE id = ? ORDER BY seq DESC LIMIT 1"); $st->execute([$id]); $d = $st->fetchColumn(); return $d ? json_decode($d, true) : null; }
     $found = null; foreach (sl_store_all($t) as $d) if (($d['id'] ?? null) === $id) $found = $d; return $found;
 }
 /** Met à jour un document par id, sous verrou. $fn reçoit le document et renvoie la version modifiée. */
 function sl_store_update(string $t, string $id, callable $fn): ?array {
+    $t = sl_store_table($t);
     if (sl_store_kind() === 'sqlite') {
         $db = sl_store_db(); $db->beginTransaction();
         try { $st = $db->prepare("SELECT seq, doc FROM $t WHERE id = ? ORDER BY seq DESC LIMIT 1"); $st->execute([$id]); $row = $st->fetch(PDO::FETCH_ASSOC); if (!$row) { $db->commit(); return null; } $doc = $fn(json_decode($row['doc'], true)); $up = $db->prepare("UPDATE $t SET doc = ?, at = ? WHERE seq = ?"); $up->execute([json_encode($doc, JSON_UNESCAPED_UNICODE), $doc['at'] ?? date('c'), $row['seq']]); $db->commit(); return $doc; }

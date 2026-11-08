@@ -31,7 +31,7 @@ try {
   for (let i = 0; i < 40; i++) { try { await fetch(base + '/'); break; } catch { await new Promise(r => setTimeout(r, 150)); } }
   const home = await req('/');
   ok('accueil 200 sans erreur PHP', home.status === 200 && !phpErr(home.text));
-  const products = JSON.parse(await fs.readFile(path.join(root, 'data', 'products.json'), 'utf8'));
+  const products = JSON.parse(await fs.readFile(path.join(root, 'lib', 'data', 'products.json'), 'utf8'));
   ok('products.json émis', products.length > 0, String(products.length));
   const cards = (home.text.match(/class="card product-card"/g) || []).length;
   ok('grille de produits sur l\'accueil', cards > 0, `${cards} cartes`);

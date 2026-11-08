@@ -40,7 +40,8 @@ export function validateShop(project, errors) {
     if (typeof route === 'string' && route.includes('[')) {
       const m = /^\/[a-z0-9\-]+\/\[id\]$/.exec(route);
       if (!m) errors.push(err('E_FORMAT', { file: page.file, path: 'route', message: `Route dynamique mal formée : ${route}.`, hint: 'Forme attendue : /produit/[id] ou /commande/[id], avec source: products | orders.' }));
-      if (!['products', 'orders'].includes(page.data.source)) errors.push(err('E_MISSING_PROP', { file: page.file, path: 'source', message: 'Une route dynamique exige source: products ou source: orders.', expected: ['products', 'orders'] }));
+      const sources = ['products', 'orders', ...Object.keys(project.collections || {})];
+      if (!sources.includes(page.data.source)) errors.push(err('E_MISSING_PROP', { file: page.file, path: 'source', message: 'Une route dynamique exige source: products, orders ou une collection déclarée.', expected: sources, hint: 'Collections : site.yaml › collections.' }));
       else if (dyn[page.data.source]) errors.push(err('E_DUPLICATE', { file: page.file, path: 'route', message: `Une seule page dynamique par source (${page.data.source}).` }));
       else dyn[page.data.source] = page;
     } else if (page.data?.source !== undefined) {

@@ -33,6 +33,7 @@ Le mode d'emploi du langage, écrit pour un auteur humain ou modèle : [CLAUDE.m
 ## Ce que produit le compilateur
 
 - Un site PHP sans framework ni extension optionnelle, un routeur, des pages, des composants, un CSS à jetons et un JS vanille.
+- Un langage, pas seulement un catalogue : expressions `{{ const.delai }}`, constantes, collections génériques avec page par élément et liste, composants composés (`components.yaml`) et composants de projet avec gabarit neutre, design propre et effets déclarés (formulaire enregistré et notifié) sans une ligne de PHP. Spécification : [docs/LANGAGE.md](docs/LANGAGE.md).
 - Images optimisées à la compilation : variantes WebP redimensionnées, `srcset`, dimensions déclarées, chargement différé (sharp sous Node, canvas dans l'atelier).
 - Formulaires avec champs libres et conditionnels, navigation par intention (recherche qui répond), personnalisation par segments, boutique (catalogue, panier, commande, stock, Stripe), version texte de chaque page, jumeau pour agents (`/site.json`, `/llms.txt`, JSON-LD, API).
 - Une couche d'exploitation : back-office compilé (`/_admin`), stockage SQLite ou fichiers, cache statique servi sans PHP, fragments personnalisés, hors-ligne, intégrité par empreintes, déploiement signé (`/_deploy`), plusieurs sites par hébergement (`sitec host`).
@@ -57,12 +58,15 @@ Le mode d'emploi du langage, écrit pour un auteur humain ou modèle : [CLAUDE.m
 bin/            sitec
 src/            compilateur : chargement, validation (ajv), revue, mots-clés, hôte, init
 src/emit/php/   émetteur de la cible PHP (PHP, JS, CSS, back-office, déploiement) ; src/emit/index.js choisit la cible
+src/lang/       le langage : expressions (expr.js, évaluateur JS et traduction PHP), interpolation (resolve.js), gabarit neutre (template.js)
+src/collections.js  collections génériques ; src/composition.js  composants composés (components.yaml)
 src/images/     pipeline d'images : dimensions, variantes WebP (sharp sous Node, canvas dans l'atelier), manifeste
 src/studio/     remplaçants Node pour l'atelier navigateur (fichiers en mémoire, chemins, sha256, canvas)
 components/     un dossier par composant : manifest.yaml (props), template.php, styles.css, module.js
 studio/         atelier navigateur (index.html, app.js ; sitec-browser.js est produit par npm run build:studio)
 examples/       sites de démonstration (plomberie, boutique savonnerie, cabinet, fournil, hôte multi-sites)
 scripts/        bancs de vérification des sites produits et scripts de mesure
+docs/LANGAGE.md spécification du langage (version 1 : expressions, collections, composants composés et de projet, effets)
 docs/CIBLES.md  contrat que tout émetteur doit respecter (routes, formulaires, boutique, exploitation)
 docs/rapports/  proposition initiale et rapports de test (création, baseline, maintenance, Haiku, variance, exploitation)
 baseline/ maintenance/ variance/ haiku/   corpus des mesures : mêmes sites écrits à la main en PHP, pour comparaison
@@ -74,6 +78,7 @@ baseline/ maintenance/ variance/ haiku/   corpus des mesures : mêmes sites écr
 node bin/sitec.js build examples/savonnerie
 node scripts/verify-shop.mjs examples/savonnerie/dist 8970        # parcours d'achat, stock, webhook
 node scripts/verify-php-site.mjs examples/savonnerie/dist 8971    # routes, SEO, formulaires, sécurité
+node scripts/verify-lang.mjs examples/plomberie-martin/dist 8973  # langage : expressions JS = PHP, gabarits, collections, composition, composant de projet
 node scripts/verify-apache.mjs examples/savonnerie/dist 8085      # même site sous un vrai Apache (Docker, php:8.3-apache) : cache statique, .htaccess, déploiement
 node scripts/verify-apache.mjs examples/hote/dist 8087 --host savonnerie-du-port.fr   # hôte multi-sites, un domaine à la fois
 ```

@@ -1,0 +1,15 @@
+<section class="section steps">
+  <div class="container">
+    {% if p.title or p.intro %}
+    <div class="section-head">
+      {% if p.title %}<h2>{{ p.title }}</h2>{% endif %}
+      {% if p.intro %}<p>{{ p.intro }}</p>{% endif %}
+    </div>
+    {% endif %}
+    <ol class="steps-list">
+      {% for it in p.items %}
+      <li class="step"><span class="step-num" aria-hidden="true">{{ loop.index }}</span><div><h3>{{ it.title }}</h3>{% if it.text %}<p class="muted">{{ it.text }}</p>{% endif %}</div></li>
+      {% endfor %}
+    </ol>
+  </div>
+</section>

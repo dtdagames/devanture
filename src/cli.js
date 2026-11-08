@@ -5,6 +5,9 @@ import { validateProject, collectWarnings } from './validate.js';
 import { emit, TARGETS } from './emit/index.js';
 import { formatErrors } from './errors.js';
 import { THEME_PRESETS } from './emit/php/css.js';
+import { describeComposite } from './composition.js';
+import { TEMPLATE_VOCABULARY } from './lang/template.js';
+import fs from 'node:fs/promises';
 
 const HELP = `sitec — compilateur Devanture (sites vitrines → PHP + JS)
 
@@ -12,8 +15,9 @@ Usage :
   sitec check   <dossier-projet>  [--json]   Valide sans générer
   sitec build   <dossier-projet>  [--out d] [--target php]
                                              Valide puis génère dist/ pour la cible (php, seule cible à ce jour)
-  sitec catalog                              Liste compacte des composants
-  sitec explain <composant>                  Fiche détaillée d'un composant (ou : explain site)
+  sitec catalog [dossier-projet]             Liste compacte des composants (natifs, puis ceux du projet : composés et gabarits)
+  sitec explain <composant> [dossier-projet] Fiche détaillée d'un composant (ou : explain site, explain langage)
+  sitec component new <dossier> <nom>        Squelette d'un composant de projet : components/<nom>/ (manifest.yaml, template.html, styles.css)
   sitec review   <dossier-projet> [--llm] [--export f.json] [--import f.json]
                                              Relecture éditoriale : textes à compléter, faits absents du brief (brief.md), engagements à valider
   sitec build … --draft                      Compile malgré des textes à compléter
@@ -35,14 +39,81 @@ export async function run(argv) {
   const catalog = await loadCatalog();
 
   switch (cmd) {
-    case 'catalog':
-      printCatalog(catalog);
+    case 'catalog': {
+      const proj = args[0] ? await projectCatalog(args[0], catalog) : null;
+      printCatalog(proj?.catalog || catalog, proj);
       return 0;
+    }
 
     case 'explain': {
       const name = args[0];
-      if (!name) { console.error('Usage : sitec explain <composant>'); return 2; }
-      return explain(catalog, name);
+      if (!name) { console.error('Usage : sitec explain <composant> [dossier-projet]'); return 2; }
+      if (name === 'langage' || name === 'language' || name === 'expressions') { explainLanguage(); return 0; }
+      const proj = args[1] ? await projectCatalog(args[1], catalog) : null;
+      if (proj?.project.composites?.[name]) { printComposite(proj.project.composites[name]); return 0; }
+      return explain(proj?.catalog || catalog, name);
+    }
+
+    case 'component': {
+      const [sub, dir, name] = args;
+      if (sub !== 'new' || !dir || !name) { console.error('Usage : sitec component new <dossier-projet> <nom>'); return 2; }
+      if (!/^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*$/.test(name)) { console.error(`Nom de composant mal formé : ${name} (minuscules, chiffres, tirets ; points pour une famille).`); return 2; }
+      if (catalog.has(name)) { console.error(`${name} existe déjà dans le catalogue natif : choisissez un autre nom.`); return 2; }
+      const cdir = path.join(path.resolve(dir), 'components', name);
+      try { await fs.access(cdir); console.error(`${cdir} existe déjà.`); return 2; } catch { /* libre */ }
+      await fs.mkdir(cdir, { recursive: true });
+      const cls = name.replace(/\./g, '-');
+      await fs.writeFile(path.join(cdir, 'manifest.yaml'), `name: ${name}
+description: "[à compléter] une phrase : ce que montre ce composant et quand l'utiliser"
+props:
+  type: object
+  required: [title]
+  properties:
+    title: { type: string, description: titre de la section }
+    text: { type: string, description: texte sous le titre }
+    items:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required: [title]
+        properties:
+          title: { type: string }
+          text: { type: string }
+    cta: { $ref: "#/$defs/link", description: bouton optionnel }
+# Formulaire déclaré (optionnel) : décommentez pour enregistrer des réponses dans une collection d'exploitation et prévenir par e-mail.
+# effects:
+#   form:
+#     store: demandes
+#     notify: true
+#     success: Merci, nous revenons vers vous.
+#     fields: [ name, email, { name: objet, label: Objet, type: select, options: [Question, Devis] }, message ]
+example: |
+  - ${name}:
+      title: Un titre
+      items:
+        - { title: Premier point, text: Une phrase. }
+intents: [mots, que, tapent, les, visiteurs]
+`);
+      await fs.writeFile(path.join(cdir, 'template.html'), `<section class="section ${cls}">
+  <div class="container">
+    <h2>{{ p.title }}</h2>
+    {% if p.text %}<p>{{ p.text }}</p>{% endif %}
+    {% if p.items %}
+    <ul class="${cls}-list">
+      {% for it in p.items %}
+      <li><strong>{{ it.title }}</strong>{% if it.text %} <span class="muted">{{ it.text }}</span>{% endif %}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if p.cta %}{{ link(p.cta, 'btn') }}{% endif %}
+    {# Avec effects.form : {% form %} {{ field('name') }} … <button class="btn">Envoyer</button> {% endform %}, et form.ok / form.success / form.message #}
+  </div>
+</section>
+`);
+      await fs.writeFile(path.join(cdir, 'styles.css'), `.${cls}-list{list-style:none;padding:0;display:grid;gap:10px}\n.${cls}-list li{padding:12px 16px;background:var(--color-surface);border-radius:var(--radius)}\n`);
+      console.log(`OK  ${path.relative(process.cwd(), cdir)} : manifest.yaml, template.html, styles.css. Ensuite : décrire les props, écrire le gabarit, puis sitec check ${dir}.`);
+      return 0;
     }
 
     case 'check':
@@ -67,7 +138,7 @@ export async function run(argv) {
         else { for (const f of placeholders) console.log(JSON.stringify({ ...f, file: path.relative(root, f.file).replaceAll('\\', '/') })); return 1; }
       }
       if (cmd === 'check') {
-        console.log(JSON.stringify({ ok: true, pages: project.pages.length, sections: countSections(project), warnings: warnings.length + placeholders.length, review: 'sitec review ' + dir }));
+        console.log(JSON.stringify({ ok: true, language: project.language ?? 1, pages: project.pages.length, sections: countSections(project), collections: Object.keys(project.collections || {}).length, components: { composites: Object.keys(project.composites || {}).length, project: (project.componentSources || []).length }, warnings: warnings.length + placeholders.length, review: 'sitec review ' + dir }));
         return 0;
       }
       const outIdx = rest.indexOf('--out');
@@ -207,14 +278,49 @@ function countSections(project) {
   return project.pages.reduce((n, p) => n + (Array.isArray(p.data?.sections) ? p.data.sections.length : 0), 0);
 }
 
-function printCatalog(catalog) {
+/** Charge un projet pour en lire les composants (catalogue étendu, composés), sans arrêter sur les erreurs de validation. */
+async function projectCatalog(dir, catalog) {
+  const project = await loadProject(path.resolve(dir));
+  validateProject(project, catalog);
+  return { project, catalog: project.catalog || catalog };
+}
+
+function printComposite(def) {
+  const d = describeComposite(def);
+  console.log(`# ${d.name} (composant composé du projet, components.yaml)\n${d.description}\n\nParamètres :`);
+  for (const p of d.props) console.log(`  ${p.name}${p.required ? ' (obligatoire)' : ''}: ${p.type}${p.default !== null && p.default !== undefined ? ` (défaut ${JSON.stringify(p.default)})` : ''}${p.description ? ` — ${p.description}` : ''}`);
+  console.log(`\nProduit les sections : ${d.produces.join(', ')}`);
+}
+
+function explainLanguage() {
+  console.log(`# Langage Devanture, version 1 (site.yaml : language: 1)
+
+Expressions {{ … }} dans toute valeur texte (pages, site.yaml, données) :
+  racines à la compilation : site.*, const.* (site.yaml › constants), page.{id,route,title}, collections.<nom> (liste des éléments)
+  racines à l'affichage    : item.* (page route: /…/[id] avec source: <collection>), product.* (source: products), order.* (source: orders)
+  opérateurs : + - * / %  ~ (concaténation)  == != < <= > >=  and or not  in  ( )  listes [a, b]
+  filtres (| nom(args), prioritaires sur les opérateurs : mettez des parenthèses) : ${TEMPLATE_VOCABULARY.filters.join(', ')}
+  une valeur réduite à une seule expression garde son type (liste, nombre, objet) ; une clé inconnue sous site ou const est une erreur (sauf | default(x))
+
+Constantes : site.yaml › constants: { delai: 1 h, zone: Lyon } → {{ const.delai }}.
+Collections : site.yaml › collections: { nom: { label, fields: { champ: type }, sort } } ; data/<nom>.yaml ; page route: /chemin/[id] + source: nom ; composant collection.list.
+  types de champ : string, text, number, boolean, date, asset, list, link.
+Composants composés : components.yaml › components: { nom: { params, sections } } ; dans sections, {{ p.param }} et { for: p.liste, as: x, item: {…} }.
+Composants de projet : components/<nom>/manifest.yaml + template.html (+ styles.css, module.js) ; sitec component new <dossier> <nom>.
+  gabarit : {{ expr }} échappé ; balises ${TEMPLATE_VOCABULARY.tags.join(', ')} ; variables ${TEMPLATE_VOCABULARY.variables.join(', ')} ; fonctions ${TEMPLATE_VOCABULARY.functions.join(', ')} (HTML sûr : ${TEMPLATE_VOCABULARY.safe.join(', ')})
+  effets déclarés : manifest.yaml › effects.form { store, fields, notify, to, success } → {% form %} … {% endform %}, {{ field('nom') }}, form.ok, form.failed, form.message, form.success.
+Spécification complète : docs/LANGAGE.md.`);
+}
+
+function printCatalog(catalog, proj = null) {
   console.log('Composants disponibles (sections). Props : * = obligatoire. Détail : sitec explain <nom>\n');
   for (const c of catalog.list()) {
     const props = Object.entries(c.manifest.props.properties || {})
       .map(([k]) => (c.manifest.props.required || []).includes(k) ? `${k}*` : k)
       .join(', ');
-    console.log(`${c.name.padEnd(14)} ${c.manifest.description}\n${''.padEnd(14)} props: ${props}`);
+    console.log(`${c.name.padEnd(14)} ${c.manifest.description}${c.project ? '   [composant du projet]' : ''}\n${''.padEnd(14)} props: ${props}`);
   }
+  for (const def of Object.values(proj?.project?.composites || {})) console.log(`${def.name.padEnd(14)} ${def.description}   [composé du projet → ${def.sections.map(s => Object.keys(s)[0]).join(' + ')}]\n${''.padEnd(14)} params: ${Object.entries(def.params).map(([k, v]) => v.required ? k + '*' : k).join(', ')}`);
   console.log(`\nFichiers attendus : site.yaml, pages/*.page.yaml, assets/ (images). Voir CLAUDE.md.\nConfiguration du site (nav, thème, tokens, pied, coordonnées) : sitec explain site`);
 }
 
@@ -242,6 +348,7 @@ ${Object.entries(THEME_PRESETS.clair).map(([k, v]) => `          ${k.padEnd(18)}
   static: objet — { enabled: true } cache statique des pages sans état pour les visiteurs sans cookie (servi par Apache sans PHP) ; défaut : activé
   studio: objet — { enabled: false } embarque l'atelier (compilateur navigateur + source du site) sur /_studio, derrière ADMIN_TOKEN ; défaut : désactivé
   offline: objet — { enabled: false, short_name, theme_color } service worker : assets et versions texte consultables hors ligne ; défaut : désactivé
+  language (racine, hors site) : 1 — version du langage ; constants (racine) : { nom: valeur } lues par {{ const.nom }} ; collections (racine) : voir sitec explain langage
   images: objet — { enabled: true, widths: [480, 960, 1600], quality: 80 } variantes WebP redimensionnées à la compilation pour les JPEG, PNG et WebP de assets/ (srcset, width/height, chargement différé) ; défaut : activé si sharp est installé
 Exploitation (hors DSL) : back-office /_admin (ADMIN_TOKEN dans .env), stockage SQLite ou fichiers (STORE), déploiement signé /_deploy (DEPLOY_SECRET, commande sitec deploy), multi-sites : sitec host
       .enabled: boolean (défaut true)   .requires_consent: boolean (défaut true)   .consent_text: string

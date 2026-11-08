@@ -22,6 +22,7 @@ function sectionHtml(name, p, ctx) {
     case 'products.grid': return `${h(2, p.title || 'Produits')}${p.intro ? `<p>${esc(p.intro)}</p>` : ''}<ul>${(ctx.products || []).filter(x => (!p.filter?.category || x.category === p.filter.category) && (!p.filter?.featured || x.featured)).slice(0, p.limit || 100).map(x => `<li>${ctx.productRoute ? `<a href="${esc(ctx.productRoute.replace('{id}', x.id))}">${esc(x.name)}</a>` : esc(x.name)} : ${x.price.toFixed(2).replace('.', ',')} €${x.stock === 0 ? ' (épuisé)' : ''}</li>`).join('')}</ul>`;
     case 'cart.page': return `<h2>Panier</h2><p>Le panier est disponible sur la <a href="${esc(ctx.route)}">version complète</a>.</p>`;
     case 'checkout.page': return `<h2>Commande</h2><p>La commande se passe sur la <a href="${esc(ctx.route)}">version complète</a>.</p>`;
+    case 'collection.list': return `${h(2, p.title)}${p.intro ? `<p>${esc(p.intro)}</p>` : ''}<ul>${(p._items || []).map(it => { const t = esc(String(it[p._fields?.title] ?? it.id)); const u = p._route ? p._route.replace('[id]', it.id) : null; return `<li>${u ? `<a href="${esc(u)}">${t}</a>` : t}</li>`; }).join('')}</ul>`;
     case 'recent': case 'custom': return '';
     default: return `${h(2, p.title)}${p.text ? paras(p.text) : ''}`;
   }

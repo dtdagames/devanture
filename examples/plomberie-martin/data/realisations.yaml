@@ -1,0 +1,41 @@
+# Collection « realisations », déclarée dans site.yaml. Un élément = un chantier, avec sa page /realisations/<id>.
+realisations:
+  - id: salle-de-bain-lyon-3
+    title: Salle de bain complète, Lyon 3e
+    image: chantier-1.svg
+    date: 2026-09
+    category: salle-de-bain
+    text: |
+      Dépose de l'ancienne baignoire, création d'une douche à l'italienne avec receveur extra-plat, meuble double vasque et sèche-serviettes.
+
+      Huit jours de chantier, appartement occupé pendant les travaux.
+  - id: chaudiere-villeurbanne
+    title: Chaudière à condensation, Villeurbanne
+    image: chantier-2.svg
+    date: 2026-06
+    category: chauffage
+    text: Remplacement d'une chaudière de 1998 par un modèle gaz à condensation, thermostat connecté et désembouage du réseau. Facture de gaz réduite d'un quart le premier hiver.
+  - id: cuisine-caluire
+    title: Plomberie de cuisine, Caluire
+    image: chantier-3.svg
+    date: 2026-04
+    category: cuisine
+    text: Déplacement de l'évier sur l'îlot central, alimentation et évacuation encastrées dans la chape, raccordement du lave-vaisselle et du réfrigérateur américain.
+  - id: chauffe-eau-bron
+    title: Chauffe-eau thermodynamique, Bron
+    image: chantier-4.svg
+    date: 2026-02
+    category: chauffage
+    text: Dépose d'un cumulus électrique de 200 litres, pose d'un chauffe-eau thermodynamique sur air ambiant dans le cellier, reprise de l'ancien appareil.
+  - id: wc-suspendu-lyon-7
+    title: WC suspendu, Lyon 7e
+    image: chantier-5.svg
+    date: 2025-11
+    category: salle-de-bain
+    text: Bâti-support autoportant, plaque de commande double chasse, habillage carrelé assorti au sol existant.
+  - id: douche-italienne-vaulx
+    title: Douche à l'italienne, Vaulx-en-Velin
+    image: chantier-6.svg
+    date: 2025-09
+    category: salle-de-bain
+    text: Douche à l'italienne de 120 × 90 dans une salle d'eau de 3 m², paroi fixe, étanchéité sous carrelage, siphon de sol à sortie horizontale.

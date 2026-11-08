@@ -1,0 +1,14 @@
+<section class="section testimonials">
+  <div class="container">
+    {% if p.title %}<div class="section-head"><h2>{{ p.title }}</h2></div>{% endif %}
+    <div class="grid grid-3">
+      {% for t in p.items %}
+      <blockquote class="card testimonial">
+        {% if t.rating %}<div class="stars" aria-label="{{ t.rating | int }} sur 5">{{ '★' | repeat(t.rating | int) }}{{ '☆' | repeat(5 - (t.rating | int)) }}</div>{% endif %}
+        <p>« {{ t.quote }} »</p>
+        <footer><strong>{{ t.author }}</strong>{% if t.role %} <span class="muted">· {{ t.role }}</span>{% endif %}</footer>
+      </blockquote>
+      {% endfor %}
+    </div>
+  </div>
+</section>

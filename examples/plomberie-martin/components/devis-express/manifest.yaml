@@ -1,0 +1,25 @@
+name: devis-express
+description: "Demande de devis en trois champs, enregistrée dans la collection devis et transmise par e-mail. Composant propre au site."
+props:
+  type: object
+  required: [title]
+  properties:
+    title: { type: string, description: titre du bloc }
+    intro: { type: string, description: phrase sous le titre }
+    delai: { type: string, description: "délai de réponse annoncé (ex. 2 h ouvrées)" }
+effects:
+  form:
+    store: devis
+    notify: true
+    success: Merci, un plombier vous rappelle pour chiffrer votre demande.
+    fields:
+      - name
+      - phone
+      - { name: type_travaux, label: Type de travaux, type: select, options: [Fuite ou dépannage, Chauffe-eau, Chaudière ou chauffage, Salle de bain, Autre], required: true }
+      - { name: details, label: Précisions, type: textarea, placeholder: "Étage, accès, urgence…" }
+example: |
+  - devis-express:
+      title: Un devis en quelques minutes
+      intro: Dites-nous ce qui ne va pas, nous rappelons avec un prix.
+      delai: 2 h ouvrées
+intents: [devis, demander un prix, estimation, rappel]

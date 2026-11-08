@@ -6,12 +6,27 @@ import { THEME_PRESETS } from './emit/php/css.js';
 import { normalizeContactFields } from './forms.js';
 import { compileSegments } from './segments.js';
 import { validateProducts, validateShop } from './shop.js';
+import { resolveData, resolvePages } from './lang/resolve.js';
+import { normalizeSpec, normalizeItems } from './collections.js';
+import { checkRuntimeExpressions } from './lang/resolve.js';
+import { buildComponent } from './catalog.js';
+import { compileTemplate } from './lang/template.js';
+import { loadComposites, expandComposites } from './composition.js';
+
+/** Versions du langage que ce compilateur sait lire (site.yaml › language). */
+export const LANGUAGE_VERSIONS = [1];
 
 const SITE_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   required: ['site'],
   properties: {
+    // Version du langage (défaut 1). Une version inconnue arrête tout : le site est écrit pour un compilateur plus récent.
+    language: { type: 'integer' },
+    // Constantes du projet : valeurs nommées une fois, lues par {{ const.nom }} partout.
+    constants: { type: 'object' },
+    // Collections génériques : { nom: { label, fields: { champ: type | { type, required, label, default } }, sort, title_field } }.
+    collections: { type: 'object' },
     site: {
       type: 'object',
       additionalProperties: false,
@@ -87,7 +102,7 @@ const PAGE_SCHEMA = {
   properties: {
     page: { type: 'string' },
     route: { type: 'string', pattern: '^/[a-z0-9\\-/]*(\\[id\\])?$' },
-    source: { type: 'string', enum: ['products', 'orders'] },
+    source: { type: 'string', pattern: '^[a-z][a-z0-9_]*$' },
     seo: {
       type: 'object', additionalProperties: false, required: ['title'],
       properties: { title: { type: 'string' }, description: { type: 'string' } },
@@ -146,8 +161,10 @@ export function validateProject(project, catalog) {
   // Les routes dynamiques (/produit/[id]) acceptent tout lien /produit/<quelque chose>.
   const dynPrefixes = [...routes].filter(r => r.includes('[id]')).map(r => r.replace('[id]', ''));
   const routeOf = v => { const r = v.split('#')[0].replace(/\/+$/, '') || '/'; const d = dynPrefixes.find(p => r.startsWith(p) && r.length > p.length); return d ? d + '[id]' : r; };
-  ajv.addFormat('route', v => unreadPages || typeof v !== 'string' || /^(https?:\/\/|mailto:|tel:|#)/.test(v) || routes.has(routeOf(v)));
-  ajv.addFormat('asset', v => typeof v !== 'string' || project.assets.has(v));
+  ajv.addFormat('route', v => unreadPages || typeof v !== 'string' || /^(https?:\/\/|mailto:|tel:|#)/.test(v) || routes.has(routeOf(v)) || rtExpr(v));
+  // Une valeur contenant une expression d'affichage ({{ item.image }}) n'est connue qu'à la requête : le champ de collection est vérifié de son côté.
+  const rtExpr = v => typeof v === 'string' && /\{\{[\s\S]*?\}\}/.test(v);
+  ajv.addFormat('asset', v => typeof v !== 'string' || project.assets.has(v) || rtExpr(v));
   ajv.addFormat('file', v => typeof v !== 'string' || (project.files?.has(v.replace(/^\.?\//, '')) && !v.includes('..')));
   const compiled = new Map();
   const compile = (key, schema) => { if (!compiled.has(key)) compiled.set(key, ajv.compile(schema)); return compiled.get(key); };
@@ -157,6 +174,9 @@ export function validateProject(project, catalog) {
   if (project.site !== null && project.site !== undefined) {
     const v = compile('site', SITE_SCHEMA);
     if (!v(project.site)) errors.push(...mapAjvErrors(v.errors, { file: project.siteFile, prefix: '', ctx }));
+    const lang = project.site?.language;
+    if (lang !== undefined && !LANGUAGE_VERSIONS.includes(lang)) return dedupe([...errors, err('E_LANGUAGE', { file: project.siteFile, path: 'language', message: `Version de langage ${JSON.stringify(lang)} inconnue de ce compilateur (versions lues : ${LANGUAGE_VERSIONS.join(', ')}).`, hint: 'Mettez le compilateur à jour (étiquette plus récente dans package.json) ou retirez language pour la version 1.' })]);
+    project.language = lang ?? 1;
     // Noms de tokens de thème : liste fermée, dérivée des presets.
     const knownTokens = Object.keys(THEME_PRESETS.clair);
     for (const k of Object.keys(project.site?.site?.theme?.tokens || {})) {
@@ -165,6 +185,16 @@ export function validateProject(project, catalog) {
       errors.push(err('E_UNKNOWN_TOKEN', { file: project.siteFile, path: `site.theme.tokens.${k}`, message: `Token de thème inconnu : ${k}. Il serait ignoré silencieusement.`, expected: knownTokens, hint: s ? `Vouliez-vous dire ${s} ?` : 'sitec explain site', fix: s ? { rename: { from: k, to: s } } : undefined }));
     }
   }
+
+  // --- collections : déclarations, puis interpolation de tout le projet, puis éléments (déjà interpolés)
+  for (const [name, col] of Object.entries(project.collections || {})) col.spec = normalizeSpec(name, project.site?.collections?.[name], project.siteFile, errors);
+  for (const name of Object.keys(project.site?.collections || {})) if (!project.collections?.[name]) errors.push(err('E_FORMAT', { file: project.siteFile, path: `collections.${name}`, message: `Nom de collection mal formé : ${name}.`, hint: 'Minuscules, chiffres et _ ; commence par une lettre.' }));
+  // Expressions {{ … }} de compilation (site, const, page, collections) ; celles d'affichage (item, product, order) restent en place.
+  const parseOk = !errors.some(e => e.code === 'E_YAML_PARSE');
+  if (parseOk) resolveData(project, errors);
+  for (const col of Object.values(project.collections || {})) if (col.spec) col.items = normalizeItems(col.spec, col.raw, col.file, project.assets, errors);
+  if (parseOk) resolvePages(project, errors); // les pages voient les collections normalisées
+  const collectionNames = Object.keys(project.collections || {});
 
   // --- data/products.yaml
   const prod = validateProducts(project.productsRaw, project.productsFile, project.assets);
@@ -176,6 +206,47 @@ export function validateProject(project, catalog) {
   errors.push(...seg.errors);
   project.segments = seg.spec;
   const segmentNames = seg.spec ? Object.keys(seg.spec.segments) : [];
+
+  // --- composants de projet (components/<nom>/manifest.yaml + template.html) : construits, vérifiés, ajoutés au catalogue
+  const entries = [];
+  for (const src of project.componentSources || []) {
+    const mf = src.dir + '/manifest.yaml';
+    const { entry, errors: ce } = buildComponent({ ...src, project: true });
+    for (const m of ce) errors.push(err('E_COMPONENT', { file: mf, path: '', message: `Composant ${src.name} : ${m}.` }));
+    if (!entry) continue;
+    if (catalog.has(entry.name)) { errors.push(err('E_COMPONENT_CONFLICT', { file: mf, path: 'name', message: `${entry.name} existe déjà dans le catalogue natif.`, hint: 'Renommez le composant de projet (ex. ' + entry.name + '.maison).' })); continue; }
+    const ef = entry.manifest.effects;
+    if (ef !== undefined) {
+      if (!ef || typeof ef !== 'object' || Array.isArray(ef)) errors.push(err('E_TYPE', { file: mf, path: 'effects', message: 'effects attend { form: { store, fields, notify, to, success } }.' }));
+      else for (const k of Object.keys(ef)) {
+        if (k !== 'form') { errors.push(err('E_UNKNOWN_PROP', { file: mf, path: `effects.${k}`, message: `Effet inconnu : ${k}.`, expected: ['form'] })); continue; }
+        const f = ef.form;
+        if (!f || typeof f !== 'object' || Array.isArray(f)) { errors.push(err('E_TYPE', { file: mf, path: 'effects.form', message: 'effects.form attend { store, fields, notify, to, success }.' })); continue; }
+        for (const fk of Object.keys(f)) if (!['store', 'fields', 'notify', 'to', 'success', 'required'].includes(fk)) errors.push(err('E_UNKNOWN_PROP', { file: mf, path: `effects.form.${fk}`, message: `Propriété inconnue : ${fk}.`, expected: ['store', 'fields', 'notify', 'to', 'success'] }));
+        if (typeof f.store !== 'string' || !/^[a-z][a-z0-9_]*$/.test(f.store)) errors.push(err('E_FORMAT', { file: mf, path: 'effects.form.store', message: 'store : nom de collection d\'exploitation (minuscules, chiffres, _), ex. reservations.' }));
+        else if (['orders', 'events', 'stock', 'products'].includes(f.store)) errors.push(err('E_FORBIDDEN', { file: mf, path: 'effects.form.store', message: `${f.store} est réservé.` }));
+        if (f.notify !== undefined && typeof f.notify !== 'boolean' && !(typeof f.notify === 'string' && /^[^@\s]+@[^@\s]+$/.test(f.notify))) errors.push(err('E_TYPE', { file: mf, path: 'effects.form.notify', message: 'notify : true, false ou une adresse e-mail.' }));
+        if (f.to !== undefined && !(typeof f.to === 'string' && /^[^@\s]+@[^@\s]+$/.test(f.to))) errors.push(err('E_TYPE', { file: mf, path: 'effects.form.to', message: 'to : adresse e-mail du destinataire.' }));
+        const nf = normalizeContactFields({ fields: f.fields, required: f.required }, { file: mf, path: 'effects.form' });
+        errors.push(...nf.errors);
+        f._fields = nf.fields;
+      }
+    }
+    entries.push(entry);
+  }
+  const cat = entries.length ? catalog.extend(entries) : catalog;
+  project.catalog = cat;
+  // Gabarits neutres (template.html) : compilés dès la vérification, erreurs avec numéro de ligne.
+  for (const c of cat.list()) {
+    if (c.files['template.html'] === undefined || c.compiled) continue;
+    const r = compileTemplate(c.files['template.html'], { name: c.name, props: c.manifest.props, effects: c.manifest.effects || null });
+    c.compiled = r;
+    for (const e of r.errors) errors.push(err('E_TEMPLATE', { file: c.dir + '/template.html', path: `ligne ${e.line}`, message: `Gabarit ${c.name} : ${e.message}`, hint: 'Vocabulaire : {{ expr }}, {% if %}, {% for x in liste %}, {% set %}, {% form %} ; variables p, site, page, item, product, order, form, loop.' }));
+  }
+  // Composants composés (components.yaml) : assemblages nommés, développés page par page avant la validation des sections.
+  project.composites = loadComposites(project, cat, errors);
+  // Expressions d'affichage dans les pages : item seulement sur une page de collection, product sur products, order sur orders.
+  checkRuntimeExpressions(project, errors);
 
   // --- pages dérivées (micro-sites) : matérialisées avant la validation des sections
   resolveDerivedPages(project, errors);
@@ -201,12 +272,20 @@ export function validateProject(project, catalog) {
         }
       }
     }
+    // Source d'une page dynamique : boutique (products, orders) ou collection déclarée.
+    if (typeof page.data?.source === 'string') {
+      const allowed = ['products', 'orders', ...collectionNames];
+      if (!allowed.includes(page.data.source)) { const s = nearest(page.data.source, allowed); errors.push(err('E_UNKNOWN_COLLECTION', { file, path: 'source', message: `Source inconnue : ${page.data.source}.`, expected: allowed, hint: s ? `Vouliez-vous dire ${s} ?` : 'Déclarez la collection dans site.yaml › collections.', fix: s ? { set: s } : undefined })); }
+      if (typeof page.data.route === 'string' && !page.data.route.includes('[id]')) errors.push(err('E_FORMAT', { file, path: 'route', message: 'Une page avec source doit avoir une route dynamique : /chemin/[id].' }));
+    } else if (typeof page.data?.route === 'string' && page.data.route.includes('[id]')) errors.push(err('E_MISSING_PROP', { file, path: 'source', message: 'Une route /…/[id] exige source: <collection> (products, orders ou une collection déclarée).' }));
     if (typeof page.data?.route === 'string') {
       if (seenRoutes.has(page.data.route)) {
         errors.push(err('E_DUPLICATE_ROUTE', { file, path: 'route', message: `La route ${page.data.route} est déjà utilisée par ${seenRoutes.get(page.data.route)}.`, hint: 'Deux pages ne peuvent pas partager la même route.' }));
       } else seenRoutes.set(page.data.route, page.id + '.page.yaml');
     }
     if (!Array.isArray(page.data?.sections)) continue;
+    const origins = Object.keys(project.composites).length ? expandComposites(page, project.composites, project, errors, cat) : [];
+    const before = errors.length;
 
     const ids = new Set();
     page.data.sections.forEach((section, i) => {
@@ -221,10 +300,10 @@ export function validateProject(project, catalog) {
         return;
       }
       const name = keys[0];
-      const comp = catalog.get(name);
+      const comp = cat.get(name);
       if (!comp) {
-        const s = catalog.suggest(name);
-        errors.push(err('E_UNKNOWN_COMPONENT', { file, path: base, message: `Composant inconnu : ${name}.`, expected: catalog.names(), hint: s ? `Vouliez-vous dire ${s} ?` : 'sitec catalog pour la liste.', fix: s ? { rename: { from: name, to: s } } : undefined }));
+        const s = cat.suggest(name);
+        errors.push(err('E_UNKNOWN_COMPONENT', { file, path: base, message: `Composant inconnu : ${name}.`, expected: cat.names(), hint: s ? `Vouliez-vous dire ${s} ?` : 'sitec catalog pour la liste.', fix: s ? { rename: { from: name, to: s } } : undefined }));
         return;
       }
       const props = section[name] ?? {};
@@ -251,6 +330,15 @@ export function validateProject(project, catalog) {
         }
       }
       if (name === 'contact.form') errors.push(...normalizeContactFields(props, { file, path: `${base}.${name}` }).errors);
+      if (name === 'collection.list' && typeof props.source === 'string') {
+        const col = project.collections?.[props.source];
+        if (!col || !col.spec) { const s = nearest(props.source, collectionNames); errors.push(err('E_UNKNOWN_COLLECTION', { file, path: `${base}.${name}.source`, message: `Collection inconnue : ${props.source}.`, expected: collectionNames, hint: s ? `Vouliez-vous dire ${s} ?` : 'Déclarez-la dans site.yaml › collections.', fix: s ? { set: s } : undefined })); }
+        else {
+          const fields = ['id', ...Object.keys(col.spec.fields)];
+          for (const [fk] of Object.entries(props.filter || {})) if (!fields.includes(fk)) { const s = nearest(fk, fields); errors.push(err('E_UNKNOWN_FIELD', { file, path: `${base}.${name}.filter.${fk}`, message: `Champ inconnu dans ${props.source} : ${fk}.`, expected: fields, hint: s ? `Vouliez-vous dire ${s} ?` : undefined })); }
+          for (const k of ['sort', 'title_field', 'image_field', 'text_field', 'meta_field']) if (typeof props[k] === 'string' && !fields.includes(props[k].replace(/^-/, ''))) { const s = nearest(props[k].replace(/^-/, ''), fields); errors.push(err('E_UNKNOWN_FIELD', { file, path: `${base}.${name}.${k}`, message: `Champ inconnu dans ${props.source} : ${props[k]}.`, expected: fields, hint: s ? `Vouliez-vous dire ${s} ?` : undefined })); }
+        }
+      }
       if (name === 'hours' && Array.isArray(props.days)) {
         const seenDays = new Set();
         props.days.forEach((d, j) => {
@@ -267,6 +355,8 @@ export function validateProject(project, catalog) {
         ids.add(props.id);
       }
     });
+    // Erreurs dans une section issue d'une composition : nommer l'assemblage et l'usage, car l'index final ne figure pas dans le YAML.
+    for (let k = before; k < errors.length; k++) { const m = /^sections[(d+)]/.exec(errors[k].path || ''); const o = m && origins[Number(m[1])]; if (o && errors[k].file === file) errors[k].message += ` (section produite par le composant composé ${o.via}, utilisé en ${o.usage})`; }
   }
 
   // --- boutique : cohérence des pages et composants

@@ -1,6 +1,21 @@
 # Journal des versions
 
-Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.1.3`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.2.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+
+## v0.2.0 — 2026-11-08 — langage version 1
+
+Devanture devient un langage au sens plein : des moyens d'abstraction définis par l'auteur, une spécification versionnée (`docs/LANGAGE.md`), un noyau d'expressions unique évalué à la compilation et traduit vers la cible.
+
+- **Expressions** `{{ … }}` dans toute valeur : racines `site`, `const`, `page`, `collections` à la compilation, `item`, `product`, `order` à l'affichage ; opérateurs, comparaisons, `and/or/not`, 30 filtres ; vérification statique des racines et des clés. Même sémantique en JavaScript et dans le PHP produit (`scripts/verify-lang.mjs`).
+- **Constantes** (`site.yaml › constants`) et **version du langage** (`language: 1`, `E_LANGUAGE` si inconnue).
+- **Collections génériques** : déclaration typée dans `site.yaml`, éléments dans `data/<nom>.yaml`, page par élément (`route: /…/[id]`, `source: <nom>`), composant `collection.list` (filtre, tri, limite, champs d'affichage), 404 pour un id inconnu.
+- **Composants composés** (`components.yaml`) : assemblages nommés avec paramètres typés et valeurs par défaut, `{ for, as, item }`, expansion à la compilation, erreurs qui nomment l'assemblage et l'usage.
+- **Composants de projet** (`components/<nom>/`) : manifeste au format du catalogue, **gabarit neutre** `template.html` compilé vers PHP (`{{ }}` échappé, `if/for/set`, fonctions d'affichage, variables vérifiées contre le manifeste, erreurs avec ligne), styles et module propres, PHP interdit. `sitec component new`.
+- **Effets déclarés** : `effects.form` (store, fields, notify, success) → `{% form %}`, `{{ field('x') }}`, validation, CSRF, pot de miel, enregistrement, e-mail, onglet « Formulaires » du back-office avec CSV, collections d'exploitation créées à la demande.
+- Sept composants natifs réécrits dans le gabarit neutre (features, stats, steps, cta, timeline, testimonials, faq), rendu identique.
+- CLI : `catalog [dossier]`, `explain <nom> [dossier]`, `explain langage`, `component new` ; `check` renvoie la version du langage et le compte des collections et composants.
+- **Correctif** : le catalogue produits compilé vivait dans `data/`, exclu du manifeste et du déploiement : une première mise en ligne d'une boutique partait sans produits. Les données compilées sont désormais sous `lib/data/`.
+- Exemple plomberie-martin : constantes, collection `realisations` (liste, pages, filtres), composé `offre`, composant de projet `devis-express` avec formulaire déclaré.
 
 ## v0.1.3 — 2026-11-08
 

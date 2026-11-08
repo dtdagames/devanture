@@ -1,0 +1,16 @@
+<section class="section faq">
+  <div class="container faq-inner">
+    {% if p.title or p.intro %}
+    <div class="section-head">
+      {% if p.title %}<h2>{{ p.title }}</h2>{% endif %}
+      {% if p.intro %}<p>{{ p.intro }}</p>{% endif %}
+    </div>
+    {% endif %}
+    {% for it in p.items %}
+    <details class="faq-item" id="{{ (p.id | default('faq')) ~ '-q' ~ loop.index }}"{% if loop.first %} open{% endif %}>
+      <summary>{{ it.q }}</summary>
+      <div class="faq-answer">{{ paragraphs(it.a) }}</div>
+    </details>
+    {% endfor %}
+  </div>
+</section>

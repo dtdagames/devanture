@@ -37,6 +37,7 @@ function admin_log(string $action, array $data = []): void { sl_store_append('ev
 function admin_layout(string $title, string $body, string $tab): void {
     global $site;
     $tabs = function_exists('shop_products') ? [['', 'Tableau de bord'], ['messages', 'Messages'], ['orders', 'Commandes'], ['stock', 'Stock'], ['events', 'Mesures'], ['integrity', 'Intégrité']] : [['', 'Tableau de bord'], ['messages', 'Messages'], ['events', 'Mesures'], ['integrity', 'Intégrité']];
+    if (!empty($GLOBALS['SL_STORES'])) array_splice($tabs, 2, 0, [['forms', 'Formulaires']]);
     header('Content-Type: text/html; charset=UTF-8');
     echo '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>' . e($title) . ' · ' . e($site['name']) . '</title><link rel="stylesheet" href="/assets/site.css"><style>
     .adm{max-width:1100px;margin:0 auto;padding:20px 16px 60px}.adm h1{font-size:1.4rem;margin:0 0 4px}.adm-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 22px}.adm-tabs a{padding:7px 12px;border:1px solid var(--color-border);border-radius:999px;text-decoration:none;color:var(--color-fg)}.adm-tabs a.on{background:var(--color-primary);color:var(--color-primary-fg);border-color:var(--color-primary)}
@@ -69,6 +70,16 @@ function admin_dispatch(string $path, array $site): void {
     $csrf = admin_csrf();
     $shop = function_exists('shop_products');
 
+    if ($sub === 'forms' && !empty($GLOBALS['SL_STORES'])) {
+        $store = (string)($_GET['store'] ?? $GLOBALS['SL_STORES'][0]);
+        if (!in_array($store, $GLOBALS['SL_STORES'], true)) $store = $GLOBALS['SL_STORES'][0];
+        $rows = array_reverse(sl_store_all($store));
+        if (isset($_GET['csv'])) admin_csv($store, $rows);
+        $b = '<p>'; foreach ($GLOBALS['SL_STORES'] as $s) $b .= '<a class="tag" href="/_admin/forms?store=' . e($s) . '"' . ($s === $store ? ' style="font-weight:bold"' : '') . '>' . e($s) . '</a> '; $b .= '</p>';
+        $b .= '<p><a class="btn btn-outline" href="/_admin/forms?store=' . e($store) . '&csv=1">Exporter en CSV</a></p><table><tr><th>Date</th><th>Formulaire</th><th>E-mail</th><th>Contenu</th></tr>';
+        foreach ($rows as $m) { $fields = array_diff_key($m, array_flip(['id', 'at', 'form', 'ip', 'page', 'mail'])); $b .= '<tr><td>' . e(substr((string)($m['at'] ?? ''), 0, 16)) . '<br><span class="muted">' . e($m['id'] ?? '') . '</span></td><td><span class="tag">' . e($m['form'] ?? '') . '</span></td><td>' . (isset($m['mail']) ? '<span class="tag">' . e($m['mail'] === 'sent' ? 'envoyé' : ($m['mail'] === 'failed' ? 'échec' : 'aucun')) . '</span>' : '') . '</td><td>'; foreach ($fields as $k => $v) $b .= '<b>' . e($k) . '</b> : ' . nl2br(e(is_array($v) ? json_encode($v, JSON_UNESCAPED_UNICODE) : (string)$v)) . '<br>'; $b .= '</td></tr>'; }
+        admin_layout('Formulaires', $b . '</table>' . (!$rows ? '<p class="muted">Aucune réponse.</p>' : ''), 'forms');
+    }
     if ($sub === 'messages') {
         if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') { admin_check_csrf(); $id = (string)$_POST['id']; sl_store_update('messages', $id, fn($m) => array_merge($m, ['handled' => !empty($_POST['handled']), 'handled_at' => date('c')])); admin_log('message_handled', ['id' => $id]); header('Location: /_admin/messages', true, 303); exit; }
         $rows = array_reverse(sl_store_all('messages'));
@@ -95,7 +106,7 @@ function admin_dispatch(string $path, array $site): void {
     }
     if ($sub === 'stock' && $shop) {
         if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') { admin_check_csrf(); $id = (string)$_POST['id']; $n = max(0, (int)$_POST['remaining']); shop_stock_set($id, $n); admin_log('stock_set', ['id' => $id, 'remaining' => $n]); header('Location: /_admin/stock', true, 303); exit; }
-        $catalog = json_decode((string)@file_get_contents(__DIR__ . '/../data/products.json'), true) ?: [];
+        $catalog = json_decode((string)@file_get_contents(__DIR__ . '/data/products.json'), true) ?: [];
         $state = shop_stock_state($catalog);
         $b = '<table><tr><th>Produit</th><th>Prix</th><th>Stock déclaré</th><th>Restant</th><th></th></tr>';
         foreach ($catalog as $p) { $s = $state[$p['id']] ?? null; $b .= '<tr><td><b>' . e($p['name']) . '</b><br><span class="muted">' . e($p['id']) . '</span></td><td>' . e(shop_money((float)$p['price'])) . '</td><td>' . ($s ? (int)$s['base'] : '<span class="muted">illimité</span>') . '</td><td>' . ($s ? '<form class="inline" method="post"><input type="hidden" name="_csrf" value="' . e($csrf) . '"><input type="hidden" name="id" value="' . e($p['id']) . '"><input type="number" name="remaining" value="' . (int)$s['remaining'] . '" min="0" style="width:80px"> <button class="btn btn-outline">OK</button></form>' : '—') . '</td><td>' . ($s && (int)$s['remaining'] <= 0 ? '<span class="tag">épuisé</span>' : '') . '</td></tr>'; }

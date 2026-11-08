@@ -1,0 +1,9 @@
+<section class="section cta cta-{{ p.style | default('primary') }}">
+  <div class="container cta-inner">
+    <div>
+      <h2>{{ p.title }}</h2>
+      {% if p.text %}<p>{{ p.text }}</p>{% endif %}
+    </div>
+    {{ link(p.button, 'btn') }}
+  </div>
+</section>

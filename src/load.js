@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import YAML from 'yaml';
 import { err } from './errors.js';
+import { readComponentDir } from './catalog.js';
 
 /**
  * Charge un projet : site.yaml, pages/*.page.yaml, liste des assets.
@@ -41,6 +42,26 @@ export async function loadProject(root) {
   project.productsFile = path.join(root, 'data', 'products.yaml');
   project.productsRaw = null;
   try { await fs.access(project.productsFile); project.productsRaw = await readYaml(project.productsFile, project.loadErrors) ?? null; } catch { /* pas de boutique */ }
+
+  // Collections génériques (déclarées dans site.yaml, remplies dans data/<nom>.yaml) : lues ici, validées plus tard.
+  project.collections = {};
+  const declared = project.site && typeof project.site === 'object' && project.site.collections && typeof project.site.collections === 'object' ? Object.keys(project.site.collections) : [];
+  for (const name of declared) {
+    if (!/^[a-z][a-z0-9_]*$/.test(name)) continue;
+    const file = path.join(root, 'data', name + '.yaml');
+    let raw = null;
+    try { await fs.access(file); raw = await readYaml(file, project.loadErrors) ?? null; } catch { /* absent : signalé par la validation */ }
+    project.collections[name] = { file, raw, items: [], spec: null };
+  }
+
+  // Composants composés du projet (optionnel) : components.yaml.
+  project.componentsFile = path.join(root, 'components.yaml');
+  project.componentsRaw = null;
+  try { await fs.access(project.componentsFile); project.componentsRaw = await readYaml(project.componentsFile, project.loadErrors) ?? null; } catch { /* pas de composants composés */ }
+
+  // Composants de projet (gabarit neutre) : components/<nom>/manifest.yaml + template.html (+ styles.css, module.js).
+  project.componentSources = [];
+  try { for (const d of await fs.readdir(path.join(root, 'components'), { withFileTypes: true })) if (d.isDirectory()) { const src = await readComponentDir(path.join(root, 'components', d.name)); if (src) project.componentSources.push(src); } } catch { /* pas de composants de projet */ }
 
   // Segments de personnalisation (optionnel).
   project.segmentsFile = path.join(root, 'segments.yaml');

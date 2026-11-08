@@ -1,0 +1,28 @@
+name: collection.list
+order: 45
+description: "Liste d'une collection déclarée dans site.yaml (réalisations, équipe, recettes…) : cartes avec image, titre, texte, et lien vers la page de chaque élément si une page source: <collection> existe. Filtre, tri, limite."
+props:
+  type: object
+  required: [source]
+  properties:
+    source: { type: string, description: "nom de la collection (site.yaml › collections)" }
+    title: { type: string }
+    intro: { type: string }
+    filter: { type: object, description: "{ champ: valeur } : seuls les éléments dont le champ vaut la valeur" }
+    sort: { type: string, description: "champ de tri, précédé de - pour l'ordre décroissant (défaut : sort de la collection, sinon ordre du fichier)" }
+    limit: { type: integer, minimum: 1 }
+    columns: { type: integer, enum: [2, 3, 4], description: défaut 3 }
+    title_field: { type: string, description: "champ affiché en titre (défaut : title_field de la collection)" }
+    image_field: { type: string, description: "champ image (défaut : premier champ asset)" }
+    text_field: { type: string, description: "champ texte court (défaut : premier champ text)" }
+    meta_field: { type: string, description: "champ affiché en surtitre, date ou catégorie (défaut : premier champ date)" }
+    cta: { $ref: "#/$defs/link", description: lien sous la liste }
+    empty: { type: string, description: "texte quand la liste est vide (défaut : rien)" }
+example: |
+  - collection.list:
+      source: realisations
+      title: Nos derniers chantiers
+      filter: { category: salle-de-bain }
+      sort: -date
+      limit: 6
+intents: [liste, réalisations, exemples, catalogue, équipe, actualités]

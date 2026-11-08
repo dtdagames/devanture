@@ -32,6 +32,9 @@ jobs:
         run: |
           bash scripts/ci-run.sh "banc site savonnerie" node scripts/verify-php-site.mjs examples/savonnerie/dist 8971
           bash scripts/ci-run.sh "banc site plomberie" node scripts/verify-php-site.mjs examples/plomberie-martin/dist 8972
+      - name: Banc du langage (expressions JS = PHP, gabarits, collections, composition, composant de projet)
+        env: { PHP_BIN: php }
+        run: bash scripts/ci-run.sh "banc langage" node scripts/verify-lang.mjs examples/plomberie-martin/dist 8973
       - name: Dépôt de site (sitec init) et compilation dans l'atelier
         run: |
           bash scripts/ci-run.sh "sitec init" node bin/sitec.js init /tmp/site-test --name "Site de test" --no-git --local

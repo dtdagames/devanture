@@ -18,6 +18,15 @@ Les noms de routes commençant par `_` sont techniques et réservés. Les cookie
 | Images | Chaque JPEG, PNG ou WebP de `assets/` est copié et décliné en variantes WebP aux largeurs de `site.images.widths` (jamais agrandi), nommées `<nom>.<largeur>.webp` à côté de l'original. Les `<img>` des composants portent `width`, `height`, `srcset`, `sizes` et `loading="lazy"` (sauf l'image principale d'une fiche produit, `fetchpriority="high"`) ; un fond de bandeau ou un lien d'agrandissement prend la variante la plus proche de 1600 px. Sans redimensionneur, les dimensions restent déclarées et l'original est servi. Le pipeline (`src/images/`) est indépendant de la cible, seul le rendu des balises lui appartient. |
 | Version texte | `/lisible<route>` sert `lisible/<page>.html`, HTML simplifié compilé. |
 
+## 1 bis. Gabarits, données compilées, collections
+
+| Élément | Comportement attendu |
+|---|---|
+| Gabarits neutres | Un composant à `template.html` est compilé vers la cible par `src/lang/template.js` ; `{{ }}` est échappé sauf fonctions d'affichage ; les variables `p, site, page, item, product, order, form, loop` existent au rendu. Un émetteur fournit le runtime des expressions (`sl_get, sl_truthy, sl_f_*`, voir `EXPR_PHP` dans `src/lang/expr.js`) ou son équivalent, avec la même sémantique que l'évaluateur JavaScript (banc `verify-lang`). |
+| Données compilées | `lib/data/products.json`, `lib/data/<collection>.json` : versionnées, dans le manifeste, déployées ; jamais servies. `data/` est réservé à l'exploitation (messages, commandes, réponses de formulaires, stock, événements). |
+| Collections | Route `/…/[id]` avec `source: <collection>` : l'élément est chargé par id avant le rendu, exposé à `item`, 404 sinon ; les props de la page contenant `{{ item… }}` sont des expressions évaluées à la requête. `collection.list` reçoit ses éléments à la compilation (`_items`, `_route`, `_fields`) : page statique. |
+| Formulaires déclarés | Un composant à `effects.form` : `POST` sur la page avec `_form=<composant>`, `_csrf`, pot de miel ; validation des champs déclarés ; enregistrement dans la collection `store` (`id, at, form, ip, page, mail, …champs`) ; e-mail si `notify` ; état exposé au gabarit (`form.ok, failed, message, success, values, errors`) ; onglet « Formulaires » du back-office avec CSV. La page n'est jamais servie statique. |
+
 ## 2. Formulaire de contact
 
 - `POST` sur la route de la page, champ caché `_form=contact`, jeton `_csrf` lié à la session, pot de miel `site_web` (vide obligatoire).

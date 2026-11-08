@@ -115,7 +115,7 @@ try {
   const pages = (await fs.readdir(path.join(siteDir, 'pages')).catch(() => [])).filter(f => f.endsWith('.php'));
   const comps = (await fs.readdir(path.join(siteDir, 'components')).catch(() => [])).filter(f => f.endsWith('.php'));
   const hidden = [`${prefix}/lib/render.php`, `${prefix}/lib/images.php`, `${prefix}/lib/segments.php`, `${prefix}/data/.htaccess`, `${prefix}/pages/${pages[0]}`, `${prefix}/components/${comps[0]}`, `${prefix}/custom/.htaccess`, `${prefix}/.env`, `${prefix}/.htaccess`, `${prefix}/manifest.sha256.json`, '/.htaccess', '/.env'];
-  try { await fs.access(path.join(siteDir, 'data', 'products.json')); hidden.push(`${prefix}/data/products.json`); } catch { /* pas de boutique */ }
+  try { await fs.access(path.join(siteDir, 'lib', 'data', 'products.json')); hidden.push(`${prefix}/data/products.json`); } catch { /* pas de boutique */ }
   if (prefix) hidden.push(`${prefix}/index.php`, '/sites/'); // les assets d'un site restent lisibles par leur chemin sous sites/ : publics de toute façon
   for (const p of [...new Set(hidden)]) {
     const r = await get(p);
@@ -148,7 +148,7 @@ try {
     try { await fs.access(path.join(siteDir, p.slice(1))); const r = await get(p); ok(`${p} → 200 (${type.source})`, r.status === 200 && type.test(r.headers.get('content-type') || ''), `${r.status} ${r.headers.get('content-type') || ''}`); } catch { /* agents désactivés */ }
   }
   try {
-    const products = JSON.parse(await fs.readFile(path.join(siteDir, 'data', 'products.json'), 'utf8'));
+    const products = JSON.parse(await fs.readFile(path.join(siteDir, 'lib', 'data', 'products.json'), 'utf8'));
     const r = await get('/produit/' + products[0].id);
     ok(`Route dynamique /produit/${products[0].id} → 200`, r.status === 200 && !phpErr(r.text), String(r.status));
   } catch { /* pas de boutique */ }
@@ -171,7 +171,7 @@ try {
     ok('Banc site sous Apache', site.code === 0, siteSum + ' ' + site.out.split('\n').filter(l => l.startsWith('FAIL')).join(' | ').slice(0, 600));
     if (siteSum) console.log('  banc site :', siteSum);
     let shop = null;
-    try { await fs.access(path.join(work, 'data', 'products.json')); shop = await run('verify-shop.mjs'); } catch { /* pas de boutique */ }
+    try { await fs.access(path.join(work, 'lib', 'data', 'products.json')); shop = await run('verify-shop.mjs'); } catch { /* pas de boutique */ }
     if (shop) {
       const shopSum = shop.out.match(/\{"site".*\}/)?.[0] || '';
       ok('Banc boutique sous Apache', shop.code === 0, shopSum + ' ' + shop.out.split('\n').filter(l => l.startsWith('FAIL')).join(' | ').slice(0, 600));
@@ -189,7 +189,7 @@ try {
     ok('E-mail du formulaire : From au domaine du site, MIME et UTF-8 déclarés', !!contact && /^From: .*no-reply@127\.0\.0\.1/m.test(contact) && /^MIME-Version: 1\.0/m.test(contact) && /^Content-Type: text\/plain; charset=UTF-8/m.test(contact));
     ok('E-mail du formulaire : accents intacts dans le corps', !!contact && /éàç/.test(contact));
     ok('E-mails : aucun sujet avec caractères non ASCII bruts', mails.every(m => { const s = /^Subject: (.*)$/m.exec(m)?.[1] || ''; return !/[^\x20-\x7e]/.test(s); }));
-    let orderMail = null; try { await fs.access(path.join(work, 'data', 'products.json')); orderMail = mails.filter(m => /^Subject: .*[Cc]ommande/m.test(m)); } catch { /* pas de boutique */ }
+    let orderMail = null; try { await fs.access(path.join(work, 'lib', 'data', 'products.json')); orderMail = mails.filter(m => /^Subject: .*[Cc]ommande/m.test(m)); } catch { /* pas de boutique */ }
     if (orderMail) ok('E-mails de commande : marchand et client', orderMail.length >= 2 && orderMail.some(m => /^Subject: Votre commande/m.test(m)), String(orderMail.length));
   }
 

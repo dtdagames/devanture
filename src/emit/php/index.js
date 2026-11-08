@@ -15,13 +15,15 @@ import crypto from 'node:crypto';
 import { COMPONENTS_DIR } from '../../catalog.js';
 const SITEC_ROOT = path.resolve(COMPONENTS_DIR, '..'); // racine du dépôt (Node) ou /sitec (navigateur)
 
-export async function emit(project, catalog, out) {
+export async function emit(project, catalogBase, out) {
+  const catalog = project.catalog || catalogBase;
   // Les données d'exploitation (messages, commandes, stock, événements, .env) survivent à la recompilation.
   const keep = new Map();
   try { keep.set('.env', await fs.readFile(path.join(out, '.env'))); } catch { /* absent */ }
-  try { for (const f of await fs.readdir(path.join(out, 'data'))) if (!['products.json', '.htaccess', '.gitkeep'].includes(f)) keep.set('data/' + f, await fs.readFile(path.join(out, 'data', f))); } catch { /* absent */ }
+  try { for (const f of await fs.readdir(path.join(out, 'data'))) if (!['products.json', '.htaccess', '.gitkeep'].includes(f) && !(project.collections && f.endsWith('.json') && project.collections[f.slice(0, -5)])) keep.set('data/' + f, await fs.readFile(path.join(out, 'data', f))); } catch { /* absent */ }
   await fs.rm(out, { recursive: true, force: true });
-  await Promise.all(['lib', 'pages', 'components', 'assets', 'data', 'custom', 'cache'].map(d => fs.mkdir(path.join(out, d), { recursive: true })));
+  await Promise.all(['lib', 'lib/data', 'pages', 'components', 'assets', 'data', 'custom', 'cache'].map(d => fs.mkdir(path.join(out, d), { recursive: true })));
+  const stores = new Set();
   // Statique d'abord : une page sans état (ni formulaire, ni panier, ni horaires calculés, ni bloc libre) peut être servie telle quelle à un visiteur sans cookie.
   const DYNAMIC = new Set(['contact.form', 'cart.page', 'checkout.page', 'order.confirmation', 'products.grid', 'product.hero', 'products.related', 'hours', 'recent', 'custom']);
   const deviceSegments = JSON.stringify(project.segments || {}).includes('"device"');
@@ -33,6 +35,7 @@ export async function emit(project, catalog, out) {
   const customCss = [], customJs = [];
   for (const page of project.pages) {
     let contact = null;
+    const forms = {};
     page.data.sections.forEach((s, i) => {
       const name = Object.keys(s)[0];
       const props = s[name] ?? {};
@@ -50,6 +53,24 @@ export async function emit(project, catalog, out) {
         delete props.required;
         contact = contact || { to: props.to, fields };
       }
+      // Liste d'une collection : éléments filtrés et triés à la compilation, champs d'affichage résolus, route de la page par élément.
+      if (name === 'collection.list' && project.collections?.[props.source]?.spec) {
+        const col = project.collections[props.source]; const spec = col.spec;
+        let items = [...col.items];
+        for (const [fk, fv] of Object.entries(props.filter || {})) items = items.filter(it => String(it[fk] ?? '') === String(fv));
+        const sortKey = props.sort || spec.sort;
+        if (sortKey) { const desc = String(sortKey).startsWith('-'); const k = String(sortKey).replace(/^-/, ''); items.sort((a, b) => { const x = a[k], y = b[k]; const c = typeof x === 'number' && typeof y === 'number' ? x - y : String(x ?? '').localeCompare(String(y ?? ''), 'fr'); return desc ? -c : c; }); }
+        if (props.limit) items = items.slice(0, props.limit);
+        const firstOf = (types, not = null) => Object.entries(spec.fields).find(([k, f]) => types.includes(f.type) && k !== not)?.[0] || null;
+        const title = props.title_field || spec.title_field;
+        const meta = props.meta_field || firstOf(['date']) || null;
+        props._fields = { title, image: props.image_field || firstOf(['asset']), text: props.text_field || firstOf(['text'], title) || firstOf(['string'], title), meta, meta_is_date: !!(meta && spec.fields[meta]?.type === 'date') };
+        props._items = items;
+        props._route = project.pages.find(pg => pg.data?.source === props.source && typeof pg.data.route === 'string' && pg.data.route.includes('[id]'))?.data.route || null;
+      }
+      // Formulaire déclaré par un composant (effects.form) : configuration fixée ici, jamais lue depuis la requête.
+      const efForm = catalog.get(name)?.manifest?.effects?.form;
+      if (efForm) { forms[name] = { store: efForm.store, to: efForm.to || null, notify: efForm.notify ?? true, fields: efForm._fields || [], label: catalog.get(name).manifest.description || name, success: efForm.success || null }; stores.add(efForm.store); }
       if (name === 'custom') {
         const rel = props.php.replace(/^\.?\//, '');
         await fs.mkdir(path.dirname(path.join(out, 'custom', rel)), { recursive: true });
@@ -65,21 +86,24 @@ export async function emit(project, catalog, out) {
       seo: page.data.seo || { title: project.site.site.name },
       // Destinataire, champs et obligations fixés côté serveur, jamais lus depuis le POST.
       ...(contact ? { contact } : {}),
+      ...(Object.keys(forms).length ? { forms } : {}),
       ...(page.data.sections.some(s => 'checkout.page' in s) ? { checkout: true } : {}),
-      // Jeton CSRF (donc session et cookie) seulement si la page contient un formulaire : contact ou boutique.
-      ...(page.data.sections.some(s => ['contact.form', 'products.grid', 'product.hero', 'products.related', 'cart.page', 'checkout.page'].includes(Object.keys(s)[0])) ? { csrf: true } : {}),
+      // Jeton CSRF (donc session et cookie) seulement si la page contient un formulaire : contact, boutique ou composant à effects.form.
+      ...(page.data.sections.some(s => ['contact.form', 'products.grid', 'product.hero', 'products.related', 'cart.page', 'checkout.page'].includes(Object.keys(s)[0])) || Object.keys(forms).length ? { csrf: true } : {}),
     };
     if (page.data.route.includes('[id]')) dynamic.push({ ...entry, pattern: '#^' + page.data.route.replace('[id]', '([a-z0-9A-Z\\-]+)') + '$#', source: page.data.source });
     else {
       const hasVariants = page.data.sections.some(sec => { const pr = sec[Object.keys(sec)[0]]; return pr.variants && Object.keys(pr.variants).length; }) || (page.data.variants && Object.keys(page.data.variants).length);
-      const isStatic = page.data.sections.every(sec => !DYNAMIC.has(Object.keys(sec)[0])) && !(hasVariants && deviceSegments) && !(page.data.variants && Object.keys(page.data.variants).length);
+      const isStatic = page.data.sections.every(sec => !DYNAMIC.has(Object.keys(sec)[0])) && !Object.keys(forms).length && !(hasVariants && deviceSegments) && !(page.data.variants && Object.keys(page.data.variants).length);
       routes[page.data.route] = { ...entry, readable: '/lisible/' + page.id + '.html', readable_url: '/lisible' + (page.data.route === '/' ? '/' : page.data.route), ...(isStatic ? { static: 'cache/' + page.id + '.html' } : {}) };
       if (isStatic) staticRoutes.push({ route: page.data.route, file: 'cache/' + page.id + '.html' });
     }
     await fs.writeFile(path.join(out, 'pages', page.id + '.php'), pagePhp(page));
   }
   const usedList = [...used.values()];
-  if (project.products) await fs.writeFile(path.join(out, 'data', 'products.json'), JSON.stringify(project.products));
+  // Données compilées (catalogue produits, collections) sous lib/data : versionnées, déployées, jamais servies ; data/ reste à l'exploitation.
+  if (project.products) await fs.writeFile(path.join(out, 'lib', 'data', 'products.json'), JSON.stringify(project.products));
+  for (const [cname, col] of Object.entries(project.collections || {})) await fs.writeFile(path.join(out, 'lib', 'data', cname + '.json'), JSON.stringify(col.items));
   const shopCfg = project.shop ? { ...project.shop, currency: project.site.site.shop?.currency || '€', payment: project.site.site.shop?.payment || 'manual', shipping: project.site.site.shop?.shipping || null, manual_instructions: project.site.site.shop?.manual_instructions || null, order_email: project.site.site.shop?.order_email || null } : null;
   if (shopCfg) await fs.writeFile(path.join(out, 'lib', 'shop.php'), SHOP_PHP);
 
@@ -95,7 +119,7 @@ export async function emit(project, catalog, out) {
     await fs.writeFile(path.join(out, 'llms.txt'), buildLlmsTxt(twin));
   }
   const staticEnabled = site.static?.enabled !== false;
-  await fs.writeFile(path.join(out, 'index.php'), indexPhp(site, routes, { jsonld: buildJsonLd(twin), agents: agentsOn, shop: shopCfg, dynamic, staticEnabled }));
+  await fs.writeFile(path.join(out, 'index.php'), indexPhp(site, routes, { jsonld: buildJsonLd(twin), agents: agentsOn, shop: shopCfg, dynamic, staticEnabled, stores: [...stores], collections: Object.keys(project.collections || {}) }));
   // Assets versionnés par empreinte (cache long, Subresource Integrity) : calculés avant le layout qui les référence.
   const cssText = buildCss(site, usedList) + (customCss.length ? '\n' + customCss.join('\n\n') + '\n' : '');
   const jsText = buildJs(usedList) + (customJs.length ? '\n' + customJs.join('\n\n') + '\n' : '');
@@ -146,7 +170,7 @@ export async function emit(project, catalog, out) {
   for (const [f, buf] of keep) await fs.writeFile(path.join(out, f), buf);
   for (const d of ['data', 'lib', 'pages', 'components']) await fs.writeFile(path.join(out, d, '.htaccess'), DENY_HTACCESS);
   for (const c of usedList) {
-    await fs.writeFile(path.join(out, 'components', c.name + '.php'), c.files['template.php'] || `<!-- ${c.name} : pas de template -->`);
+    await fs.writeFile(path.join(out, 'components', c.name + '.php'), c.files['template.php'] || c.compiled?.php || `<!-- ${c.name} : pas de template -->`);
   }
   await fs.writeFile(path.join(out, 'assets', 'site.css'), cssText);
   await fs.writeFile(path.join(out, 'assets', 'site.js'), jsText);

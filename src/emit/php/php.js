@@ -1,3 +1,6 @@
+import { EXPR_PHP, parse, toPhp } from '../../lang/expr.js';
+import { segments, isRuntime } from '../../lang/resolve.js';
+
 /** Convertit une valeur JS en littéral PHP (tableaux associatifs / listes). */
 export function phpValue(v, indent = '') {
   if (v === null || v === undefined) return 'null';
@@ -198,6 +201,20 @@ function render_component(string $name, array $p): void {
 function render_link(array $link, string $class = ''): string {
     return '<a class="' . e($class) . '" href="' . e(url($link['to'])) . '">' . e($link['label']) . '</a>';
 }
+` + EXPR_PHP + `
+/** Champ d'un formulaire déclaré (effects.form) : libellé, saisie selon le type, valeur conservée, erreur. */
+function sl_fn_field(mixed $form, mixed $name): string {
+    $n = sl_str($name); $f = null; foreach (($form['fields'] ?? []) as $x) if ($x['name'] === $n) $f = $x;
+    if (!$f) return '<!-- champ inconnu : ' . e($n) . ' -->';
+    $val = (string)($form['data'][$n] ?? ''); $err = $form['errors'][$n] ?? null; $req = !empty($f['required']); $id = 'f-' . $n;
+    $h = '<div class="field' . ($err ? ' has-error' : '') . '"><label for="' . e($id) . '">' . e($f['label']) . ($req ? ' *' : '') . '</label>';
+    $ph = !empty($f['placeholder']) ? ' placeholder="' . e($f['placeholder']) . '"' : '';
+    if ($f['type'] === 'textarea') $h .= '<textarea id="' . e($id) . '" name="' . e($n) . '" rows="5"' . ($req ? ' required' : '') . $ph . '>' . e($val) . '</textarea>';
+    elseif ($f['type'] === 'select') { $h .= '<select id="' . e($id) . '" name="' . e($n) . '"' . ($req ? ' required' : '') . '><option value="">' . e($f['placeholder'] ?? 'Choisir…') . '</option>'; foreach (($f['options'] ?? []) as $o) $h .= '<option value="' . e($o) . '"' . ((string)$o === $val ? ' selected' : '') . '>' . e($o) . '</option>'; $h .= '</select>'; }
+    else $h .= '<input id="' . e($id) . '" type="' . e($f['type']) . '" name="' . e($n) . '" value="' . e($val) . '"' . ($req ? ' required' : '') . $ph . ($f['type'] === 'number' ? ' inputmode="numeric"' : '') . '>';
+    if ($err) $h .= '<div class="field-error">' . e($err) . '</div>';
+    return $h . '</div>';
+}
 `;
 
 export const FORMS_PHP = `<?php
@@ -282,6 +299,45 @@ function contact_api(?array $config, array $site): void {
     $out(200, ['ok' => true, 'id' => $id, 'message' => $site['name'] . ' a bien reçu votre demande.']);
 }
 
+/** Formulaires déclarés par les composants (effects.form) : validation, enregistrement dans leur collection, e-mail ; résultats par nom. */
+function handle_declared_forms(array $site, array $page): void {
+    $GLOBALS['SL_FORMS'] = [];
+    foreach (($page['forms'] ?? []) as $name => $cfg) {
+        $r = ['status' => null, 'errors' => [], 'data' => [], 'fields' => $cfg['fields'] ?? [], 'name' => $name, 'success' => $cfg['success'] ?? null, 'message' => null];
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && ($_POST['_form'] ?? '') === $name) {
+            if (!hash_equals($_SESSION['csrf'] ?? '', (string)($_POST['_csrf'] ?? ''))) { $r['status'] = 'error'; $r['message'] = 'Session expirée, merci de réessayer.'; }
+            elseif (!empty($_POST['website'])) { $r['status'] = 'ok'; }
+            else {
+                [$data, $errors] = contact_validate($cfg['fields'] ?? [], $_POST);
+                if ($errors) { $r['status'] = 'error'; $r['message'] = 'Merci de corriger les champs indiqués.'; $r['errors'] = $errors; $r['data'] = $data; }
+                else { $r['status'] = 'ok'; $r['id'] = sl_form_store($name, $cfg, $data, $site); }
+            }
+        }
+        $GLOBALS['SL_FORMS'][$name] = $r;
+    }
+}
+function sl_form_store(string $name, array $cfg, array $data, array $site): string {
+    $labels = []; foreach (($cfg['fields'] ?? []) as $f) $labels[$f['name']] = $f['label'];
+    $id = strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
+    $record = ['id' => $id, 'at' => date('c'), 'form' => $name, 'ip' => $_SERVER['REMOTE_ADDR'] ?? '', 'page' => $_SERVER['REQUEST_URI'] ?? ''] + $data;
+    $notify = $cfg['notify'] ?? true; $sent = null;
+    $to = is_string($notify) ? $notify : (string)($cfg['to'] ?? ($site['contact']['email'] ?? ''));
+    if ($notify !== false && $to !== '' && filter_var($to, FILTER_VALIDATE_EMAIL)) {
+        $body = ''; foreach ($data as $k => $v) $body .= ($labels[$k] ?? $k) . " : $v\n";
+        $reply = ''; foreach (($cfg['fields'] ?? []) as $f) if ($f['type'] === 'email' && !empty($data[$f['name']])) { $reply = (string)$data[$f['name']]; break; }
+        $sent = sl_mail($to, '[' . ($site['name'] ?? 'Site') . '] ' . ($cfg['label'] ?? $name), $body, ['reply_to' => $reply, 'from_name' => (string)($site['name'] ?? '')]);
+    }
+    $record['mail'] = $sent === null ? 'none' : ($sent ? 'sent' : 'failed');
+    sl_store_append((string)$cfg['store'], $record);
+    return $id;
+}
+/** État du formulaire d'un composant, pour son gabarit : status, message, errors, data (alias values), fields, success. */
+function sl_form_state(string $name): array {
+    $r = $GLOBALS['SL_FORMS'][$name] ?? ['status' => null, 'errors' => [], 'data' => [], 'fields' => [], 'name' => $name, 'success' => null, 'message' => null];
+    $r['values'] = $r['data']; $r['ok'] = $r['status'] === 'ok'; $r['failed'] = $r['status'] === 'error';
+    return $r;
+}
+
 /** Session paresseuse : reprise si un cookie existe, créée seulement quand un état est écrit. Une première visite reste sans cookie (cache statique). */
 function sl_session(bool $create = true): void {
     if (session_status() === PHP_SESSION_ACTIVE) return;
@@ -294,7 +350,7 @@ function csrf_token(): string {
 }
 `;
 
-export function indexPhp(site, routes, { jsonld = '', agents = true, shop = null, dynamic = [], staticEnabled = true } = {}) {
+export function indexPhp(site, routes, { jsonld = '', agents = true, shop = null, dynamic = [], staticEnabled = true, stores = [], collections = [] } = {}) {
   return `<?php
 declare(strict_types=1);
 // Généré par sitec. Front controller : route → page. Compatible \`php -S host:port index.php\`.
@@ -312,8 +368,13 @@ $routes = ${phpValue(routes)};
 $dynamic = ${phpValue(dynamic)};
 $SHOP = ${phpValue(shop)};
 $jsonld = ${phpValue(jsonld)};
-$product = null; $order = null; $checkoutResult = ['status' => null];
+$product = null; $order = null; $SL_ITEM = null; $checkoutResult = ['status' => null];
 $SL_STATIC = ${staticEnabled ? 'true' : 'false'};
+$SL_STORES = ${phpValue(stores)};
+$SL_COLLECTIONS = ${phpValue(collections)};
+/** Élément d'une collection compilée (lib/data/<nom>.json), par id. */
+function sl_collection(string $name): array { static $c = []; if (!isset($c[$name])) { $f = __DIR__ . '/lib/data/' . preg_replace('/[^a-z0-9_]/', '', $name) . '.json'; $c[$name] = is_file($f) ? (json_decode((string)file_get_contents($f), true) ?: []) : []; } return $c[$name]; }
+function sl_collection_item(string $name, string $id): ?array { foreach (sl_collection($name) as $it) if (($it['id'] ?? null) === $id) return $it; return null; }
 
 $path = rtrim(parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/', '/') ?: '/';
 
@@ -370,6 +431,7 @@ if ($page === null) {
         if (preg_match($d['pattern'], $path, $m)) {
             if ($d['source'] === 'products') { $product = shop_product($m[1]); if ($product) $page = $d; }
             elseif ($d['source'] === 'orders') { $order = shop_order($m[1], (string)($_GET['t'] ?? '')); if ($order) $page = $d; }
+            else { $SL_ITEM = sl_collection_item((string)$d['source'], $m[1]); if ($SL_ITEM) $page = $d; }
             break;
         }
     }
@@ -377,12 +439,13 @@ if ($page === null) {
 if ($page !== null) {
     $current = $path; $GLOBALS['SL_PAGE_ID'] = substr((string)$page['file'], 0, -4);
     // Titres SEO des pages dynamiques : {{product.name}}, {{order.id}}…
-    $page['seo'] = array_map(fn($v) => is_string($v) ? preg_replace_callback('/\\{\\{\\s*(product|order)\\.([a-z_]+)\\s*\\}\\}/', fn($mm) => (string)(($mm[1] === 'product' ? $product : $order)[$mm[2]] ?? ''), $v) : $v, $page['seo'] ?? []);
+    $page['seo'] = array_map(fn($v) => is_string($v) ? preg_replace_callback('/\\{\\{\\s*(product|order|item)((?:\\.[a-z_][a-z0-9_]*)+)\\s*\\}\\}/', fn($mm) => sl_str(sl_get(match ($mm[1]) { 'product' => $product, 'order' => $order, default => $SL_ITEM }, ...explode('.', ltrim($mm[2], '.')))), $v) : $v, $page['seo'] ?? []);
     // Statique d'abord : page sans état ni formulaire, visiteur sans cookie → l'HTML rendu est écrit dans cache/ ; Apache le sert ensuite sans PHP (.htaccess), PHP sinon.
     $static = $SL_STATIC && !empty($page['static']) && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' && empty($_COOKIE);
     if ($static && is_file(__DIR__ . '/' . $page['static'])) { header('Content-Type: text/html; charset=UTF-8'); header('X-SL-Static: php'); readfile(__DIR__ . '/' . $page['static']); exit; }
     $formResult = handle_contact_form($site, $page['contact'] ?? null);
     if (!$static && !empty($page['csrf'])) $formResult['csrf'] = csrf_token();
+    if (!empty($page['forms'])) handle_declared_forms($site, $page);
     ${shop ? `if (!empty($page['checkout'])) { $checkoutResult = shop_handle_checkout($site); if ($checkoutResult['status'] === 'redirect') { header('Location: ' . $checkoutResult['to'], true, 303); exit; } }` : ''}
     if ($static) ob_start();
     include __DIR__ . '/layout.php';
@@ -466,6 +529,25 @@ export const LAYOUT_PHP = `<!doctype html>
 </html>
 `;
 
+const RUNTIME_PHP_VARS = { item: '$SL_ITEM', product: '$product', order: '$order' };
+/** Littéral PHP où les chaînes contenant des expressions d'affichage ({{ item.title }}) deviennent des expressions PHP. */
+export function phpValueRt(v, indent = '') {
+  if (typeof v === 'string') {
+    const segs = segments(v);
+    if (segs && segs.some(s => s.src !== undefined && isRuntime(s.src))) {
+      const part = s => s.src === undefined ? phpValue(s.text) : `sl_str(${toPhp(parse(s.src), RUNTIME_PHP_VARS).php})`;
+      if (segs.length === 1) return toPhp(parse(segs[0].src), RUNTIME_PHP_VARS).php;
+      return '(' + segs.map(part).join(' . ') + ')';
+    }
+    return phpValue(v);
+  }
+  if (v === null || v === undefined || typeof v !== 'object') return phpValue(v);
+  const inner = indent + '  ';
+  if (Array.isArray(v)) return v.length ? '[\n' + v.map(x => inner + phpValueRt(x, inner)).join(',\n') + '\n' + indent + ']' : '[]';
+  const entries = Object.entries(v);
+  return entries.length ? '[\n' + entries.map(([k, x]) => `${inner}${phpValue(k)} => ${phpValueRt(x, inner)}`).join(',\n') + '\n' + indent + ']' : '[]';
+}
+
 export function pagePhp(page) {
   const sections = page.data.sections.map((section) => {
     const [name] = Object.keys(section);
@@ -473,8 +555,9 @@ export function pagePhp(page) {
     return { name, props: base, variants: variants && Object.keys(variants).length ? variants : null };
   });
   const pageVariants = page.data.variants && Object.keys(page.data.variants).length ? page.data.variants : null;
+  const dynamic = typeof page.data.route === 'string' && page.data.route.includes('[id]');
   return `<?php /* ${page.id} — généré par sitec */
-sl_render_page(${phpValue(sections)}, ${phpValue(pageVariants)});
+${dynamic ? 'global $SL_ITEM, $product, $order;\n' : ''}sl_render_page(${dynamic ? phpValueRt(sections) : phpValue(sections)}, ${phpValue(pageVariants)});
 `;
 }
 
@@ -485,11 +568,11 @@ declare(strict_types=1);
 
 function shop_env(string $key): string { return sl_env($key); }
 
-/** Catalogue compilé (data/products.json) avec le stock courant (data/stock.json) appliqué. */
+/** Catalogue compilé (lib/data/products.json) avec le stock courant (data/stock.json) appliqué. */
 function shop_products(): array {
     static $list = null;
     if ($list === null) {
-        $list = json_decode((string)@file_get_contents(__DIR__ . '/../data/products.json'), true) ?: [];
+        $list = json_decode((string)@file_get_contents(__DIR__ . '/data/products.json'), true) ?: [];
         $stock = shop_stock_state($list);
         foreach ($list as &$p) if ($p['stock'] !== null) $p['stock'] = $stock[$p['id']]['remaining'] ?? $p['stock'];
         unset($p);
@@ -526,7 +609,7 @@ function shop_stock_state(array $catalog): array {
 }
 /** Décrémente le stock de toutes les lignes sous un seul verrou, ou renvoie la liste des manques sans rien changer. */
 function shop_reserve(array $lines): array {
-    $catalog = json_decode((string)@file_get_contents(__DIR__ . '/../data/products.json'), true) ?: [];
+    $catalog = json_decode((string)@file_get_contents(__DIR__ . '/data/products.json'), true) ?: [];
     $fh = fopen(shop_stock_file(), 'c+'); if (!$fh) return [];
     flock($fh, LOCK_EX);
     $raw = stream_get_contents($fh);
@@ -629,7 +712,7 @@ function shop_order(string $id, string $token): ?array {
 }
 /** Fixe le restant d'un produit (back-office : réception, inventaire). */
 function shop_stock_set(string $id, int $remaining): void {
-    $catalog = json_decode((string)@file_get_contents(__DIR__ . '/../data/products.json'), true) ?: [];
+    $catalog = json_decode((string)@file_get_contents(__DIR__ . '/data/products.json'), true) ?: [];
     $fh = fopen(shop_stock_file(), 'c+'); if (!$fh) return;
     flock($fh, LOCK_EX);
     $raw = stream_get_contents($fh);
@@ -653,7 +736,7 @@ function shop_update_order(string $id, callable $fn): ?array { return sl_store_u
 
 /** Remet en stock les lignes d'une commande annulée. */
 function shop_release(array $lines): void {
-    $catalog = json_decode((string)@file_get_contents(__DIR__ . '/../data/products.json'), true) ?: [];
+    $catalog = json_decode((string)@file_get_contents(__DIR__ . '/data/products.json'), true) ?: [];
     $fh = fopen(shop_stock_file(), 'c+'); if (!$fh) return;
     flock($fh, LOCK_EX);
     $raw = stream_get_contents($fh);

@@ -1,0 +1,21 @@
+page: realisation
+route: /realisations/[id]
+source: realisations
+seo:
+  title: "{{ item.title }} · Plomberie Martin"
+  description: "{{ item.title }} : un chantier Plomberie Martin, {{ item.category }}."
+sections:
+  - hero:
+      title: "{{ item.title }}"
+      subtitle: "{{ item.category | replace('-', ' ') | capitalize }} · {{ item.date | date('F Y') }}"
+      image: "{{ item.image }}"
+      align: left
+      cta: { label: Toutes les réalisations, to: /realisations }
+  - richtext:
+      title: Le chantier
+      text: "{{ item.text }}"
+      image: "{{ item.image }}"
+  - cta:
+      title: Un projet semblable ?
+      text: "Devis gratuit, réponse sous {{ const.delai_devis }}."
+      button: { label: Demander un devis, to: /services#devis }

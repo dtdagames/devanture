@@ -1,6 +1,27 @@
+language: 1
+
+# Valeurs nommées une fois, lues partout par {{ const.nom }} : un chiffre à changer, un seul endroit.
+constants:
+  delai_depannage: 1 h
+  delai_devis: 48 h
+  tarif_deplacement: 95 € TTC
+  zone: Lyon et sa métropole
+
+# Collections : chaque élément a sa page (pages/realisation.page.yaml, source: realisations) et sa carte (collection.list).
+collections:
+  realisations:
+    label: Réalisations
+    fields:
+      title: { type: string, required: true }
+      image: asset
+      date: date
+      category: string
+      text: text
+    sort: -date
+
 site:
   name: Plomberie Martin
-  tagline: Plombier chauffagiste à Lyon, dépannage 7j/7
+  tagline: "Plombier chauffagiste à Lyon, dépannage 7j/7 sur {{ const.zone }}"
   locale: fr-FR
   theme:
     preset: clair
