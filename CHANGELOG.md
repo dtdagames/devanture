@@ -1,6 +1,17 @@
 # Journal des versions
 
-Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.7.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.8.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+
+## v0.8.0 — 2026-11-09 — le fonctionnement en français, et le lien visible entre le manifeste et le code
+
+- **Fonctionnement** : quatrième bloc du manifeste. « formulaire: » avec « enregistre dans », « prévient par e-mail », « destinataire », « confirmation », puis « champs: », un par ligne : « type_travaux: choix, un parmi Fuite, Autre — Type de travaux », « precision: texte, si type_travaux vaut Autre — Précisez », « details: texte long, facultatif — Précisions (ex. étage, accès) ». Compilé vers les effets déclarés (validation, CSRF, pot de miel, registre, e-mail) ; `effects` reste le format machine du format html. La forme place le formulaire par « - formulaire, bouton Envoyer » (tous les champs) ou champ par champ.
+- **Comportements dans la forme** : « filtres de items, selon category » (grille filtrée par boutons), « image, agrandissable », « repli, libellé « En savoir plus » », « copier, libellé « Copier le numéro » », et « portrait: photo, nom » (photo ronde ou initiale). La primitive pose les attributs et déclare le comportement : plus de `behaviors` à écrire.
+- **Erreurs à la ligne du manifeste** : toute erreur d'un composant au format langage porte `"file":"components/x/manifest.yaml","path":"ligne N"`, y compris celles du gabarit produit (formulaire déclaré mais non affiché, champ inconnu), avec suggestion du mot proche.
+- **`sitec component show <dossier> <nom>`** : chaque bloc du manifeste (avec ses lignes) à côté de ce que le compilateur en tire : schéma des props, effets, gabarit neutre, comportements, parties visables, feuilles ; `--php` pour le PHP exécuté, `--json` pour un outil.
+- Natif `team` réécrit dans le langage (props identiques à la v0.7.0 ; le rendu change : portrait rond ou initiale). Exemples : `devis-express` (plomberie) passe à `fonctionnement`, nouveau composant `comptoir` (fournil) avec filtres, agrandissement, repli et copie.
+- Générateur, squelette de `component new`, schémas d'éditeur et `explain langage` enseignent les quatre blocs.
+- Restent au format html ou PHP dans le catalogue natif : hero, gallery, richtext, pricelist, hours, map, contact.form, collection.list, recent et les composants de boutique.
+- Bancs : 81 contrôles d'outillage.
 
 ## v0.7.0 — 2026-11-09 — des composants sans HTML ni CSS
 

@@ -10,26 +10,22 @@ forme:
         - titre: title
         - texte: intro
         - texte discret: "Réponse sous {{ delai }}, du lundi au samedi. Ou appelez le [{{ site.contact.phone }}](tel:{{ site.contact.phone | replace(' ', '') }})."
-    - formulaire, bouton Demander un devis:
-        - champ: name
-        - champ: phone
-        - champ: type_travaux
-        - champ: details
+    - formulaire, bouton Demander un devis
 apparence:
   section: fond surface
   devis-express-inner: deux colonnes
   sur téléphone:
     devis-express-inner: une colonne
-effects:
-  form:
-    store: devis
-    notify: true
-    success: Merci, un plombier vous rappelle pour chiffrer votre demande.
-    fields:
-      - name
-      - phone
-      - { name: type_travaux, label: Type de travaux, type: select, options: [Fuite ou dépannage, Chauffe-eau, Chaudière ou chauffage, Salle de bain, Autre], required: true }
-      - { name: details, label: Précisions, type: textarea, placeholder: "Étage, accès, urgence…" }
+fonctionnement:
+  formulaire:
+    enregistre dans: devis
+    prévient par e-mail: oui
+    confirmation: Merci, un plombier vous rappelle pour chiffrer votre demande.
+    champs:
+      name:
+      phone: facultatif
+      type_travaux: choix, un parmi Fuite ou dépannage, Chauffe-eau, Chaudière ou chauffage, Salle de bain, Autre — Type de travaux
+      details: texte long, facultatif — Précisions (ex. Étage, accès, urgence…)
 example: |
   - devis-express:
       title: Un devis en quelques minutes

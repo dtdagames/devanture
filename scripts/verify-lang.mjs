@@ -56,8 +56,8 @@ expectErr('{% endfor %}', /endfor sans for/, 'fermeture orpheline');
 expectErr('<?php echo 1; ?>', /PHP interdit/, 'PHP');
 expectErr('{{ p.title | nope }}', /filtre inconnu/, 'filtre inconnu');
 expectErr('{{ form.ok }}', /variable inconnue « form »/, 'form sans effects.form');
-expectErr('{% form %}{% endform %}', /exige effects.form/, 'form sans déclaration');
-expectErr('<p>x</p>', /pas de \{% form %\}/, 'effects.form sans balise form', { effects: { form: { store: 'x' } } });
+expectErr('{% form %}{% endform %}', /exige un formulaire déclaré/, 'form sans déclaration');
+expectErr('<p>x</p>', /rien ne l'affiche/, 'formulaire déclaré sans balise form', { effects: { form: { store: 'x' } } });
 
 // 3. Site compilé : collection, composition, composant de projet, formulaire déclaré, back-office.
 let cookie = '';

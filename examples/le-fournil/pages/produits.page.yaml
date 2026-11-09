@@ -44,6 +44,46 @@ sections:
         À partir de 11 h, du mardi au samedi, nous préparons une gamme courte de sandwichs dans nos propres pains : jambon-beurre à la tradition, poulet rôti et crudités au pain de campagne, chèvre-miel-noix au seigle, végétarien du jour à la fougasse.
 
         Une formule sandwich + boisson + viennoiserie ou pâtisserie est proposée. Les sandwichs sont préparés en quantité limitée ; il est possible d'en réserver par téléphone le matin.
+  - comptoir:
+      id: comptoir
+      title: Le comptoir en un coup d'œil
+      intro: Filtrez par famille, cliquez sur une photo pour l'agrandir.
+      keywords: [comptoir, filtrer, familles, week-end, sur commande]
+      items:
+        - name: Tourte de meule
+          category: Pains
+          image: pains.svg
+          note: 500 g et 1 kg
+          detail: Pain au levain naturel, entretenu depuis l'ouverture en 2009.
+        - name: Baguette tradition
+          category: Pains
+          image: tradition.svg
+          note: Trois fournées dans la journée
+          detail: Médaille d'argent départementale 2024.
+        - name: Croissant
+          category: Viennoiseries
+          image: viennoiseries.svg
+          note: Beurre AOP Charentes-Poitou
+        - name: Kouign-amann
+          category: Viennoiseries
+          image: viennoiseries.svg
+          note: Samedi et dimanche
+        - name: Gâteau nantais
+          category: Pâtisseries
+          image: patisseries.svg
+          note: Toute l'année
+          detail: Spécialité au rhum et aux amandes.
+        - name: Bûche de Noël
+          category: Pâtisseries
+          image: patisseries.svg
+          note: En hiver
+          detail: Sur commande.
+        - name: Jambon-beurre
+          category: Sandwichs
+          image: sandwichs.svg
+          note: À partir de 11 h, du mardi au samedi
+          detail: Préparé dans la baguette tradition, en quantité limitée. Réservation possible par téléphone le matin.
+      phone: "{{ site.contact.phone }}"
   - faq:
       title: Questions sur nos produits
       items:

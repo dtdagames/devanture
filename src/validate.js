@@ -233,27 +233,29 @@ export function validateProject(project, catalog) {
   for (const src of [...sources, ...(project.componentSources || [])]) {
     const mf = src.dir + '/manifest.yaml';
     if (!src.pkg && prefixes.has(src.name.split('.')[0]) && src.name.includes('.')) { errors.push(err('E_COMPONENT_CONFLICT', { file: mf, path: '', message: `Le préfixe ${src.name.split('.')[0]} appartient à un paquet.` })); continue; }
-    const { entry, errors: ce } = buildComponent({ ...src, project: true });
-    for (const m of ce) errors.push(err('E_COMPONENT', { file: mf, path: '', message: `Composant ${src.name} : ${m}.` }));
+    const { entry, details: ce } = buildComponent({ ...src, project: true });
+    for (const d of ce) errors.push(err('E_COMPONENT', { file: mf, path: d.line ? `ligne ${d.line}` : '', message: `Composant ${src.name} : ${d.message}${/[.?!…]$/.test(d.message) ? '' : '.'}` }));
     if (!entry) continue;
     if (catalog.has(entry.name)) { errors.push(err('E_COMPONENT_CONFLICT', { file: mf, path: 'name', message: `${entry.name} existe déjà dans le catalogue natif.`, hint: 'Renommez le composant de projet (ex. ' + entry.name + '.maison).' })); continue; }
-    const ef = entry.manifest.effects;
+    const ef = entry.manifest.effects, ee = [], gen = entry.manifest._generated?.effects;
     if (ef !== undefined) {
-      if (!ef || typeof ef !== 'object' || Array.isArray(ef)) errors.push(err('E_TYPE', { file: mf, path: 'effects', message: 'effects attend { form: { store, fields, notify, to, success } }.' }));
+      if (!ef || typeof ef !== 'object' || Array.isArray(ef)) ee.push(err('E_TYPE', { file: mf, path: 'effects', message: 'effects attend { form: { store, fields, notify, to, success } }.' }));
       else for (const k of Object.keys(ef)) {
-        if (k !== 'form') { errors.push(err('E_UNKNOWN_PROP', { file: mf, path: `effects.${k}`, message: `Effet inconnu : ${k}.`, expected: ['form'] })); continue; }
+        if (k !== 'form') { ee.push(err('E_UNKNOWN_PROP', { file: mf, path: `effects.${k}`, message: `Effet inconnu : ${k}.`, expected: ['form'] })); continue; }
         const f = ef.form;
-        if (!f || typeof f !== 'object' || Array.isArray(f)) { errors.push(err('E_TYPE', { file: mf, path: 'effects.form', message: 'effects.form attend { store, fields, notify, to, success }.' })); continue; }
-        for (const fk of Object.keys(f)) if (!['store', 'fields', 'notify', 'to', 'success', 'required'].includes(fk)) errors.push(err('E_UNKNOWN_PROP', { file: mf, path: `effects.form.${fk}`, message: `Propriété inconnue : ${fk}.`, expected: ['store', 'fields', 'notify', 'to', 'success'] }));
-        if (typeof f.store !== 'string' || !/^[a-z][a-z0-9_]*$/.test(f.store)) errors.push(err('E_FORMAT', { file: mf, path: 'effects.form.store', message: 'store : nom de collection d\'exploitation (minuscules, chiffres, _), ex. reservations.' }));
-        else if (['orders', 'events', 'stock', 'products'].includes(f.store)) errors.push(err('E_FORBIDDEN', { file: mf, path: 'effects.form.store', message: `${f.store} est réservé.` }));
-        if (f.notify !== undefined && typeof f.notify !== 'boolean' && !(typeof f.notify === 'string' && /^[^@\s]+@[^@\s]+$/.test(f.notify))) errors.push(err('E_TYPE', { file: mf, path: 'effects.form.notify', message: 'notify : true, false ou une adresse e-mail.' }));
-        if (f.to !== undefined && !(typeof f.to === 'string' && /^[^@\s]+@[^@\s]+$/.test(f.to))) errors.push(err('E_TYPE', { file: mf, path: 'effects.form.to', message: 'to : adresse e-mail du destinataire.' }));
+        if (!f || typeof f !== 'object' || Array.isArray(f)) { ee.push(err('E_TYPE', { file: mf, path: 'effects.form', message: 'effects.form attend { store, fields, notify, to, success }.' })); continue; }
+        for (const fk of Object.keys(f)) if (!['store', 'fields', 'notify', 'to', 'success', 'required'].includes(fk)) ee.push(err('E_UNKNOWN_PROP', { file: mf, path: `effects.form.${fk}`, message: `Propriété inconnue : ${fk}.`, expected: ['store', 'fields', 'notify', 'to', 'success'] }));
+        if (typeof f.store !== 'string' || !/^[a-z][a-z0-9_]*$/.test(f.store)) ee.push(err('E_FORMAT', { file: mf, path: 'effects.form.store', message: 'store : nom de collection d\'exploitation (minuscules, chiffres, _), ex. reservations.' }));
+        else if (['orders', 'events', 'stock', 'products'].includes(f.store)) ee.push(err('E_FORBIDDEN', { file: mf, path: 'effects.form.store', message: `${f.store} est réservé.` }));
+        if (f.notify !== undefined && typeof f.notify !== 'boolean' && !(typeof f.notify === 'string' && /^[^@\s]+@[^@\s]+$/.test(f.notify))) ee.push(err('E_TYPE', { file: mf, path: 'effects.form.notify', message: 'notify : true, false ou une adresse e-mail.' }));
+        if (f.to !== undefined && !(typeof f.to === 'string' && /^[^@\s]+@[^@\s]+$/.test(f.to))) ee.push(err('E_TYPE', { file: mf, path: 'effects.form.to', message: 'to : adresse e-mail du destinataire.' }));
         const nf = normalizeContactFields({ fields: f.fields, required: f.required }, { file: mf, path: 'effects.form' });
-        errors.push(...nf.errors);
+        ee.push(...nf.errors);
         f._fields = nf.fields;
       }
     }
+    // Effets écrits par le bloc fonctionnement : ses erreurs sont déjà rapportées avec leur ligne ; sinon le chemin parle son vocabulaire.
+    if (gen !== 'invalid') for (const e of ee) errors.push(gen ? { ...e, path: String(e.path || '').replace(/^effects.form/, 'fonctionnement.formulaire') } : e);
     // CSS encadré : la feuille d'un composant de projet ou de paquet ne touche que ce composant et prend son design au thème.
     const cssFile = src.dir + '/styles.css';
     if (typeof entry.files['styles.css'] === 'string') {
@@ -280,6 +282,8 @@ export function validateProject(project, catalog) {
     if (c.files['template.html'] === undefined || c.compiled) continue;
     const r = compileTemplate(c.files['template.html'], { name: c.name, props: c.manifest.props, effects: c.manifest.effects || null });
     c.compiled = r;
+    // Gabarit produit par la forme : l'erreur renvoie au manifeste, seul fichier que l'auteur a écrit.
+    if (c.manifest._generated?.template) { for (const e of r.errors) errors.push(err('E_COMPONENT', { file: c.dir + '/manifest.yaml', path: c.produced?.formeLine ? `ligne ${c.produced.formeLine}` : 'forme', message: `Composant ${c.name} : forme : ${e.message}`, hint: `Ce que la forme produit : sitec component show <dossier> ${c.name}.` })); continue; }
     for (const e of r.errors) errors.push(err('E_TEMPLATE', { file: c.dir + '/template.html', path: `ligne ${e.line}`, message: `Gabarit ${c.name} : ${e.message}`, hint: 'Vocabulaire : {{ expr }}, {% if %}, {% for x in liste %}, {% set %}, {% form %} ; variables p, site, page, item, product, order, form, loop.' }));
   }
   // Composants composés (components.yaml) : assemblages nommés, développés page par page avant la validation des sections.

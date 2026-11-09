@@ -13,6 +13,7 @@ import { BEHAVIOR_NAMES } from './lang/behaviors.js';
 import { TYPE_WORDS } from './lang/donnees.js';
 import { PRIMITIVE_HELP } from './lang/forme.js';
 import { INTENT_NAMES } from './lang/apparence.js';
+import { FORM_SETTINGS, FIELD_TYPE_WORDS, FIELD_MODIFIERS } from './lang/fonctionnement.js';
 
 const clone = v => JSON.parse(JSON.stringify(v));
 const EXPR = { type: 'string', pattern: '\\{\\{', description: 'expression {{ … }} (sitec explain langage)' };
@@ -100,6 +101,13 @@ export function buildSchemas(project, catalog) {
     'données': { type: 'object', additionalProperties: fieldSpec, markdownDescription: 'Ce que le composant accepte, une ligne par champ :\n\n```yaml\ntitle: texte, facultatif — titre de la section\nitems (liste, au moins 1):\n  text: texte\n  rating: nombre entier, de 1 à 5, facultatif\n```' },
     forme: { anyOf: [{ type: 'array' }, { type: 'object' }], markdownDescription: `La structure, en primitives : ${Object.keys(PRIMITIVE_HELP).join(', ')}.\n\n\`\`\`yaml\n- en-tête: title, intro\n- grille de items, 3 colonnes:\n    - carte:\n        - titre: title\n        - texte discret: text\n\`\`\`` },
     apparence: { type: 'object', markdownDescription: `L'allure, par partie (primitive ou nom « ») : ${INTENT_NAMES.join(', ')} ; « sur téléphone: » pour les petits écrans.` },
+    fonctionnement: { type: 'object', additionalProperties: false, properties: { formulaire: { type: 'object', description: `réglages : ${FORM_SETTINGS.join(', ')}`, properties: {
+      'enregistre dans': { type: 'string', pattern: '^[a-z][a-z0-9_]*$', description: 'registre où ranger les envois (onglet « Formulaires » du back-office), ex. devis' },
+      'prévient par e-mail': { anyOf: [{ type: 'boolean' }, { type: 'string' }], description: 'oui, non, ou une adresse e-mail' },
+      destinataire: { type: 'string', description: 'adresse e-mail qui reçoit les envois (par défaut : celle du site)' },
+      confirmation: { type: 'string', description: 'message affiché après l\'envoi' },
+      champs: { type: 'object', additionalProperties: { type: ['string', 'null'] }, description: `un champ par ligne : « nom: type, précisions — Libellé (ex. exemple) » ; types : ${FIELD_TYPE_WORDS.join(', ')} ; précisions : ${FIELD_MODIFIERS.join(' ; ')}` },
+    } } }, markdownDescription: 'Ce que le composant fait une fois envoyé au serveur :\n\n```yaml\nformulaire:\n  enregistre dans: devis\n  prévient par e-mail: oui\n  confirmation: Merci, nous vous rappelons.\n  champs:\n    name:\n    phone: facultatif\n    type: choix, un parmi Fuite, Chauffe-eau, Autre — Type de travaux\n    details: texte long, facultatif — Précisions\n```' },
     example: { type: 'string', description: 'exemple YAML d\'usage, montré par sitec explain et rendu par sitec test' },
     intents: { type: 'array', items: { type: 'string' } },
     behaviors: { type: 'array', items: { type: 'string', enum: BEHAVIOR_NAMES }, description: 'comportements navigateur fournis par le compilateur, posés par des attributs data-sl-… dans le gabarit' },

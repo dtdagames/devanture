@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import YAML from 'yaml';
 import { loadCatalog } from '../src/catalog.js';
+import { compileDonnees } from '../src/lang/donnees.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const [rev, ...names] = process.argv.slice(2);
@@ -19,7 +20,9 @@ const strip = p => { const c = JSON.parse(JSON.stringify(p)); delete c.$defs; fo
 const catalog = await loadCatalog();
 let diff = 0;
 for (const name of names) {
-  const before = YAML.parse(execFileSync('git', ['show', `${rev}:components/${name}/manifest.yaml`], { cwd: ROOT, encoding: 'utf8' })).props;
+  const old = YAML.parse(execFileSync('git', ['show', `${rev}:components/${name}/manifest.yaml`], { cwd: ROOT, encoding: 'utf8' }));
+  // Déjà écrit en « données » à cette révision : on compile l'ancien bloc avec le compilateur actuel (le vocabulaire n'a pas changé de sens).
+  const before = old.props ?? (old['données'] ? strip(compileDonnees(old['données']).schema) : { type: 'object', properties: {} });
   const after = strip(catalog.get(name).manifest.props);
   const a = JSON.stringify(canon(before)), b = JSON.stringify(canon(after));
   if (a === b) { console.log(`IDENTIQUE  ${name}`); continue; }

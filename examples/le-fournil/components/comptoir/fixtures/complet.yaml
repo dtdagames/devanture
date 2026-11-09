@@ -1,0 +1,8 @@
+title: Au comptoir
+intro: Filtrez par famille.
+items:
+  - { name: Tourte de meule, category: Pains, image: pains.svg, note: 500 g et 1 kg, detail: Pain au levain naturel. }
+  - { name: Baguette tradition, category: Pains, note: Trois fournées par jour }
+  - { name: Croissant, category: Viennoiseries, image: viennoiseries.svg }
+  - { name: Gâteau nantais, category: Pâtisseries, detail: Spécialité au rhum et aux amandes. }
+phone: 02 40 00 00 00

@@ -81,9 +81,11 @@ export function wantedParts(block) {
 function lev(a, b) { const d = Array.from({ length: a.length + 1 }, (_, i) => [i]); for (let j = 1; j <= b.length; j++) d[0][j] = j; for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[a.length][b.length]; }
 const nearest = (w, list) => { let best = null, bd = Infinity; for (const c of list) { const d = lev(w, c); if (d < bd) { bd = d; best = c; } } return bd <= Math.max(2, Math.floor(w.length / 3)) ? best : null; };
 
-/** Compile le bloc. parts : Map nom → sélecteur, produite par la forme. Renvoie { css, errors: [{ path, message }] }. */
+/** Compile le bloc. parts : Map nom → sélecteur, produite par la forme. Renvoie { css, errors: [{ path, message, ref }] }. */
 export function compileApparence(block, { parts, sectionClass }) {
-  const errors = [], rules = [];
+  const rules = [], list = []; let cur = null;
+  // Chaque erreur garde la clé en cours (ref), pour retrouver sa ligne dans le manifeste.
+  const errors = { push: e => list.push({ ...e, ref: e.ref ?? cur }) };
   const sec = '.' + sectionClass;
   const selectorOf = (k, path) => {
     for (const c of partCandidates(k)) if (parts.has(c)) { const s = parts.get(c); return s === sec ? sec : `${sec} ${s}`; }
@@ -105,12 +107,12 @@ export function compileApparence(block, { parts, sectionClass }) {
   const visit = (b, path, media) => {
     if (!b || typeof b !== 'object' || Array.isArray(b)) { errors.push({ path, message: 'attendu : « partie: intention, intention » par ligne' }); return; }
     for (const [k, v] of Object.entries(b)) {
-      const p = `${path}.${k}`;
+      const p = `${path}.${k}`; cur = { in: b, at: k };
       if (MEDIA[norm(k)]) { if (media) errors.push({ path: p, message: 'un bloc d\'écran ne se place pas dans un autre' }); else visit(v, p, MEDIA[norm(k)]); continue; }
       const sel = selectorOf(k, p); const d = decls(v, p);
       if (sel && d) rules.push(media ? `@media ${media}{${sel}{${d}}}` : `${sel}{${d}}`);
     }
   };
   visit(block, 'apparence', null);
-  return { css: rules.join('\n') + (rules.length ? '\n' : ''), errors };
+  return { css: rules.join('\n') + (rules.length ? '\n' : ''), errors: list };
 }

@@ -133,7 +133,7 @@ export function compileTemplate(src, { name = 'composant', props = null, effects
         break;
       }
       case 'form': {
-        if (!effects?.form) { fail('{% form %} exige effects.form dans manifest.yaml (store, fields…).', t.line); break; }
+        if (!effects?.form) { fail('{% form %} exige un formulaire déclaré dans manifest.yaml : bloc « fonctionnement: formulaire: » (ou effects.form).', t.line); break; }
         if (hasForm) { fail('Un seul {% form %} par composant.', t.line); break; }
         hasForm = true; stack.push({ kind: 'form', line: t.line });
         php.push(`<form class="card sl-form" method="post" action="" novalidate data-sl-form="${esc(name)}"><input type="hidden" name="_form" value="${esc(name)}"><input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>"><div class="hp"><label>Site web <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>`);
@@ -144,7 +144,7 @@ export function compileTemplate(src, { name = 'composant', props = null, effects
     }
   }
   for (const open of stack) fail(`balise « ${open.kind} » ouverte ligne ${open.line} jamais fermée.`, open.line);
-  if (effects?.form && !hasForm) fail('effects.form est déclaré mais le gabarit n\'a pas de {% form %} … {% endform %}.', 1);
+  if (effects?.form && !hasForm) fail('Un formulaire est déclaré (fonctionnement ou effects.form) mais rien ne l\'affiche : ajoutez « - formulaire » à la forme, ou {% form %} … {% endform %} au gabarit.', 1);
   if (errors.length) return { php: null, errors };
   const pre = `<?php /* ${name} — compilé depuis template.html par sitec */ global $site, $page, $SL_ITEM, $product, $order, $SHOP; $cart = null;${effects?.form ? ` $form = sl_form_state('${esc(name)}');` : ''} ?>\n`;
   return { php: pre + php.join(''), errors: [] };

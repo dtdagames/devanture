@@ -81,37 +81,40 @@ forme:
     - bloc:
         - titre: title
         - texte discret: "Réponse sous {{ delai }}. Ou appelez le [{{ site.contact.phone }}](tel:{{ site.contact.phone | replace(' ', '') }})."
-    - formulaire, bouton Demander un devis:
-        - champ: name
-        - champ: phone
+    - formulaire, bouton Demander un devis
 apparence:
   devis-inner: deux colonnes
   sur téléphone:
     devis-inner: une colonne
-effects:
-  form:
-    store: devis
-    notify: true
-    success: Merci, nous vous rappelons.
-    fields: [ name, phone ]`;
+fonctionnement:
+  formulaire:
+    enregistre dans: devis
+    prévient par e-mail: oui
+    confirmation: Merci, nous vous rappelons.
+    champs:
+      name:
+      phone: facultatif
+      type_travaux: choix, un parmi Fuite, Chauffe-eau, Autre — Type de travaux
+      precision: texte, si type_travaux vaut Autre — Précisez
+      details: texte long, facultatif — Précisions (ex. étage, accès)`;
 
-/** Guide du langage des composants au format « langage » : données, forme, apparence, depuis le code du compilateur. */
+/** Guide du langage des composants au format « langage » : données, forme, apparence, fonctionnement, depuis le code du compilateur. */
 export async function buildSystemPromptLang() {
   const { TYPE_WORDS, ICON_NAMES } = await import('./lang/donnees.js');
   const { PRIMITIVE_HELP } = await import('./lang/forme.js');
   const { INTENT_NAMES } = await import('./lang/apparence.js');
+  const { FIELD_TYPE_WORDS, FIELD_MODIFIERS, FORM_SETTINGS } = await import('./lang/fonctionnement.js');
   const manifestOf = async n => (await readText(path.join(COMPONENTS_DIR, n, 'manifest.yaml')) || '').trim();
-  return `Tu écris des composants pour Devanture, un langage déclaratif de sites vitrines. Un composant se décrit dans un seul fichier, manifest.yaml, en français contrôlé : ce qu'il accepte (données), sa structure (forme) et son allure (apparence). Le compilateur en tire le HTML, la CSS et le PHP ; tu n'écris jamais de HTML, de CSS, de JavaScript ni de PHP.
+  return `Tu écris des composants pour Devanture, un langage déclaratif de sites vitrines. Un composant se décrit dans un seul fichier, manifest.yaml, en français contrôlé : ce qu'il accepte (données), sa structure (forme), son allure (apparence) et, s'il recueille une saisie, ce qu'il en fait (fonctionnement). Le compilateur en tire le HTML, la CSS et le PHP ; tu n'écris jamais de HTML, de CSS, de JavaScript ni de PHP.
 
 # Ce que tu produis
 Un objet JSON : manifest (le contenu complet de manifest.yaml), fixtures (2 à 4 cas de test { name, yaml }, yaml = des props valides), notes.
 
 # manifest.yaml
-Clés autorisées : name, description, données, forme, apparence, example, intents, effects. Rien d'autre (ni props, ni behaviors : la forme les déduit).
+Clés autorisées : name, description, données, forme, apparence, fonctionnement, example, intents. Rien d'autre (ni props, ni behaviors, ni effects : les blocs les produisent).
 - name : le nom demandé, exactement. description : une phrase entre guillemets.
 - example : un bloc YAML (|) d'usage dans une page, « - <nom d'usage>: » puis des props réalistes ; textes avec virgule ou deux-points entre guillemets.
 - intents : 3 à 6 mots que les visiteurs tapent pour trouver ce contenu.
-- effects.form, seulement si le composant recueille une saisie : { store: collection, notify: true, success: phrase, fields: [ name, email, phone, subject, message, ou { name, label, type: text|email|tel|number|date|select|textarea, options: [...], required: true } ] }.
 
 # données
 Une ligne par champ : « nom: type, précisions — description ». Noms en minuscules sans accent (anglais court conseillé : title, text, items, image, link).
@@ -134,6 +137,15 @@ ${Object.entries(PRIMITIVE_HELP).map(([k, v]) => `- ${k} : ${v}`).join('\n')}
 « partie: intention, intention ». Une partie est une primitive de la forme (singulier ou pluriel : cartes, étoiles, titres), un nom donné entre « », ou section ; « sur téléphone: » regroupe des règles pour les petits écrans.
 Intentions : ${INTENT_NAMES.join(', ')}.
 Rien d'autre : pas de couleur, de taille ni de police libre. N'ajoute une apparence que si la mise en page de base ne suffit pas.
+
+# fonctionnement (seulement si le composant recueille une saisie)
+« formulaire: » puis ses réglages : ${FORM_SETTINGS.join(', ')}.
+- enregistre dans : le registre où ranger les envois (minuscules, chiffres, _ ; ex. devis, reservations). prévient par e-mail : oui, non ou une adresse. confirmation : la phrase affichée après l'envoi.
+- champs : un champ par ligne, « nom: type, précisions — Libellé (ex. exemple affiché dans le champ) ». Noms en minuscules sans accent.
+- Types : ${FIELD_TYPE_WORDS.join(', ')}. Précisions : ${FIELD_MODIFIERS.join(' ; ')} (« un parmi » toujours en dernier, avant « — »). Un champ est obligatoire sauf « facultatif ».
+- name, email, phone, subject, message ont déjà leur type et leur libellé : « name: » suffit.
+- Dans la forme : « - formulaire, bouton Envoyer » affiche tous les champs dans l'ordre (ou « formulaire: » puis « - champ: nom » pour les placer soi-même).
+- Le compilateur fournit validation, protection, enregistrement et e-mail : n'écris rien d'autre.
 
 # Cas de test (fixtures)
 2 à 4 cas : complet, minimal (seulement l'obligatoire), cas limite. Chaque yaml contient seulement des props valides.

@@ -94,36 +94,36 @@ function lev(a, b) { const d = Array.from({ length: a.length + 1 }, (_, i) => [i
 
 /**
  * Compile un bloc données (objet YAML) en schéma JSON { type: object, required, properties }.
- * errors : liste de { path, message }.
+ * errors : liste de { path, message, ref } (ref : la clé fautive, pour retrouver sa ligne dans le manifeste).
  */
 export function compileDonnees(block, path = 'données') {
   const errors = [];
   const compileFields = (obj, p) => {
     const properties = {}, required = [];
-    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) { errors.push({ path: p, message: 'attendu : une liste de champs « nom: type, précisions »' }); return { properties, required }; }
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) { errors.push({ path: p, message: 'attendu : une liste de champs « nom: type, précisions »', ref: obj }); return { properties, required }; }
     for (const [rawKey, value] of Object.entries(obj)) {
       const { name, spec: keySpec } = splitKey(rawKey);
-      const fp = `${p}.${name}`;
-      if (!/^[a-z][a-z0-9_]*$/.test(name)) { errors.push({ path: fp, message: `nom de champ « ${name} » : minuscules sans accent, chiffres et _ (il sert dans la forme et dans les pages)` }); continue; }
+      const fp = `${p}.${name}`, ref = { in: obj, at: rawKey };
+      if (!/^[a-z][a-z0-9_]*$/.test(name)) { errors.push({ path: fp, message: `nom de champ « ${name} » : minuscules sans accent, chiffres et _ (il sert dans la forme et dans les pages)`, ref }); continue; }
       const children = value && typeof value === 'object' && !Array.isArray(value) ? value : null;
-      if (properties[name]) { errors.push({ path: fp, message: `champ déclaré deux fois : ${name}` }); continue; }
+      if (properties[name]) { errors.push({ path: fp, message: `champ déclaré deux fois : ${name}`, ref }); continue; }
       let spec = keySpec;
       if (children === null) {
-        if (keySpec !== null) { errors.push({ path: fp, message: `« ${rawKey} » annonce des champs (parenthèses) mais n'en a pas en dessous` }); }
-        if (typeof value !== 'string' && value !== null) { errors.push({ path: fp, message: 'attendu : un texte comme « texte, facultatif »' }); continue; }
+        if (keySpec !== null) { errors.push({ path: fp, message: `« ${rawKey} » annonce des champs (parenthèses) mais n'en a pas en dessous`, ref }); }
+        if (typeof value !== 'string' && value !== null) { errors.push({ path: fp, message: 'attendu : un texte comme « texte, facultatif »', ref }); continue; }
         spec = value ?? 'texte';
       }
       const r = parseSpec(spec, { hasChildren: !!children });
-      for (const m of r.errors) errors.push({ path: fp, message: m });
+      for (const m of r.errors) errors.push({ path: fp, message: m, ref });
       let s = r.schema;
       if (children) {
         const sub = compileFields(children, fp);
         const obj = { type: 'object', additionalProperties: false, ...(sub.required.length ? { required: sub.required } : {}), properties: sub.properties };
         if (s.type === 'array') s = { ...s, items: obj };
         else if (s.type === 'object') s = { ...s, ...obj };
-        else errors.push({ path: fp, message: `un champ avec des champs en dessous est une liste ou un groupe, pas « ${spec} »` });
-      } else if (s.type === 'array' && !s.items) errors.push({ path: fp, message: 'une liste décrit ses éléments : « nom (liste): » avec leurs champs en dessous, ou « liste de textes »' });
-      else if (s.type === 'object' && !s.properties) errors.push({ path: fp, message: 'un groupe décrit ses champs en dessous : « nom (groupe): »' });
+        else errors.push({ path: fp, message: `un champ avec des champs en dessous est une liste ou un groupe, pas « ${spec} »`, ref });
+      } else if (s.type === 'array' && !s.items) errors.push({ path: fp, message: 'une liste décrit ses éléments : « nom (liste): » avec leurs champs en dessous, ou « liste de textes »', ref });
+      else if (s.type === 'object' && !s.properties) errors.push({ path: fp, message: 'un groupe décrit ses champs en dessous : « nom (groupe): »', ref });
       // Ordre des clés stable : type, contraintes, description, puis le reste.
       properties[name] = s;
       if (r.required) required.push(name);

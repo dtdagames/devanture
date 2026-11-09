@@ -21,6 +21,7 @@ export const PRIMITIVES = {
   'liste numérotée': 'collection', 'texte discret': 'leaf', 'grand titre': 'leaf', 'bouton discret': 'leaf', 'sous-titre': 'leaf',
   'en-tête': 'leaf', 'titre': 'leaf', 'texte': 'leaf', 'paragraphes': 'leaf', 'citation': 'leaf', 'icône': 'leaf', 'bouton': 'leaf', 'lien': 'leaf',
   'étoiles': 'leaf', 'signature': 'leaf', 'date': 'leaf', 'numéro': 'leaf', 'image': 'leaf', 'prix': 'leaf', 'badge': 'leaf', 'champ': 'leaf',
+  'portrait': 'leaf', 'copier': 'leaf', 'repli': 'container', 'filtres': 'collection',
   'bloc': 'both', 'carte': 'container', 'témoignage': 'container', 'élément': 'container', 'si': 'container', 'formulaire': 'container',
   'grille': 'collection', 'liste': 'collection', 'rangée': 'collection', 'défilement': 'collection', 'onglets': 'collection', 'accordéon': 'collection',
 };
@@ -29,14 +30,25 @@ export const PRIMITIVE_HELP = {
   'en-tête': 'titre (h2) et intro de la section : « en-tête: titre, intro »', titre: 'titre (h2 dans la section, h3 dans un élément de liste)', 'grand titre': 'titre h2', 'sous-titre': 'titre h3',
   texte: 'paragraphe', 'texte discret': 'paragraphe en couleur discrète', paragraphes: 'texte long : paragraphes, listes « - », **gras**', citation: 'citation entre guillemets « »',
   icône: 'pictogramme', bouton: 'lien en bouton', 'bouton discret': 'lien en bouton secondaire', lien: 'lien simple', étoiles: 'note en étoiles sur 5', signature: 'auteur en gras, puis précision discrète',
-  date: 'date (option : en toutes lettres)', numéro: 'numéro de l\'élément dans la liste', image: 'image (srcset, chargement différé) : « image: photo, légende »', prix: 'prix formaté', badge: 'étiquette', champ: 'champ du formulaire déclaré',
+  date: 'date (option : en toutes lettres)', numéro: 'numéro de l\'élément dans la liste', image: 'image (srcset, chargement différé) : « image: photo, légende » (option : agrandissable, ouvre l\'image en plein écran au clic)',
+  portrait: 'photo ronde, ou initiale du nom sans photo : « portrait: photo, nom »', copier: 'bouton qui copie une donnée dans le presse-papiers : « copier, libellé « Copier le code »: code »',
+  repli: 'zone repliable : « repli, libellé « En savoir plus »: » puis les éléments (options : libellé <donnée> ou « texte », ouvert)',
+  filtres: 'grille filtrable par boutons : « filtres de items, selon category, 3 colonnes » (option : tout « Toutes »)', prix: 'prix formaté', badge: 'étiquette', champ: 'champ du formulaire déclaré',
   bloc: 'boîte (avec une donnée : son texte ; avec des éléments en dessous : un regroupement)', carte: 'carte (fond, bordure, coins)', témoignage: 'carte de citation', élément: 'élément de liste', si: 'condition : « si lien: » puis les éléments',
-  formulaire: 'formulaire déclaré par effects.form (option : bouton Envoyer)', grille: 'grille de cartes : « grille de items, 3 colonnes »', liste: 'liste à puces', 'liste numérotée': 'liste numérotée', rangée: 'rangée',
+  formulaire: 'formulaire déclaré dans fonctionnement (option : bouton Envoyer) ; sans éléments en dessous, tous les champs dans l\'ordre', grille: 'grille de cartes : « grille de items, 3 colonnes »', liste: 'liste à puces', 'liste numérotée': 'liste numérotée', rangée: 'rangée',
   défilement: 'carrousel : « défilement de avis, automatique » (option : sans flèches)', onglets: 'onglets : « onglets de formules, libellé nom »', accordéon: 'questions repliables : « accordéon de items, question q, réponse a »',
 };
 
 function nearest(w, list) { let best = null, bd = Infinity; for (const c of list) { const d = lev(w, c); if (d < bd) { bd = d; best = c; } } return bd <= Math.max(2, Math.floor(w.length / 3)) ? best : null; }
 function lev(a, b) { const d = Array.from({ length: a.length + 1 }, (_, i) => [i]); for (let j = 1; j <= b.length; j++) d[0][j] = j; for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[a.length][b.length]; }
+
+/** Découpe aux virgules, sauf dans un texte entre « ». */
+export function splitOutside(text) {
+  const out = []; let cur = '', depth = 0;
+  for (const ch of String(text)) { if (ch === '«') depth++; else if (ch === '»') depth = Math.max(0, depth - 1); if (ch === ',' && !depth) { out.push(cur); cur = ''; } else cur += ch; }
+  out.push(cur);
+  return out.map(x => x.trim()).filter(Boolean);
+}
 
 /** Analyse « primitive [« classe »] [de liaison | liaison] [, options…] ». */
 export function parseHeader(text) {
@@ -49,7 +61,7 @@ export function parseHeader(text) {
   const m = /^«\s*([^»]+?)\s*»/.exec(rest);
   if (m) { cls = m[1].trim(); rest = rest.slice(m[0].length).trim(); }
   let of = null;
-  const parts = rest.split(',').map(x => x.trim()).filter(Boolean);
+  const parts = splitOutside(rest);
   if (parts.length && /^de\s+/i.test(parts[0])) of = parts.shift().replace(/^de\s+/i, '').trim();
   else if ((prim === 'si') && parts.length) of = parts.shift();
   return { prim, cls, of, options: parts };
@@ -57,14 +69,18 @@ export function parseHeader(text) {
 
 /**
  * Compile un bloc forme. opts : { name, props (schéma JSON), want (Set de primitives ou classes que l'apparence vise), effects }.
- * Renvoie { template, behaviors, parts (Map nom → sélecteur), errors: [{ path, message }] }.
+ * Renvoie { template, behaviors, parts (Map nom → sélecteur), errors: [{ path, message, ref }], sectionClass, css }.
  */
 export function compileForme(forme, { name, props, want = new Set(), effects = null }) {
   const errors = [], behaviors = new Set(), parts = new Map(), baseCss = new Set();
   const base = cssPrefixes(name)[0];
   let secCls = name.includes('.') ? cssPrefixes(name)[0] : name;
   const secClsOf = () => secCls;
-  const fail = (path, message) => errors.push({ path, message });
+  // Chaque erreur garde l'élément de forme en cours (ref), pour retrouver sa ligne dans le manifeste.
+  let curRef = forme;
+  const fail = (path, message) => errors.push({ path, message, ref: curRef });
+  const NO_FORM = 'exige un formulaire déclaré : bloc « fonctionnement: formulaire: » dans le manifeste';
+  const fieldNames = () => (effects?.form?.fields || []).map(x => (typeof x === 'string' ? x : x?.name)).filter(Boolean);
   let iterDepth = 0;
   const frames = [{ v: 'p', schema: props }];
 
@@ -130,8 +146,8 @@ export function compileForme(forme, { name, props, want = new Set(), effects = n
     // « champ » nomme un champ du formulaire déclaré, pas une donnée du composant.
     if (h.prim === 'champ') {
       const f = String(value || '').trim();
-      if (!effects?.form) { fail(path, '« champ » exige effects.form dans le manifeste'); return ''; }
-      const names = (effects.form.fields || []).map(x => (typeof x === 'string' ? x : x?.name));
+      if (!effects?.form) { fail(path, `« champ » ${NO_FORM}`); return ''; }
+      const names = fieldNames();
       if (!names.includes(f)) { const s = nearest(f, names); fail(path, `champ inconnu « ${f} » (déclarés : ${names.join(', ')})${s ? ` ; vouliez-vous dire « ${s} » ?` : ''}`); return ''; }
       return out(`field('${f}')`);
     }
@@ -146,7 +162,7 @@ export function compileForme(forme, { name, props, want = new Set(), effects = n
       const html = `<${tag}${cls}>${inner}</${tag}>`;
       return lit.cond ? `{% if ${lit.cond} %}${html}{% endif %}` : html;
     }
-    const items = typeof value === 'string' || typeof value === 'number' ? String(value).split(',').map(x => x.trim()).filter(Boolean) : [];
+    const items = typeof value === 'string' || typeof value === 'number' ? splitOutside(value) : [];
     const binds = [], opts = [...(h.options || [])];
     for (const it of items) {
       if (/^\{\{/.test(it) || /^[a-z_][a-z0-9_.]*$/.test(it)) { const known = frames.some(f => f.schema?.properties?.[it.split('.')[0]]) || /^\{\{/.test(it) || (it === 'valeur' && frames.length > 1); if (known || !binds.length) { binds.push(it); continue; } }
@@ -155,7 +171,7 @@ export function compileForme(forme, { name, props, want = new Set(), effects = n
     const r = binds.map((b, i) => resolve(b, `${path}[${i}]`));
     if (r.some(x => x === null)) return '';
     // Seule « date » a des options ; ailleurs, un mot non reconnu est une erreur, jamais une option ignorée.
-    const LEAF_OPTS = { date: [/^en toutes lettres$/i, /^mois et ann[ée]e$/i], signature: [/^en toutes lettres$/i] };
+    const LEAF_OPTS = { date: [/^en toutes lettres$/i, /^mois et ann[ée]e$/i], signature: [/^en toutes lettres$/i], image: [/^agrandissable$/i], copier: [/^libellé\s+«[^«»]+»$/i] };
     for (const o of opts) if (!(LEAF_OPTS[h.prim] || []).some(re => re.test(o))) { const known = [...new Set(frames.flatMap(f => Object.keys(f.schema?.properties || {})))]; const s = nearest(o, known); fail(path, `« ${o} » n'est ni une donnée${frames.length > 1 ? ' de l\'élément ou du composant' : ' du composant'} ni une option de « ${h.prim} »${s ? ` ; vouliez-vous dire « ${s} » ?` : ''}`); return ''; }
     const need = (n) => { if (r.length < n) { fail(path, `« ${h.prim} » attend ${n === 1 ? 'une donnée' : `${n} données`} : ${PRIMITIVE_HELP[h.prim] || ''}`); return false; } return true; };
     const c = classOf(h);
@@ -181,18 +197,42 @@ export function compileForme(forme, { name, props, want = new Set(), effects = n
       case 'signature': { if (!need(1)) return ''; const [a, b] = r; const be = b && opts.some(o => /toutes lettres/i.test(o)) ? `${b.expr} | date('j F Y')` : b?.expr; return iff(a, `<footer${attr(c)}><strong>${out(a.expr)}</strong>${b ? iff(b, ` <span class="muted">· ${out(be)}</span>`) : ''}</footer>`); }
       case 'date': { if (!need(1)) return ''; const lettres = opts.some(o => /toutes lettres/i.test(o)), moisAn = opts.some(o => /mois et ann[ée]e/i.test(o)); const e = lettres ? `${r[0].expr} | date('j F Y')` : moisAn ? `${r[0].expr} | date('F Y') | capitalize` : r[0].expr; return iff(r[0], `<time${attr(c)}>${out(e)}</time>`); }
       case 'numéro': return `<span${attr(c)} aria-hidden="true">${out('loop.index')}</span>`;
-      case 'image': { if (!need(1)) return ''; const alt = r[1] ? r[1].expr : "''"; const sizes = iterDepth ? "'(max-width: 700px) 100vw, 33vw'" : "'(max-width: 700px) 100vw, 50vw'"; const im = out(`img(${r[0].expr}, ${alt}, ${sizes})`); return iff(r[0], c ? `<div${attr(c)}>${im}</div>` : im); }
+      case 'image': { if (!need(1)) return ''; const alt = r[1] ? r[1].expr : "''"; const sizes = iterDepth ? "'(max-width: 700px) 100vw, 33vw'" : "'(max-width: 700px) 100vw, 50vw'"; let im = out(`img(${r[0].expr}, ${alt}, ${sizes})`);
+        // « agrandissable » : l'image devient un lien vers sa grande version, ouvert en plein écran par le comportement lightbox.
+        if (opts.some(o => /^agrandissable$/i.test(o))) { behaviors.add('lightbox'); baseCss.add(`.${secClsOf()} a[data-sl-lightbox]{display:block;cursor:zoom-in;margin-bottom:12px}`); im = `<a href="${out(`img_src(${r[0].expr}, 1600)`)}" data-sl-lightbox>${im}</a>`; }
+        return iff(r[0], c ? `<div${attr(c)}>${im}</div>` : im);
+      }
+      case 'portrait': {
+        if (!need(2)) return '';
+        const [ph, nm] = r; const w = c || `${base}-portrait`; parts.set('portrait', '.' + w);
+        // La photo remplit un rond ; sans photo, le même rond porte l'initiale du nom sur la couleur principale.
+        baseCss.add(`.${secClsOf()} .${w}{width:120px;height:120px;border-radius:50%;overflow:hidden;margin:0 auto 14px}
+.${secClsOf()} .${w} img{width:100%;height:100%;object-fit:cover}
+.${secClsOf()} .${w}-initiale{display:flex;align-items:center;justify-content:center;background:var(--color-primary);color:var(--color-primary-fg);font-size:2.5rem;font-family:var(--font-heading)}`);
+        const photo = `<div class="${w}">${out(`img(${ph.expr}, ${nm.expr}, '120px')`)}</div>`;
+        const initial = `<div class="${w} ${w}-initiale" aria-hidden="true">${out(`${nm.expr} | trim | first | upper`)}</div>`;
+        return ph.required ? photo : `{% if ${ph.expr} %}${photo}{% else %}${initial}{% endif %}`;
+      }
+      case 'copier': {
+        if (!need(1)) return '';
+        behaviors.add('copy');
+        const lo = opts.map(o => /^libellé\s+«\s*([^«»]+?)\s*»$/i.exec(o)).find(Boolean);
+        const label = (lo ? lo[1] : 'Copier').replace(/[<>{}]/g, '');
+        return iff(r[0], `<button type="button"${attr('btn btn-outline', c)} data-sl-copy="${out(r[0].expr)}">${label}</button>`);
+      }
       case 'prix': if (!need(1)) return ''; return iff(r[0], `<span${attr(c || `${base}-prix`)}>${out(`${r[0].expr} | price`)}</span>`);
       case 'badge': if (!need(1)) return ''; return iff(r[0], `<span${attr('badge', c)}>${out(r[0].expr)}</span>`);
       case 'bloc': if (!need(1)) return ''; return iff(r[0], `<div${attr(c)}>${out(r[0].expr)}</div>`);
-      case 'champ': { const f = String(value || '').trim(); if (!effects?.form) { fail(path, '« champ » exige effects.form dans le manifeste'); return ''; } const names = (effects.form.fields || []).map(x => (typeof x === 'string' ? x : x?.name)); if (!names.includes(f)) { fail(path, `champ inconnu « ${f} » (déclarés : ${names.join(', ')})`); return ''; } return out(`field('${f}')`); }
     }
     return '';
   };
 
   const nodes = (list, path) => {
     if (!Array.isArray(list)) { fail(path, 'attendu : une liste d\'éléments (« - primitive: … »)'); return ''; }
-    return list.map((n, i) => node(n, `${path}[${i}]`)).join('\n');
+    const saved = curRef;
+    const html = list.map((n, i) => { curRef = { in: list, at: i }; return node(n, `${path}[${i}]`); }).join('\n');
+    curRef = saved;
+    return html;
   };
   const node = (n, path) => {
     let header, value = null;
@@ -219,6 +259,21 @@ export function compileForme(forme, { name, props, want = new Set(), effects = n
         case 'grille': {
           let cols = '3'; for (const o of h.options) { let m; if ((m = /^(\d)\s+colonnes?$/i.exec(o))) cols = m[1]; else if ((m = /^colonnes\s+([a-z_][a-z0-9_]*)\s+par défaut\s+(\d)$/i.exec(o))) { const cr = resolve(m[1], p); if (cr) cols = `{{ ${cr.expr} | default(${m[2]}) }}`; } else fail(p, `option de grille inconnue « ${o} » (« 3 colonnes » ou « colonnes columns par défaut 3 »)`); }
           return `<div${attr('grid', `grid-${cols}`, c)}>${loop(enter(() => nodes(value || [], p)))}</div>`;
+        }
+        case 'filtres': {
+          behaviors.add('filter');
+          let cols = '3', by = null, all = 'Tout';
+          for (const o of h.options) { let m; if ((m = /^(\d)\s+colonnes?$/i.exec(o))) cols = m[1]; else if ((m = /^selon\s+([a-z_][a-z0-9_]*)$/i.exec(o))) by = m[1]; else if ((m = /^tout\s+«\s*([^«»]+?)\s*»$/i.exec(o))) all = m[1].replace(/[<>{}]/g, ''); else fail(p, `option de filtres inconnue « ${o} » (selon <donnée>, 3 colonnes, tout « Toutes »)`); }
+          if (!by) { fail(p, '« filtres de items, selon category » : quelle donnée de chaque élément sert de filtre ?'); return ''; }
+          const bs = itemSchema.properties?.[by];
+          if (!bs) { const s = nearest(by, Object.keys(itemSchema.properties || {})); fail(p, `« selon ${by} » : ${by} n'est pas une donnée des éléments de ${h.of} (${Object.keys(itemSchema.properties || {}).join(', ')})${s ? ` ; vouliez-vous dire « ${s} » ?` : ''}`); return ''; }
+          if (bs.type && bs.type !== 'string') { fail(p, `« selon ${by} » : ${by} doit être un texte (une catégorie par élément)`); return ''; }
+          const bar = `${base}-filtres`, btn = `${base}-filtre`, cell = `${base}-filtre-element`, grid = `${base}-filtre-grille`, min = { 1: 600, 2: 280, 3: 240, 4: 200 }[cols] || 180;
+          parts.set('filtres', '.' + bar); parts.set('filtre', '.' + btn);
+          baseCss.add(`.${secClsOf()} .${bar}{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px}\n.${secClsOf()} .${btn}{background:var(--color-surface);border:1px solid var(--color-border);border-radius:999px;padding:6px 16px;font:inherit;cursor:pointer;color:var(--color-fg)}\n.${secClsOf()} .${btn}[aria-pressed=true]{background:var(--color-primary);color:var(--color-primary-fg);border-color:var(--color-primary)}\n.${secClsOf()} .${cell}:not([hidden]){display:grid}
+.${secClsOf()} .${grid}{grid-template-columns:repeat(auto-fill,minmax(${min}px,1fr))}`);
+          const buttons = `<div class="${bar}" data-sl-filters><button type="button" class="${btn}" data-sl-filter="*">${all}</button>{% for ${v} in ${r.expr} | map('${by}') | unique %}<button type="button" class="${btn}" data-sl-filter="${out(`${v} | slug`)}">${out(v)}</button>{% endfor %}</div>`;
+          return `${buttons}\n<div${attr('grid', `grid-${cols}`, grid, c)}>${loop(`<div class="${cell}" data-sl-filter-item="${out(`${v}.${by} | slug`)}">${enter(() => nodes(value || [], p))}</div>`)}</div>`;
         }
         case 'liste numérotée': return `<ol${attr(c)}>${loop(enter(() => nodes(value || [], p)))}</ol>`;
         case 'liste': return `<ul${attr(c)}>${loop(enter(() => nodes(value || [], p)))}</ul>`;
@@ -249,7 +304,8 @@ export function compileForme(forme, { name, props, want = new Set(), effects = n
       }
     }
     // Conteneurs.
-    if (!isList) { fail(p, `« ${h.prim} » contient des éléments : « ${h.prim}: » puis la liste en dessous`); return ''; }
+    const bare = h.prim === 'formulaire' && (value === null || value === undefined);
+    if (!isList && !bare) { fail(p, `« ${h.prim} » contient des éléments : « ${h.prim}: » puis la liste en dessous`); return ''; }
     const c = classOf(h);
     switch (h.prim) {
       case 'bloc': return `<div${attr(c)}>${nodes(value, p)}</div>`;
@@ -257,11 +313,22 @@ export function compileForme(forme, { name, props, want = new Set(), effects = n
       case 'témoignage': return `<blockquote${attr('card', c)}>${nodes(value, p)}</blockquote>`;
       case 'élément': return `<li${attr(c)}>${nodes(value, p)}</li>`;
       case 'si': { const r = resolve(h.of || '', p); return r ? `{% if ${r.expr} %}${nodes(value, p)}{% endif %}` : ''; }
+      case 'repli': {
+        let lab = null, open = false;
+        for (const o of h.options) { let m; if (/^ouvert$/i.test(o)) open = true; else if ((m = /^libellé\s+«\s*([^«»]+?)\s*»$/i.exec(o))) lab = { text: m[1] }; else if ((m = /^libellé\s+(\S+)$/i.exec(o))) lab = { data: m[1] }; else fail(p, `option de repli inconnue « ${o} » (libellé <donnée>, libellé « texte », ouvert)`); }
+        if (!lab) { fail(p, '« repli, libellé « En savoir plus »: » : quel texte écrire sur la ligne qui ouvre la zone ?'); return ''; }
+        const rl = lab.data ? resolve(lab.data, p) : null;
+        if (lab.data && !rl) return '';
+        const w = c || `${base}-repli`; parts.set('repli', '.' + w);
+        baseCss.add(`.${secClsOf()} .${w}{border:1px solid var(--color-border);border-radius:var(--radius);padding:0 20px;margin-bottom:10px;background:var(--color-surface)}\n.${secClsOf()} .${w}>summary{cursor:pointer;padding:16px 0;font-weight:600;list-style:none;display:flex;justify-content:space-between;align-items:center}\n.${secClsOf()} .${w}>summary::-webkit-details-marker{display:none}\n.${secClsOf()} .${w}>summary::after{content:"+";font-size:1.4rem;color:var(--color-primary)}\n.${secClsOf()} .${w}[open]>summary::after{content:"−"}\n.${secClsOf()} .${w}-contenu{padding:0 0 16px}`);
+        const summary = rl ? out(rl.expr) : lab.text.replace(/[<>{}]/g, '');
+        return iff(rl, `<details class="${w}"${open ? ' open' : ''}><summary>${summary}</summary><div class="${w}-contenu">${nodes(value, p)}</div></details>`);
+      }
       case 'formulaire': {
-        if (!effects?.form) { fail(p, '« formulaire » exige effects.form dans le manifeste (store, fields…)'); return ''; }
+        if (!effects?.form) { fail(p, `« formulaire » ${NO_FORM}`); return ''; }
         let label = 'Envoyer'; for (const o of h.options) { const m = /^bouton\s+(.+)$/i.exec(o); if (m) label = m[1].replace(/[<>{}]/g, ''); else fail(p, `option de formulaire inconnue « ${o} » (bouton <texte>)`); }
         const w = c || `${base}-formulaire`; parts.set('formulaire', '.' + w);
-        return `{% if form.ok %}<div class="card contact-success" role="status"><strong>✔</strong> ${out('form.success')}</div>{% else %}<div class="${w}">{% form %}{% if form.failed %}<div class="form-error" role="alert">${out('form.message')}</div>{% endif %}${nodes(value, p)}<button class="btn" type="submit">${label}</button>{% endform %}</div>{% endif %}`;
+        return `{% if form.ok %}<div class="card contact-success" role="status"><strong>✔</strong> ${out('form.success')}</div>{% else %}<div class="${w}">{% form %}{% if form.failed %}<div class="form-error" role="alert">${out('form.message')}</div>{% endif %}${bare ? fieldNames().map(f => out(`field('${f}')`)).join('\n') : nodes(value, p)}<button class="btn" type="submit">${label}</button>{% endform %}</div>{% endif %}`;
       }
     }
     return '';
@@ -273,10 +340,11 @@ export function compileForme(forme, { name, props, want = new Set(), effects = n
   if (Array.isArray(forme)) body = nodes(forme, 'forme');
   else if (forme && typeof forme === 'object' && Object.keys(forme).length === 1 && /^section\b/i.test(Object.keys(forme)[0])) {
     const key = Object.keys(forme)[0];
+    curRef = { in: forme, at: key };
     const rest = key.replace(/^section\s*/i, '');
     const m = /^«\s*([^»]+?)\s*»/.exec(rest);
     if (m) secCls = m[1];
-    for (const o of rest.replace(/^«[^»]*»/, '').split(',').map(x => x.trim()).filter(Boolean)) {
+    for (const o of splitOutside(rest.replace(/^«[^»]*»/, ''))) {
       let mm;
       if ((mm = /^variante\s+([a-z_][a-z0-9_]*)\s+par défaut\s+([a-z0-9-]+)$/i.exec(o))) { const r = resolve(mm[1], 'forme'); if (r) variant = ` ${secCls}-{{ ${r.expr} | default('${mm[2]}') }}`; }
       else if ((mm = /^conteneur\s+«\s*([a-z][a-z0-9-]*)\s*»$/i.exec(o))) { inner = ' ' + mm[1]; parts.set(mm[1], '.' + mm[1]); parts.set('conteneur', '.' + mm[1]); }

@@ -97,11 +97,11 @@ Types de paramètre : `string text number boolean list object link asset`. L'usa
 
 Un composant s'écrit de deux façons.
 
-**Format langage (par défaut)** : un seul fichier, `manifest.yaml`, en français contrôlé. Le compilateur en tire le gabarit, la feuille de style, les comportements et le schéma des props ; l'auteur ne voit ni HTML, ni CSS, ni JavaScript. La correspondance est fixe : une même configuration donne toujours le même rendu, et toute erreur renvoie à une ligne du manifeste.
+**Format langage (par défaut)** : un seul fichier, `manifest.yaml`, en français contrôlé. Quatre blocs : `données` (ce que le composant accepte), `forme` (sa structure), `apparence` (son allure), `fonctionnement` (ce qu'il fait d'une saisie). Le compilateur en tire le schéma des props, le gabarit, la feuille de style, les comportements et les effets serveur ; l'auteur ne voit ni HTML, ni CSS, ni JavaScript. La correspondance est fixe : une même configuration donne toujours le même rendu, toute erreur renvoie à une ligne du manifeste (`"path":"ligne 21"`), et `sitec component show <dossier> <nom>` affiche chaque bloc à côté de ce qu'il produit.
 
 ```
 components/<nom>/
-  manifest.yaml    description, données, forme, apparence, example, intents, effects
+  manifest.yaml    description, données, forme, apparence, fonctionnement, example, intents
   description.md   la demande en français libre (facultatif, écrit par sitec component new)
   fixtures/        cas de test et rendus attendus
 ```
@@ -144,13 +144,20 @@ La structure de la section, en primitives dont le balisage est fixe (classes mai
 | `titre`, `grand titre`, `sous-titre` | h2 dans la section, h3 dans un élément de liste ; forcés h2 ou h3 |
 | `texte`, `texte discret`, `paragraphes`, `citation` | paragraphe, paragraphe discret, texte long avec balisage léger, citation « » |
 | `image`, `icône`, `étoiles`, `prix`, `badge`, `date` (option : en toutes lettres) | médias et valeurs formatées |
+| `image, agrandissable: photo, légende` | image qui s'ouvre en grand au clic |
+| `portrait: photo, nom` | photo ronde, ou l'initiale du nom quand il n'y a pas de photo |
 | `bouton`, `bouton discret`, `lien` | liens |
 | `signature: author, role` (option : en toutes lettres) | auteur en gras, précision discrète |
 | `numéro` | numéro de l'élément dans sa liste |
 | `bloc`, `carte`, `témoignage`, `élément`, `si x:` | regroupements, carte, carte de citation, élément de liste, condition |
 | `grille de x, 3 colonnes`, `liste de x`, `liste numérotée de x`, `rangée de x` | listes d'éléments |
 | `défilement de x` (options : automatique, sans flèches), `onglets de x, libellé y`, `accordéon de x, question q, réponse r` | carrousel, onglets, questions repliables : comportements inclus |
-| `formulaire, bouton Envoyer:` puis `champ: nom` | formulaire déclaré par `effects.form` |
+| `filtres de x, selon champ, 3 colonnes` (option : tout « Toutes ») | grille précédée de boutons qui la filtrent ; un bouton par valeur du champ |
+| `repli, libellé « En savoir plus »:` puis des éléments (option : ouvert) | zone repliable |
+| `copier, libellé « Copier le code »: donnée` | bouton qui copie la donnée dans le presse-papiers |
+| `formulaire, bouton Envoyer` ; ou `formulaire:` puis `champ: nom` pour placer les champs | formulaire déclaré dans `fonctionnement` |
+
+Les primitives à comportement (défilement, onglets, accordéon, filtres, repli, image agrandissable, copier) posent elles-mêmes les attributs et déclarent le comportement : rien à écrire dans `behaviors`.
 
 En tête : `section, conteneur « nom », variante style par défaut primary:` puis la liste. Un texte littéral peut porter des données et du balisage léger : `texte: "Réponse sous {{ delai }}. [Appeler]({{ lien_appel }})"` ; une valeur `"{{ … }}"` est une expression du langage, aux noms courts (`{{ title | default(label) }}`).
 
@@ -178,7 +185,43 @@ apparence:
     flèches: masquées
 ```
 
-Mesure (`scripts/measure-format.mjs`) : sur sept composants natifs et trois composants de projet, ce que l'auteur écrit passe de 3 696 à 1 399 tokens (−62 %) et de 481 à 149 lignes. Les sept natifs réécrits en forme produisent les 36 pages des exemples identiques au caractère près (`scripts/snapshot-pages.mjs --compare`).
+### Fonctionnement
+
+Ce que le composant fait d'une saisie, une fois envoyée au serveur. Un seul fonctionnement en version 1 : le formulaire.
+
+```yaml
+fonctionnement:
+  formulaire:
+    enregistre dans: devis
+    prévient par e-mail: oui
+    confirmation: Merci, nous vous rappelons dans la journée.
+    champs:
+      name:
+      phone: facultatif
+      type_travaux: choix, un parmi Fuite, Chauffe-eau, Autre — Type de travaux
+      precision: texte, si type_travaux vaut Autre — Précisez
+      details: texte long, facultatif — Précisions (ex. étage, accès)
+```
+
+| Écrit | Signifie |
+|---|---|
+| `enregistre dans: devis` | registre des envois (back-office › Formulaires, export CSV) ; obligatoire ; `orders`, `events`, `stock`, `products` sont réservés |
+| `prévient par e-mail: oui` | `oui` : e-mail au contact du site ; une adresse ; `non` |
+| `destinataire: adresse` | autre destinataire que le contact du site |
+| `confirmation: texte` | message affiché après l'envoi |
+| `champs:` puis une ligne par champ | « nom: type, précisions — Libellé (ex. exemple affiché dans le champ) » |
+| `texte`, `texte long`, `e-mail`, `téléphone`, `nombre`, `date`, `choix` | types de champ (`texte` par défaut) |
+| `facultatif` | champ non obligatoire (tout champ est obligatoire sinon) |
+| `choix, un parmi a, b, c` | liste déroulante ; toujours en dernier avant « — » |
+| `si champ vaut valeur` | champ affiché et validé seulement dans ce cas ; le champ cité est déclaré plus haut, la valeur est l'une des siennes |
+
+Les noms `name`, `email`, `phone`, `subject`, `message` ont leur type et leur libellé habituels : rien à écrire après les deux-points. La forme place le formulaire (`- formulaire, bouton Demander un devis`) ; un formulaire déclaré que la forme n'affiche pas est une erreur, comme un `champ:` que le fonctionnement ne déclare pas. Le bloc se compile vers les effets déclarés décrits plus bas : le compilateur fournit validation serveur, jeton CSRF, pot de miel, enregistrement et e-mail. `effects` (format machine) et `fonctionnement` ensemble sont refusés.
+
+### Voir ce qu'un composant produit
+
+`sitec component show <dossier> <nom>` affiche, bloc par bloc, les lignes du manifeste puis ce que le compilateur en tire : schéma JSON des props, effets, gabarit neutre, comportements ajoutés, parties que l'apparence peut viser, feuille de base des primitives et feuille de l'apparence. `--php` ajoute le PHP exécuté par le serveur, `--json` donne la même chose en données (`blocks[].source.from`, `.to`, `.output`). Rien n'y est recalculé : c'est l'entrée de catalogue que `check` et `build` utilisent.
+
+Mesure (`scripts/measure-format.mjs`) : sur sept composants natifs et trois composants de projet, ce que l'auteur écrit passe de 3 696 à 1 372 tokens (−63 %) et de 481 à 145 lignes, formulaire du devis écrit en `fonctionnement` compris. Les sept natifs réécrits en forme en v0.7.0 produisent les 36 pages des exemples identiques au caractère près (`scripts/snapshot-pages.mjs --compare`) ; `team`, réécrit en v0.8.0, garde ses props mais change de rendu (portrait rond ou initiale), sur trois pages.
 
 ### Gabarit
 
@@ -188,12 +231,12 @@ Mesure (`scripts/measure-format.mjs`) : sur sept composants natifs et trois comp
 | `{% if e %} … {% elif e %} … {% else %} … {% endif %}` | condition |
 | `{% for x in e %} … {% endfor %}`, `{% for k, x in e %}` | boucle ; `loop.index`, `loop.index0`, `loop.first`, `loop.last`, `loop.count` |
 | `{% set x = e %}` | valeur locale |
-| `{% form %} … {% endform %}` | formulaire déclaré par `effects.form` : méthode, nom, jeton, pot de miel |
+| `{% form %} … {% endform %}` | formulaire déclaré par `fonctionnement` (ou `effects.form`) : méthode, nom, jeton, pot de miel |
 | `{# … #}` | commentaire |
 
 Variables : `p` (props, vérifiées contre le manifeste), `site`, `page`, `item`, `product`, `order`, `form`, `loop`, `shop`. Fonctions : `link(lien, classe)`, `img(chemin, alt, sizes, eager)`, `img_src(chemin, largeur)`, `asset(chemin)`, `url(cible)`, `icon(nom)`, `paragraphs(texte)`, `markup(texte)`, `lines(texte)` (retours à la ligne conservés), `money(n)`, `field(nom)`.
 
-La vérification refuse, avec le numéro de ligne : PHP ou tout code de cible, variable inconnue, prop absente du manifeste, clé inconnue d'un élément de liste typé, balise déséquilibrée, filtre ou fonction inconnus, `form` sans `effects.form`. Le balisage ne contient pas de code navigateur : `<script>`, attributs `on…=`, liens `javascript:`, `<iframe>`, `<object>`, `<embed>`, `<link>`, `<meta>`, `<base>` sont refusés.
+La vérification refuse, avec le numéro de ligne : PHP ou tout code de cible, variable inconnue, prop absente du manifeste, clé inconnue d'un élément de liste typé, balise déséquilibrée, filtre ou fonction inconnus, `form` sans formulaire déclaré. Pour un composant au format langage, ces erreurs portent sur `manifest.yaml`, à la ligne de la forme (`E_COMPONENT`) ; pour un gabarit écrit à la main, sur `template.html` (`E_TEMPLATE`). Le balisage ne contient pas de code navigateur : `<script>`, attributs `on…=`, liens `javascript:`, `<iframe>`, `<object>`, `<embed>`, `<link>`, `<meta>`, `<base>` sont refusés.
 
 ### Feuille de style encadrée
 
@@ -224,6 +267,8 @@ Le côté navigateur d'un composant passe par des comportements fournis par le c
 Attributs posés sans déclaration : erreur `E_BEHAVIOR` ; comportement déclaré mais absent du gabarit : avertissement. Un `module.js` reste possible pour un besoin hors de cette liste, avec l'avertissement `W_MODULE_JS` : son code n'est pas vérifié.
 
 ### Effets déclarés
+
+Le format machine que `fonctionnement` produit, et qu'un composant au format html écrit directement :
 
 ```yaml
 effects:

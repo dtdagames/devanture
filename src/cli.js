@@ -11,6 +11,7 @@ import { BEHAVIORS } from './lang/behaviors.js';
 import { TYPE_WORDS } from './lang/donnees.js';
 import { PRIMITIVE_HELP } from './lang/forme.js';
 import { INTENT_NAMES } from './lang/apparence.js';
+import { FIELD_TYPE_WORDS, FIELD_MODIFIERS, FORM_SETTINGS } from './lang/fonctionnement.js';
 import fs from 'node:fs/promises';
 
 const HELP = `sitec — compilateur Devanture (sites vitrines → PHP + JS)
@@ -28,6 +29,8 @@ Usage :
                                              Modifie un composant existant par une demande en langage naturel (même vérification ; ancienne version restaurée en cas d'échec)
   sitec component preview <dossier> <nom> [--package chemin]
                                              Page d'aperçu de tous les cas de test, avec le thème du site (.devanture/preview/<nom>.html)
+  sitec component show <dossier> <nom> [--php] [--json] [--package chemin]
+                                             Chaque bloc du manifeste (données, fonctionnement, forme, apparence) et ce qu'il devient : schéma, effets, gabarit, feuille (--php : le PHP exécuté)
   sitec schema <dossier> [--no-vscode]       Schémas JSON du site pour l'éditeur (.devanture/schema) et réglages VS Code : complétion des composants, props, assets et routes
   sitec migrate <dossier> [--dry-run] [--to N]
                                              Fait passer le site à la dernière version du langage (texte modifié, commentaires conservés) et suggère ce qu'elle permet d'écrire mieux
@@ -125,8 +128,8 @@ export async function run(argv) {
 
     case 'component': {
       const [sub, dir, name] = args;
-      const usage = 'Usage : sitec component new|edit|preview <dossier-projet> <nom> [--describe "…" | --from f.md | --ask "…"] [--package chemin] [--model id] [--rounds n] [--export p.json] [--import r.json] [--force]';
-      if (!['new', 'edit', 'preview'].includes(sub) || !dir || !name) { console.error(usage); return 2; }
+      const usage = 'Usage : sitec component new|edit|preview|show <dossier-projet> <nom> [--describe "…" | --from f.md | --ask "…"] [--package chemin] [--model id] [--rounds n] [--export p.json] [--import r.json] [--force] [--php] [--json]';
+      if (!['new', 'edit', 'preview', 'show'].includes(sub) || !dir || !name) { console.error(usage); return 2; }
       if (!/^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*$/.test(name)) { console.error(`Nom de composant mal formé : ${name} (minuscules, chiffres, tirets ; points pour une famille).`); return 2; }
       const opt = k => { const i = rest.indexOf(k); return i >= 0 ? rest[i + 1] : null; };
       const root = path.resolve(dir);
@@ -141,6 +144,18 @@ export async function run(argv) {
         catch (e) { console.log(`      aperçu indisponible : ${e.message}`); return null; }
       };
       if (sub === 'preview') { const r = await preview(); return r && !r.errors ? 0 : 1; }
+      if (sub === 'show') {
+        // Le lien entre ce qui est écrit et ce qui est exécuté : chaque bloc du manifeste, puis ce qu'il devient.
+        const entry = (project.catalog || catalog).get(target.name);
+        if (!entry) {
+          if (project.composites?.[target.name]) { console.error(`${target.name} est un composant composé (components.yaml) : sitec explain ${target.name} ${dir}.`); return 2; }
+          console.error(`Composant introuvable ou en erreur : ${target.name}. sitec check ${dir} donne le détail ; sitec catalog ${dir} liste les composants.`); return 1;
+        }
+        const { describeComponent, formatDescription } = await import('./component-show.js');
+        const d = await describeComponent(entry, { php: flags.has('--php') });
+        console.log(flags.has('--json') ? JSON.stringify({ ...d, file: path.relative(process.cwd(), d.file).replaceAll('\\', '/') }) : formatDescription(d));
+        return 0;
+      }
       if (sub === 'new' && catalog.has(target.name)) { console.error(`${target.name} existe déjà dans le catalogue natif : choisissez un autre nom.`); return 2; }
       const show = ({ round, problems, warnings, notes }) => { console.log(`TOUR ${round} : ${problems.length} problème(s), ${warnings.length} avertissement(s)`); for (const p of [...problems, ...warnings]) console.log(`      [${p.code}] ${p.file}${p.path ? ' › ' + p.path : ''} : ${p.message}`); if (notes) console.log(`      notes du modèle : ${notes}`); };
       const generative = sub === 'edit' || opt('--describe') || opt('--from') || opt('--import');
@@ -218,6 +233,17 @@ forme:
 # L'allure, par partie : intentions liées au thème.
 apparence:
   cartes: compactes, coins arrondis
+# Ce que le composant fait d'une saisie (facultatif) : retirez les « # », puis ajoutez « - formulaire, bouton Envoyer » à la forme.
+# fonctionnement:
+#   formulaire:
+#     enregistre dans: demandes
+#     prévient par e-mail: oui
+#     confirmation: Merci, nous vous répondons rapidement.
+#     champs:
+#       name:
+#       email:
+#       sujet: choix, un parmi Devis, Question — Votre demande
+#       message: texte long, facultatif
 example: |
   - ${target.name}:
       title: Un titre
@@ -226,7 +252,7 @@ example: |
 intents: [mots, que, tapent, les, visiteurs]
 `);
         await fs.writeFile(path.join(cdir, 'fixtures', 'simple.yaml'), 'title: Un titre\nitems:\n  - { title: Premier point, text: Une phrase. }\n  - { title: Second point }\n');
-        console.log(`OK  ${relDir} : manifest.yaml (données, forme, apparence) et un cas de test. Ensuite : décrire, ajuster, puis sitec check ${dir} et sitec component preview ${dir} ${name}.`);
+        console.log(`OK  ${relDir} : manifest.yaml (données, forme, apparence ; fonctionnement en commentaire) et un cas de test. Ensuite : décrire, ajuster, puis sitec check ${dir}, sitec component show ${dir} ${name} (ce que chaque bloc produit) et sitec component preview ${dir} ${name}.`);
         return 0;
       }
       const cls = name.replace(/\./g, '-');
@@ -475,15 +501,20 @@ Constantes : site.yaml › constants: { delai: 1 h, zone: Lyon } → {{ const.de
 Collections : site.yaml › collections: { nom: { label, fields: { champ: type }, sort } } ; data/<nom>.yaml ; page route: /chemin/[id] + source: nom ; composant collection.list.
   types de champ : string, text, number, boolean, date, asset, list, link.
 Composants composés : components.yaml › components: { nom: { params, sections } } ; dans sections, {{ p.param }} et { for: p.liste, as: x, item: {…} }.
-Composants de projet, format langage (défaut) : un seul manifest.yaml avec données, forme, apparence (docs/LANGAGE.md, section 6).
+Composants de projet, format langage (défaut) : un seul manifest.yaml avec données, forme, apparence, fonctionnement (docs/LANGAGE.md, section 6).
   données : nom: ${TYPE_WORDS.join(' | ')}, puis facultatif, au moins N, au plus N, de A à B, un parmi a, b — description ; « items (liste): » puis les champs.
   forme : ${Object.keys(PRIMITIVE_HELP).join(', ')}.
+    comportements posés par la forme, sans rien déclarer : défilement, onglets, accordéon, repli, filtres de x selon champ, image agrandissable, copier.
   apparence : partie: ${INTENT_NAMES.join(', ')} ; « sur téléphone: ».
+  fonctionnement : « formulaire: » puis ${FORM_SETTINGS.join(', ')} ; un champ par ligne « nom: type, précisions — Libellé (ex. exemple) ».
+    types de champ : ${FIELD_TYPE_WORDS.join(', ')} ; précisions : ${FIELD_MODIFIERS.join(' ; ')} ; name, email, phone, subject, message sont connus (rien à écrire après).
+    dans la forme : « - formulaire, bouton Envoyer » (tous les champs), ou « - formulaire: » puis « - champ: nom » pour les placer.
+  ce que chaque bloc produit (schéma, effets, gabarit, feuille) : sitec component show <dossier> <nom> [--php]. Toute erreur renvoie à une ligne de manifest.yaml.
 Format html (porte de sortie) : components/<nom>/manifest.yaml + template.html (+ styles.css) ; sitec component new <dossier> <nom> [--describe "texte"] [--format html].
   CSS : sélecteurs préfixés du nom du composant, jetons du thème (var(--color-…), var(--font-…)), rien d'externe.
   comportements : behaviors: [${Object.keys(BEHAVIORS).join(', ')}] et attributs data-sl-… dans le gabarit (docs/LANGAGE.md).
   gabarit : {{ expr }} échappé ; balises ${TEMPLATE_VOCABULARY.tags.join(', ')} ; variables ${TEMPLATE_VOCABULARY.variables.join(', ')} ; fonctions ${TEMPLATE_VOCABULARY.functions.join(', ')} (HTML sûr : ${TEMPLATE_VOCABULARY.safe.join(', ')})
-  effets déclarés : manifest.yaml › effects.form { store, fields, notify, to, success } → {% form %} … {% endform %}, {{ field('nom') }}, form.ok, form.failed, form.message, form.success.
+  effets déclarés (format machine, ce que fonctionnement produit) : manifest.yaml › effects.form { store, fields, notify, to, success } → {% form %} … {% endform %}, {{ field('nom') }}, form.ok, form.failed, form.message, form.success.
 Spécification complète : docs/LANGAGE.md.`);
 }
 

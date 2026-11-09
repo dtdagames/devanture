@@ -131,6 +131,7 @@ export const FILTERS = {
   map: (v, key) => (isList(v) ? v.map(x => (x && typeof x === 'object' ? x[key] ?? null : null)) : []),
   where: (v, key, val) => (isList(v) ? v.filter(x => x && typeof x === 'object' && (val === undefined ? truthy(x[key]) : str(x[key]) === str(val))) : []),
   limit: (v, n) => (isList(v) ? v.slice(0, Math.max(0, num(n))) : v),
+  unique: (v) => { if (!isList(v)) return []; const seen = new Set(), out = []; for (const x of v) { const k = str(x); if (k === '' || seen.has(k)) continue; seen.add(k); out.push(x); } return out; },
   money: (v, cur = '€') => num(v).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ' + cur,
   round: (v, d = 0) => { const f = 10 ** num(d); return Math.round(num(v) * f) / f; },
   slug: (v) => str(v).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''),
@@ -273,6 +274,7 @@ function sl_f_sort(mixed $v, mixed $key = null): mixed {
 function sl_f_map(mixed $v, mixed $key): array { return is_array($v) ? array_values(array_map(fn($x) => sl_get($x, sl_str($key)), $v)) : []; }
 function sl_f_where(mixed $v, mixed $key, mixed $val = null): array { if (!is_array($v)) return []; $k = sl_str($key); return array_values(array_filter($v, fn($x) => $val === null ? sl_truthy(sl_get($x, $k)) : sl_str(sl_get($x, $k)) === sl_str($val))); }
 function sl_f_limit(mixed $v, mixed $n): mixed { return is_array($v) ? array_slice($v, 0, max(0, (int)sl_num($n))) : $v; }
+function sl_f_unique(mixed $v): array { if (!is_array($v)) return []; $seen = []; $out = []; foreach ($v as $x) { $k = sl_str($x); if ($k === '' || isset($seen[$k])) continue; $seen[$k] = true; $out[] = $x; } return $out; }
 function sl_f_money(mixed $v, mixed $cur = '€'): string { return number_format((float)sl_num($v), 2, ',', ' ') . ' ' . sl_str($cur); }
 function sl_f_round(mixed $v, mixed $d = 0): float|int { $r = round((float)sl_num($v), (int)sl_num($d)); return (int)sl_num($d) === 0 ? (int)$r : $r; }
 function sl_f_slug(mixed $v): string { $s = sl_utf8_ascii(sl_str($v)); $s = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '-', $s)); return trim($s, '-'); }
