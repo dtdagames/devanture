@@ -5,7 +5,7 @@ import { err, nearest } from './errors.js';
 export const FIELD_TYPES = ['string', 'text', 'number', 'boolean', 'date', 'asset', 'list', 'link'];
 const SPEC_KEYS = ['label', 'description', 'fields', 'sort', 'title_field'];
 const FIELD_KEYS = ['type', 'required', 'label', 'description', 'default'];
-const RESERVED = new Set(['products', 'orders', 'messages', 'events', 'stock']);
+export const RESERVED = new Set(['products', 'orders', 'messages', 'events', 'stock']);
 
 /** Normalise la déclaration d'une collection : { label, fields: { nom: { type, required, label, default } }, sort, title_field }. */
 export function normalizeSpec(name, raw, file, errors) {

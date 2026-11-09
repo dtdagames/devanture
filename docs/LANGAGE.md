@@ -4,11 +4,11 @@ Ce document est la spécification du langage lu par le compilateur `sitec`. Il d
 
 ## 1. Modèle
 
-Un site est un ensemble de documents YAML : `site.yaml` (identité, réglages, constantes, collections), `pages/<id>.page.yaml` (une page par fichier), `data/<nom>.yaml` (éléments des collections, produits), `components.yaml` (composants composés), `components/<nom>/` (composants de projet), `segments.yaml` (personnalisation), `brief.md` (source de vérité éditoriale).
+Un site est un ensemble de documents YAML : `site.yaml` (identité, réglages, constantes, collections), `pages/<id>.page.yaml` (une page par fichier), `data/<nom>.yaml` (éléments des collections, produits), `components.yaml` (composants composés), `components/<nom>/` (composants de projet), `segments.yaml` (segments, objectifs, expériences), `brief.md` (source de vérité éditoriale).
 
 Le langage est **déclaratif et sans effet** : il décrit des pages faites de sections, des données, des composants et des effets nommés (enregistrer, notifier, mesurer). Il n'a ni boucle libre, ni affectation, ni appel arbitraire. Tout ce qui peut être calculé à la compilation l'est ; ce qui dépend de la requête (élément d'une collection, produit, commande, formulaire) est traduit vers la cible par le compilateur, jamais écrit par l'auteur.
 
-Trois moyens d'abstraction :
+Quatre moyens d'abstraction :
 
 | Moyen | Où | Ce qu'il nomme |
 |---|---|---|
@@ -38,12 +38,15 @@ Racines :
 
 Vérification statique : une racine inconnue, une clé absente sous `site` ou `const` (sauf `| default(x)`), un filtre ou une fonction inconnus, une racine d'affichage hors de sa page sont des erreurs (`E_UNKNOWN_REF`, `E_EXPR`).
 
-Filtres : `upper lower capitalize trim default(x) join(sep) count length first last reverse sort(clé|-clé) map(clé) where(clé, valeur) limit(n) money(devise) price(devise) round(n) int slug truncate(n) split(sep) replace(a, b) date(format) repeat(n)`. `date` accepte `d j m n Y y F` (`F` = mois en lettres). Les valeurs vides, `0`, `false`, `null` et les listes vides sont fausses ; `"0"` est vrai.
+Filtres : `upper` `lower` `capitalize` `trim` `default(x)` `join(sep)` `count` `length` `first` `last` `reverse` `sort(clé|-clé)` `map(clé)` `where(clé, valeur)` `limit(n)` `unique` `money(devise)` `price(devise)` `round(n)` `int` `slug` `truncate(n)` `split(sep)` `replace(a, b)` `date(format)` `nl2br` `url_encode` `repeat(n)`. `date` accepte `d j m n Y y F` (`F` = mois en lettres). Les valeurs vides, `0`, `false`, `null` et les listes vides sont fausses ; `"0"` est vrai.
 
 Sémantique unique : le même évaluateur sert à la compilation (JavaScript) et à l'exécution (PHP produit par traduction de l'arbre) ; le banc `scripts/verify-lang.mjs` vérifie l'égalité des deux sur un jeu d'expressions.
 
 ## 3. Constantes
 
+À la racine de `site.yaml` :
+
+<!-- sitec: site.yaml (ajout) -->
 ```yaml
 constants:
   delai_depannage: 1 h
@@ -54,6 +57,9 @@ constants:
 
 ## 4. Collections
 
+La déclaration, à la racine de `site.yaml` :
+
+<!-- sitec: site.yaml (ajout) -->
 ```yaml
 collections:
   realisations:
@@ -70,12 +76,42 @@ collections:
 
 Types de champ : `string`, `text` (long, balisage léger), `number`, `boolean`, `date` (`AAAA-MM-JJ`, `AAAA-MM`, `AAAA`), `asset` (fichier de `assets/`), `list`, `link`. Chaque élément a un `id` unique (minuscules, chiffres, tirets). Les éléments vivent dans `data/<nom>.yaml` sous la clé `<nom>` (ou `items`). Un champ inconnu, un type faux, un fichier absent sont des erreurs.
 
-Une page par élément : `route: /realisations/[id]`, `source: realisations` ; ses sections et son `seo` lisent `item.*`. Une liste : composant `collection.list` (`source`, `filter`, `sort`, `limit`, champs d'affichage). À la compilation : `{{ collections.realisations | count }}`, `{{ collections.realisations | where('category', 'cuisine') | map('title') | join(', ') }}`.
+Les éléments, dans `data/realisations.yaml` :
+
+<!-- sitec: data/realisations.yaml -->
+```yaml
+realisations:
+  - id: cuisine-lyon-6
+    title: Cuisine refaite, Lyon 6e
+    date: "2026-09"
+    category: cuisine
+    text: Remplacement de l'évier et du mitigeur, raccordement du lave-vaisselle.
+```
+
+Une page par élément : `route: /realisations/[id]`, `source: realisations` ; ses sections et son `seo` lisent `item.*`.
+
+<!-- sitec: pages/realisation.page.yaml -->
+```yaml
+page: realisation
+route: /realisations/[id]
+source: realisations
+seo: { title: "{{ item.title }}" }
+sections:
+  - hero:
+      title: "{{ item.title }}"
+      subtitle: "{{ item.category | capitalize }} · {{ item.date | date('F Y') }}"
+  - richtext: { text: "{{ item.text }}" }
+```
+
+Une liste : composant `collection.list` (`source`, `filter`, `sort`, `limit`, champs d'affichage). À la compilation : `{{ collections.realisations | count }}`, `{{ collections.realisations | where('category', 'cuisine') | map('title') | join(', ') }}`.
 
 Les noms `products`, `orders`, `messages`, `events`, `stock` sont réservés. La boutique (`data/products.yaml`) garde sa sémantique propre (prix, stock, panier).
 
 ## 5. Composants composés
 
+Dans `components.yaml`, à la racine du site :
+
+<!-- sitec: components.yaml -->
 ```yaml
 components:
   offre:
@@ -91,7 +127,89 @@ components:
       - cta: { title: "{{ p.titre }} : parlons-en", button: "{{ p.cta }}" }
 ```
 
-Types de paramètre : `string text number boolean list object link asset`. L'usage `- offre: { titre: …, prix: … }` est remplacé à la compilation par les sections produites, qui sont ensuite validées comme les autres ; une erreur dans une section produite nomme l'assemblage et l'usage. `{ for: liste, as: x, item: gabarit }` construit une liste. L'`id` de l'usage va à la première section produite (les suivantes reçoivent `id-2`, `id-3`), `keywords` à la première ; `variants` est refusé sur un assemblage. La composition est récursive, profondeur limitée.
+Dans une page, l'assemblage s'emploie comme un composant natif :
+
+<!-- sitec: fragment sections -->
+```yaml
+- offre: { titre: Dépannage, prix: 95 € TTC, points: [Rapide, Garanti] }
+```
+
+Types de paramètre : `string`, `text`, `number`, `boolean`, `list`, `object`, `link`, `asset`. L'usage est remplacé à la compilation par les sections produites, qui sont ensuite validées comme les autres ; une erreur dans une section produite nomme l'assemblage et l'usage. `{ for: liste, as: x, item: gabarit }` construit une liste. L'`id` de l'usage va à la première section produite (les suivantes reçoivent `id-2`, `id-3`), `keywords` à la première ; `variants` est refusé sur un assemblage. La composition est récursive, profondeur limitée.
+
+## 5 bis. Segments, variantes et expériences
+
+`segments.yaml`, à la racine du site, dit qui voit quoi, ce qu'on cherche à obtenir, et ce qu'on mesure.
+
+<!-- sitec: segments.yaml -->
+```yaml
+segments:
+  recurrent: { visits: { gte: 2 } }
+  devis_abandonne:
+    all:
+      - { event: form_start, within: 7d }
+      - { not: { event: form_submit, within: 7d } }
+priority: [devis_abandonne, recurrent]
+
+goals:
+  appel: { event: click_cta, where: { to: "tel:+33472001122" } }
+  devis: { event: form_sent, where: { form: contact } }
+
+experiments:
+  accroche: { goal: appel, arms: [urgence] }
+  relance: { goal: devis, segment: devis_abandonne, holdout: 20 }
+```
+
+Dans une page, une section porte ses variantes ; la première dont le nom est actif pour le visiteur remplace les props citées :
+
+<!-- sitec: fragment sections -->
+```yaml
+- hero:
+    title: Plombier à Lyon
+    cta: { label: Appeler, to: "tel:+33472001122" }
+    variants:
+      urgence: { title: Une fuite ? Un plombier arrive }
+      devis_abandonne: { title: Votre demande de devis vous attend }
+      recurrent: { title: Heureux de vous revoir }
+```
+
+**Segments.** Une condition est `visits: N` ou `{ gte: N }` (aussi `eq`, `lte`, `gt`, `lt`), `device: mobile | desktop`, `event: nom` avec `within` (`24h`, `7d`, `3m`), `count` et `where`, ou une combinaison `all`, `any`, `not`. `priority` ordonne les segments quand plusieurs sont actifs. Le profil du visiteur (visites, événements récents) reste dans son navigateur, sous consentement ; la même spécification compilée est évaluée par le serveur au premier rendu et par le navigateur ensuite.
+
+Événements : `page_view`, `section_view`, `click_cta`, `form_start`, `form_submit`, `form_sent`, `search`, `cart_add`, `checkout_start`, `purchase`, `variant_shown`. `form_submit` est le bouton pressé, `form_sent` le formulaire accepté par le serveur ; `variant_shown` est émis quand une variante s'affiche.
+
+**Variantes.** Sur une section, `variants: { nom: { props surchargées } }` ; jamais `id`, `keywords` ni `variants`. Sur une page, `variants: { nom: { first: [ids], hide: [ids] } }` réordonne ou masque des sections.
+
+**Objectifs.** `goals: { nom: { event, where: { clé: valeur } } }` nomme ce qu'on cherche à obtenir. `where` est facultatif, porte une seule clé, limitée à ce que l'événement transporte :
+
+| Événement | Précisions permises |
+|---|---|
+| `page_view` | `route` |
+| `section_view` | `section`, `route` |
+| `click_cta` | `to`, `route` |
+| `form_start`, `form_submit`, `form_sent` | `form`, `route` |
+| `cart_add` | `category`, `route` |
+| `search`, `checkout_start`, `purchase` | aucune |
+
+**Expériences.** Une expérience compare une variante à un groupe témoin tiré au sort, nommé `temoin`, qui voit le contenu de base. Deux formes :
+
+| Écrit | Signifie |
+|---|---|
+| `{ goal, arms: [a, b] }` | A/B : parts égales entre le témoin et chaque bras |
+| `{ goal, arms: { a: 30, b: 30 } }` | pourcentage par bras, le reste au témoin (total de 99 au plus) |
+| `{ goal, segment: s, holdout: 20 }` | 20 % des visiteurs du segment `s` gardent le contenu de base (de 1 à 99, 50 par défaut) |
+| `minimum: 200` | visiteurs exposés par groupe avant tout verdict (200 par défaut, 20 au moins) |
+
+Un bras est un nom neuf (pas un segment, pas `temoin`) employé dans les `variants` des pages comme un nom de segment ; il passe avant les segments, sauf s'il est placé dans `priority`. Le vérificateur refuse un objectif inconnu (`E_UNKNOWN_GOAL`), un bras ou un segment mesuré qu'aucune variante n'emploie (`E_EXPERIMENT_UNUSED`), `arms` et `segment` ensemble, des parts qui ne laissent pas de témoin.
+
+Mesure : un visiteur compte une fois comme exposé, à la première page où l'expérience agit, puis une fois s'il atteint l'objectif ensuite. Le back-office (`/_admin`, onglet « Expériences ») donne par groupe les visiteurs exposés, les objectifs atteints et le taux, puis par bras l'écart au témoin, son intervalle de confiance à 95 % et un verdict : pas assez de données, fait mieux, fait moins bien, pas de différence mesurable. Le verdict n'apparaît qu'une fois le minimum atteint dans chaque groupe. Chaque expérience porte une empreinte de sa définition et du contenu comparé : les changer ouvre une nouvelle mesure, l'ancienne est ignorée.
+
+Limites, à connaître avant de lire un résultat :
+
+- seuls les visiteurs ayant accepté la personnalisation sont tirés au sort et mesurés ; le résultat vaut pour eux ;
+- le témoin voit « ce qu'il aurait vu sinon », c'est-à-dire le contenu de base ou la variante d'un autre segment actif ;
+- deux expériences sur la même section se partagent l'affichage selon `priority` : la comparaison reste juste, l'effet mesuré est dilué ;
+- un nouveau visiteur tiré dans un bras voit d'abord le contenu de base, remplacé au chargement (un changement visible, une seule fois) ; une variante de page ne s'applique qu'à partir de la page suivante ;
+- le compte « une fois par visiteur » est tenu par le navigateur : il n'est pas à l'épreuve d'un visiteur qui falsifie son cookie ;
+- le banc `scripts/verify-experiments.mjs` vérifie le tirage, l'exposition, la conversion et les verdicts avec des visiteurs simulés ; rien n'a encore tourné sur du trafic réel.
 
 ## 6. Composants de projet
 
@@ -124,10 +242,10 @@ Ce que le composant accepte, une ligne par champ : « nom: type, précisions —
 
 | Écrit | Signifie |
 |---|---|
-| `texte`, `texte long`, `texte ou nombre`, `nombre`, `nombre entier`, `oui ou non`, `date` | types simples |
+| `texte`, `texte long`, `texte ou nombre`, `nombre`, `nombre entier` (ou `entier`), `oui ou non`, `date` | types simples |
 | `lien`, `image`, `icône` | lien `{ label, to }`, fichier d'`assets/`, pictogramme du catalogue |
-| `liste de textes`, `liste de liens`, `liste d'images` | listes simples |
-| `items (liste, au moins 1):` puis des champs en dessous | liste d'éléments ; `nom (groupe):` pour un objet |
+| `liste de textes` (ou `liste`), `liste de liens`, `liste d'images` | listes simples |
+| `items (liste, au moins 1):` puis des champs en dessous | liste d'éléments ; `nom (groupe):` puis des champs pour un objet (`groupe`) |
 | `facultatif` | champ non obligatoire (tout champ est obligatoire sinon) |
 | `au moins N`, `au plus N`, `de A à B` | bornes (éléments d'une liste, longueur d'un texte, valeur d'un nombre) |
 | `un parmi a, b, c` | valeurs permises, toujours en dernier |
@@ -165,7 +283,11 @@ En tête : `section, conteneur « nom », variante style par défaut primary:` p
 
 L'allure, par partie (primitive au singulier ou au pluriel, nom donné entre « », ou `section`), en intentions fixes traduites vers les jetons du thème : `compactes`, `aérées`, `coins arrondis`, `ombre légère`, `bordure`, `trait à gauche`, `fond surface`, `fond principal`, `fond d'accent`, `couleur d'accent`, `couleur discrète`, `couleur de succès`, `centré`, `grand`, `petit`, `gras`, `italique`, `majuscules`, `en ligne`, `empilés`, `deux colonnes`, `une colonne`, `étroit`, `largeur moyenne`, `masqués`, `espace au-dessus`… (liste complète : `sitec explain langage`). `sur téléphone:` regroupe les règles des petits écrans. Aucune valeur libre : pas de couleur, taille ni police écrite en dur.
 
+Un composant entier, `components/avis/manifest.yaml` :
+
+<!-- sitec: components/avis/manifest.yaml -->
 ```yaml
+description: Avis de clients, en défilement.
 données:
   title: texte, facultatif
   items (liste, au moins 1):
@@ -185,11 +307,29 @@ apparence:
     flèches: masquées
 ```
 
+Et son usage dans une page :
+
+<!-- sitec: fragment sections -->
+```yaml
+- avis:
+    title: Ils nous ont fait confiance
+    items:
+      - { rating: 5, text: Intervention rapide et soignée., author: Claire D. }
+      - { text: Devis clair et tenu., author: Marc L. }
+```
+
 ### Fonctionnement
 
-Ce que le composant fait d'une saisie, une fois envoyée au serveur. Un seul fonctionnement en version 1 : le formulaire.
+Ce que le composant fait d'une saisie, une fois envoyée au serveur. Un seul fonctionnement en version 1 : le formulaire. Exemple complet, `components/demande-devis/manifest.yaml` :
 
+<!-- sitec: components/demande-devis/manifest.yaml -->
 ```yaml
+description: Demande de devis, enregistrée et transmise par e-mail.
+données:
+  title: texte
+forme:
+  - titre: title
+  - formulaire, bouton Demander un devis
 fonctionnement:
   formulaire:
     enregistre dans: devis
@@ -201,6 +341,11 @@ fonctionnement:
       type_travaux: choix, un parmi Fuite, Chauffe-eau, Autre — Type de travaux
       precision: texte, si type_travaux vaut Autre — Précisez
       details: texte long, facultatif — Précisions (ex. étage, accès)
+```
+
+<!-- sitec: fragment sections -->
+```yaml
+- demande-devis: { title: Un devis en quelques minutes }
 ```
 
 | Écrit | Signifie |
@@ -227,14 +372,14 @@ Mesure (`scripts/measure-format.mjs`) : sur sept composants natifs et trois comp
 
 | Construction | Sens |
 |---|---|
-| `{{ expr }}` | sortie échappée ; HTML sûr seulement pour `link`, `img`, `icon`, `paragraphs`, `markup`, `field` en tête d'expression |
+| `{{ expr }}` | sortie échappée ; HTML sûr seulement pour `link`, `img`, `icon`, `paragraphs`, `markup`, `field`, `lines` en tête d'expression |
 | `{% if e %} … {% elif e %} … {% else %} … {% endif %}` | condition |
 | `{% for x in e %} … {% endfor %}`, `{% for k, x in e %}` | boucle ; `loop.index`, `loop.index0`, `loop.first`, `loop.last`, `loop.count` |
 | `{% set x = e %}` | valeur locale |
 | `{% form %} … {% endform %}` | formulaire déclaré par `fonctionnement` (ou `effects.form`) : méthode, nom, jeton, pot de miel |
 | `{# … #}` | commentaire |
 
-Variables : `p` (props, vérifiées contre le manifeste), `site`, `page`, `item`, `product`, `order`, `form`, `loop`, `shop`. Fonctions : `link(lien, classe)`, `img(chemin, alt, sizes, eager)`, `img_src(chemin, largeur)`, `asset(chemin)`, `url(cible)`, `icon(nom)`, `paragraphs(texte)`, `markup(texte)`, `lines(texte)` (retours à la ligne conservés), `money(n)`, `field(nom)`.
+Variables : `p` (props, vérifiées contre le manifeste), `site`, `page`, `item`, `product`, `order`, `form`, `loop`, `cart`, `shop`. Fonctions : `link(lien, classe)`, `img(chemin, alt, sizes, eager)`, `img_src(chemin, largeur)`, `asset(chemin)`, `url(cible)`, `icon(nom)`, `paragraphs(texte)`, `markup(texte)`, `lines(texte)` (retours à la ligne conservés), `money(n)`, `field(nom)`.
 
 La vérification refuse, avec le numéro de ligne : PHP ou tout code de cible, variable inconnue, prop absente du manifeste, clé inconnue d'un élément de liste typé, balise déséquilibrée, filtre ou fonction inconnus, `form` sans formulaire déclaré. Pour un composant au format langage, ces erreurs portent sur `manifest.yaml`, à la ligne de la forme (`E_COMPONENT`) ; pour un gabarit écrit à la main, sur `template.html` (`E_TEMPLATE`). Le balisage ne contient pas de code navigateur : `<script>`, attributs `on…=`, liens `javascript:`, `<iframe>`, `<object>`, `<embed>`, `<link>`, `<meta>`, `<base>` sont refusés.
 
@@ -268,15 +413,45 @@ Attributs posés sans déclaration : erreur `E_BEHAVIOR` ; comportement déclar�
 
 ### Effets déclarés
 
-Le format machine que `fonctionnement` produit, et qu'un composant au format html écrit directement :
+Le format machine que `fonctionnement` produit, et qu'un composant au format html écrit directement. Exemple complet, `components/rappel/manifest.yaml` puis son gabarit :
 
+<!-- sitec: components/rappel/manifest.yaml -->
 ```yaml
+description: Demande de rappel, enregistrée et transmise par e-mail.
+props:
+  type: object
+  required: [title]
+  properties:
+    title: { type: string, description: titre du bloc }
 effects:
   form:
-    store: devis                 # collection d'exploitation (back-office › Formulaires, CSV)
+    store: rappels               # registre des envois (back-office › Formulaires, CSV)
     notify: true                 # true : e-mail au contact du site ; adresse ; false
     success: Merci, nous vous rappelons.
     fields: [ name, phone, { name: type, label: Type, type: select, options: [A, B], required: true }, message ]
+```
+
+<!-- sitec: components/rappel/template.html -->
+```html
+<section class="section rappel">
+  <div class="container">
+    <h2>{{ p.title }}</h2>
+    {% if form.ok %}
+      <p>{{ form.success }}</p>
+    {% else %}
+      {% if form.failed %}<p>{{ form.message }}</p>{% endif %}
+      {% form %}
+        {{ field('name') }} {{ field('phone') }} {{ field('type') }} {{ field('message') }}
+        <button class="btn">Être rappelé</button>
+      {% endform %}
+    {% endif %}
+  </div>
+</section>
+```
+
+<!-- sitec: fragment sections -->
+```yaml
+- rappel: { title: On vous rappelle }
 ```
 
 Le compilateur produit la validation serveur, le jeton CSRF, le pot de miel, l'enregistrement (`id, at, form, ip, page, mail, …champs`), l'e-mail et l'onglet du back-office. Le gabarit lit `form.ok`, `form.failed`, `form.message`, `form.success`, `form.values.x`, `form.errors.x` et rend un champ par `{{ field('x') }}`. Aucun autre effet serveur n'est exprimable : un besoin inédit devient une primitive du langage s'il se répète, sinon il reste une extension du catalogue.
@@ -320,11 +495,11 @@ Avant toute génération : structure et types de chaque document, routes et ancr
 
 Le rendu des gabarits, le protocole des formulaires, le stockage, le cache statique, le déploiement : `docs/CIBLES.md`. Le langage n'y fait pas référence.
 
-Treize composants natifs sont écrits dans le gabarit neutre : bandeau, texte, galerie, équipe, tarifs, carte, points forts, chiffres, étapes, appel, chronologie, témoignages, FAQ, plus la liste de collection. Restent écrits pour la cible les **primitives à effets ou à état** : formulaire de contact, boutique (grille, fiche, produits liés, panier, commande, confirmation), horaires calculés à l'heure de la visite, mémoire du visiteur (`recent`), bloc libre (`custom`). Leur contrat est décrit dans `CIBLES.md` ; c'est ce qu'une seconde cible devrait réécrire, le reste vient du gabarit.
+Composants natifs écrits sans code de la cible (format langage ou gabarit neutre) : `hero`, `richtext`, `gallery`, `pricelist`, `map`, `collection.list`, `features`, `stats`, `steps`, `cta`, `timeline`, `testimonials`, `faq`, `team`. Composants natifs écrits pour la cible, les **primitives à effets ou à état** : `contact.form` (formulaire de contact), `products.grid`, `product.hero`, `products.related`, `cart.page`, `checkout.page`, `order.confirmation` (boutique), `hours` (horaires calculés à l'heure de la visite), `recent` (mémoire du visiteur), `custom` (bloc libre). Leur contrat est décrit dans `CIBLES.md` ; c'est ce qu'une seconde cible devrait réécrire, le reste vient du gabarit.
 
 ## 9. Versions et migration
 
 `sitec migrate <dossier>` fait passer un site à la dernière version, étape par étape, en modifiant le texte des fichiers (commentaires et mise en forme conservés), puis vérifie que le site migré passe `check`. `--dry-run` montre les changements sans écrire. Chaque migration propose aussi des suggestions non appliquées : ce que la nouvelle version permet d'écrire mieux (coordonnées recopiées en dur, valeurs répétées à mettre en constantes). Un site sans `language` est lu comme version 1 avec l'avertissement `W_LANGUAGE`.
 
 - **0** : sites écrits avant la déclaration de version (compilateur ≤ 0.1.3). Migration vers 1 : ajout de `language: 1`, aucune construction ne change.
-- **1** (2026-11-08) : première version écrite. Expressions, constantes, collections, composants composés, composants de projet avec gabarit neutre et effet `form`, paquets de composants, tests de composants, feuille de style encadrée, comportements déclarés.
+- **1** (2026-11-08) : première version écrite. Expressions, constantes, collections, composants composés, composants de projet avec gabarit neutre et effet `form`, paquets de composants, tests de composants, feuille de style encadrée, comportements déclarés. Ajouts compatibles, sans changement de version : composants en français contrôlé (compilateur 0.7.0 et 0.8.0), objectifs et expériences dans `segments.yaml` (0.9.0).

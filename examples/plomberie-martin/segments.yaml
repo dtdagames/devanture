@@ -7,4 +7,16 @@ segments:
       - { not: { event: form_submit, within: 7d } }
   fan_services: { event: section_view, where: { section: services }, count: { gte: 2 } }
   mobile: { device: mobile }
-priority: [devis_abandonne, fan_services, recurrent, nouveau, mobile]
+priority: [devis_abandonne, prix_annonce, fan_services, recurrent, nouveau, mobile]
+
+# Ce qu'on cherche à obtenir : un appel, une demande de devis reçue.
+goals:
+  appel: { event: click_cta, where: { to: "tel:0472001122" } }
+  devis: { event: form_sent, where: { form: contact } }
+
+# Chaque variante mesurée a un groupe témoin qui voit le contenu de base.
+experiments:
+  # A/B : la moitié des visiteurs voit l'accroche « prix_annonce » de l'accueil, l'autre moitié l'accroche de base.
+  accroche: { goal: appel, arms: [prix_annonce] }
+  # Variante d'un segment : 20 % des visiteurs du segment gardent le contenu de base, pour savoir si la relance sert.
+  relance: { goal: devis, segment: devis_abandonne, holdout: 20 }

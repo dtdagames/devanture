@@ -18,6 +18,9 @@ sections:
           cta: { label: Reprendre ma demande, to: /contact }
         recurrent:
           subtitle: Content de vous revoir. Dépannage 7j/7, devis gratuit, et vos interventions précédentes en mémoire.
+        prix_annonce:
+          title: Dépannage à Lyon à partir de 95 € TTC
+          subtitle: Déplacement et première heure compris. Devis gratuit, intervention sous 1 h à Lyon, 7j/7 de 7 h à 22 h.
         mobile:
           cta: { label: Appeler maintenant, to: "tel:0472001122" }
   - custom:

@@ -248,6 +248,54 @@ try {
   const sysF = JSON.parse(await fs.readFile(path.join(tmp, 'pf.json'), 'utf8')).system || '';
   ok('générateur : le guide enseigne fonctionnement (réglages, types de champ) et les primitives à comportement', /# fonctionnement/.test(sysF) && /enregistre dans, prévient par e-mail/.test(sysF) && /si <champ> vaut <valeur>/.test(sysF) && !/effects\.form/.test(sysF) && /- filtres : /.test(sysF) && /- portrait : /.test(sysF) && /- repli : /.test(sysF) && /- copier : /.test(sysF));
 
+  // --- expériences : objectifs, bras, groupe témoin (segments.yaml)
+  {
+    const xp = await copy('examples/plomberie-martin', 'xp');
+    const segFile = path.join(xp, 'segments.yaml'); const seg0 = await fs.readFile(segFile, 'utf8');
+    const withSeg = async (from, to) => { if (!seg0.includes(from)) return { code: -1, errs: [], out: 'introuvable : ' + from }; await fs.writeFile(segFile, seg0.replace(from, () => to)); const y = run('check', xp); await fs.writeFile(segFile, seg0); return { ...y, errs: lines(y.out).filter(e => e.code && !e.level) }; };
+    const has = (y, code, at) => y.code === 1 && y.errs.some(e => e.code === code && (!at || e.path === at));
+    let y = await withSeg('accroche: { goal: appel,', 'accroche: { goal: appels,');
+    ok('expérience : objectif inconnu → erreur, suggestion et correction', has(y, 'E_UNKNOWN_GOAL', 'experiments.accroche.goal') && y.errs[0].fix?.set === 'appel', y.out.slice(0, 300));
+    y = await withSeg('arms: [prix_annonce] }', 'arms: [recurrent] }');
+    ok('expérience : un bras ne porte pas le nom d\'un segment', has(y, 'E_DUPLICATE') && /déjà un segment/.test(y.errs.map(e => e.message).join(' ')), y.out.slice(0, 300));
+    y = await withSeg('arms: [prix_annonce] }', 'arms: [prix_annonce], segment: mobile }');
+    ok('expérience : arms ou segment, pas les deux', has(y, 'E_SCHEMA', 'experiments.accroche'), y.out.slice(0, 300));
+    y = await withSeg('arms: [prix_annonce] }', 'arms: { prix_annonce: 100 } }');
+    ok('expérience : des bras à 100 % ne laissent pas de témoin', has(y, 'E_FORMAT', 'experiments.accroche.arms') && /témoin/.test(y.errs[0].message), y.out.slice(0, 300));
+    y = await withSeg('arms: [prix_annonce] }', 'arms: [temoin] }');
+    ok('expérience : « temoin » est réservé au groupe de base', has(y, 'E_FORBIDDEN'), y.out.slice(0, 300));
+    y = await withSeg('arms: [prix_annonce] }', 'arms: [prix_annonce, autre_accroche] }');
+    ok('expérience : un bras sans variante dans les pages → rien à mesurer', has(y, 'E_EXPERIMENT_UNUSED', 'experiments.accroche.arms.autre_accroche') && /variants: \{ autre_accroche/.test(y.errs[0].hint || ''), y.out.slice(0, 300));
+    y = await withSeg('segment: devis_abandonne, holdout: 20 }', 'segment: devis_abandonne, holdout: 0 }');
+    ok('expérience : holdout de 1 à 99', has(y, 'E_FORMAT', 'experiments.relance.holdout'), y.out.slice(0, 300));
+    y = await withSeg('holdout: 20 }', 'holdout: 20, minimum: 5 }');
+    ok('expérience : minimum d\'au moins 20 visiteurs par groupe', has(y, 'E_FORMAT', 'experiments.relance.minimum'), y.out.slice(0, 300));
+    y = await withSeg('devis: { event: form_sent, where: { form: contact } }', 'devis: { event: form_sent, where: { to: /contact } }');
+    ok('objectif : where limité à ce que l\'événement transporte', has(y, 'E_UNKNOWN_PROP', 'goals.devis.where.to'), y.out.slice(0, 300));
+    y = await withSeg('appel: { event: click_cta,', 'appel: { event: clic_cta,');
+    ok('objectif : événement inconnu → suggestion', has(y, 'E_ENUM', 'goals.appel.event') && y.errs.find(e => e.code === 'E_ENUM').fix?.set === 'click_cta', y.out.slice(0, 300));
+
+    // empreinte : stable d'une compilation à l'autre, liée au contenu comparé
+    const sigs = async out => { const r = run('build', xp, '--out', out); const all = (await Promise.all((await fs.readdir(out, { recursive: true })).filter(n => n.endsWith('.php')).map(n => fs.readFile(path.join(out, n), 'utf8')))).join('\n'); const g = k => new RegExp("'" + k + "' => (?:array \\(|\\[)[\\s\\S]*?'sig' => '([0-9a-f]{8})'").exec(all)?.[1]; return { code: r.code, accroche: g('accroche'), relance: g('relance'), all }; };
+    const s1 = await sigs(path.join(tmp, 'xp-1')); const s2 = await sigs(path.join(tmp, 'xp-2'));
+    ok('empreinte d\'expérience : identique d\'une compilation à l\'autre', s1.code === 0 && !!s1.accroche && !!s1.relance && s1.accroche === s2.accroche && s1.relance === s2.relance, JSON.stringify([s1.accroche, s1.relance, s2.accroche, s2.relance]));
+    const pageFile = path.join(xp, 'pages', 'accueil.page.yaml'); const page0 = await fs.readFile(pageFile, 'utf8');
+    await fs.writeFile(pageFile, page0.replace('title: Dépannage à Lyon à partir de 95 € TTC', 'title: Dépannage à partir de 95 € TTC à Lyon'));
+    const s3 = await sigs(path.join(tmp, 'xp-3'));
+    ok('empreinte : changer la variante d\'un bras change la sienne, pas celle de l\'autre expérience', s3.code === 0 && s3.accroche !== s1.accroche && s3.relance === s1.relance, JSON.stringify([s3.accroche, s3.relance]));
+    await fs.writeFile(pageFile, page0);
+    await fs.writeFile(segFile, seg0.replace('holdout: 20 }', 'holdout: 30 }'));
+    const s4 = await sigs(path.join(tmp, 'xp-4'));
+    ok('empreinte : changer la définition (part du témoin) ouvre une nouvelle mesure', s4.code === 0 && s4.relance !== s1.relance && s4.accroche === s1.accroche, JSON.stringify([s4.accroche, s4.relance]));
+    await fs.writeFile(segFile, seg0);
+    // sans expérience : rien de plus dans le site compilé
+    await fs.writeFile(segFile, seg0.slice(0, seg0.indexOf('# Ce qu')).replace('devis_abandonne, prix_annonce,', 'devis_abandonne,'));
+    await fs.writeFile(pageFile, page0.replace(/\n +prix_annonce:\n +title: [^\n]+\n +subtitle: [^\n]+/, ''));
+    const s5 = await sigs(path.join(tmp, 'xp-5'));
+    ok('site sans expérience : ni objectifs, ni expériences, ni marqueur dans le site compilé', s5.code === 0 && !s5.accroche && !/'experiments' =>/.test(s5.all) && !/'goals' =>/.test(s5.all), s5.all.match(/'(experiments|goals)' =>.{0,80}/)?.[0] || '');
+    await fs.writeFile(segFile, seg0); await fs.writeFile(pageFile, page0);
+  }
+
   // --- migrate
   const fournil = await copy('examples/le-fournil', 'fournil');
   const before = await fs.readFile(path.join(fournil, 'site.yaml'), 'utf8');

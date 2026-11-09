@@ -194,7 +194,7 @@ function sl_rate_limit(string $bucket, int $max, int $windowSec): bool {
 function render_component(string $name, array $p): void {
     $file = __DIR__ . '/../components/' . $name . '.php';
     if (!is_file($file)) { echo '<!-- composant inconnu : ' . e($name) . ' -->'; return; }
-    if (!empty($p['id'])) echo '<span id="' . e($p['id']) . '" class="anchor" aria-hidden="true"' . (!empty($p['_variant']) ? ' data-variant="' . e($p['_variant']) . '"' : '') . (!empty($p['_fragment']) ? ' data-sl-fragment="' . e((string)($GLOBALS['SL_PAGE_ID'] ?? '')) . '"' : '') . '></span>' . "\n";
+    if (!empty($p['id'])) echo '<span id="' . e($p['id']) . '" class="anchor" aria-hidden="true"' . (!empty($p['_variant']) ? ' data-variant="' . e($p['_variant']) . '"' : '') . (!empty($p['_fragment']) ? ' data-sl-fragment="' . e((string)($GLOBALS['SL_PAGE_ID'] ?? '')) . '"' : '') . (!empty($p['_exp']) ? ' data-sl-exp="' . e($p['_exp']) . '"' : '') . '></span>' . "\n";
     include $file;
 }
 
@@ -398,7 +398,10 @@ if ($path === '/_studio' || str_starts_with($path, '/_studio/')) sl_studio_serve
 // Personnalisation : journal d'événements (variant_shown, etc.) envoyé par le navigateur.
 if ($path === '/_event' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $body = json_decode((string)file_get_contents('php://input', false, null, 0, 2048), true);
-    if (is_array($body) && isset($body['name']) && preg_match('/^[a-z_]{1,32}$/', (string)$body['name'])) {
+    if (is_array($body) && in_array($body['name'] ?? null, ['exp_exposure', 'exp_conversion'], true)) {
+        $row = sl_exp_event($body['name'], is_array($body['data'] ?? null) ? $body['data'] : []);
+        if ($row !== null) sl_store_append('events', ['at' => date('c'), 'name' => $body['name'], 'data' => $row, 'segments' => []]);
+    } elseif (is_array($body) && isset($body['name']) && preg_match('/^[a-z_]{1,32}$/', (string)$body['name'])) {
         sl_store_append('events', ['at' => date('c'), 'name' => $body['name'], 'data' => is_array($body['data'] ?? null) ? array_slice($body['data'], 0, 8, true) : null, 'segments' => sl_segments()]);
     }
     http_response_code(204); exit;
@@ -447,6 +450,7 @@ if ($page !== null) {
     if (!$static && !empty($page['csrf'])) $formResult['csrf'] = csrf_token();
     if (!empty($page['forms'])) handle_declared_forms($site, $page);
     ${shop ? `if (!empty($page['checkout'])) { $checkoutResult = shop_handle_checkout($site); if ($checkoutResult['status'] === 'redirect') { header('Location: ' . $checkoutResult['to'], true, 303); exit; } }` : ''}
+    if (!$static) sl_exp_assign();
     if ($static) ob_start();
     include __DIR__ . '/layout.php';
     if ($static) {
@@ -522,7 +526,8 @@ export const LAYOUT_PHP = `<!doctype html>
   <p><?= e($site['personalization']['consent_text'] ?? 'Ce site adapte certains contenus à votre navigation (pages vues, demandes en cours). Aucune donnée n\\'est transmise à des tiers.') ?></p>
   <div class="consent-actions"><button type="button" class="btn consent-accept">Accepter</button><button type="button" class="btn btn-outline consent-refuse">Refuser</button></div>
 </div>
-<script>window.SL = <?= json_encode(['spec' => $GLOBALS['SL_SPEC'], 'consent' => ['required' => (bool)($site['personalization']['requires_consent'] ?? true), 'given' => sl_consent()], 'segments' => sl_segments()], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;</script>
+<?php foreach (sl_forms_sent() as $sl_f): ?><span hidden data-sl-event="form_sent" data-sl-data="<?= e(json_encode(['form' => $sl_f, 'route' => (string)($current ?? '')], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>"></span>
+<?php endforeach; ?><script>window.SL = <?= json_encode(['spec' => $GLOBALS['SL_SPEC'], 'consent' => ['required' => (bool)($site['personalization']['requires_consent'] ?? true), 'given' => sl_consent()], 'segments' => sl_segments()], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;</script>
 <?php endif; ?>
 <script src="/assets/site.js?v={{JS_V}}" integrity="sha256-{{JS_SRI}}" defer></script>{{OFFLINE_SW}}
 </body>
@@ -819,14 +824,13 @@ $SL_SECTIONS = ${phpValue(sectionsMap)};
 function sl_consent(): ?bool { $c = $_COOKIE['sl_c'] ?? null; return $c === null ? null : $c === '1'; }
 
 function sl_profile(): array {
-    static $p = null;
-    if ($p !== null) return $p;
+    if (isset($GLOBALS['SL_PROFILE'])) return $GLOBALS['SL_PROFILE'];
     $raw = $_COOKIE['sl_p'] ?? '';
     $d = $raw !== '' ? json_decode($raw, true) : null;
     $p = is_array($d) ? $d : ['v' => 1, 'n' => 1, 'e' => []];
     if (!isset($p['n'])) $p['n'] = 1;
     if (!isset($p['e']) || !is_array($p['e'])) $p['e'] = [];
-    return $p;
+    return $GLOBALS['SL_PROFILE'] = $p;
 }
 
 function sl_device(): string {
@@ -844,6 +848,8 @@ function sl_eval(array $node, array $p, string $device, int $now): bool {
         case 'not': return !sl_eval($node['item'], $p, $device, $now);
         case 'visits': return sl_cmp((int)$p['n'], $node);
         case 'device': return $device === $node['value'];
+        case 'arm': return sl_exp_group($node['exp'], $p) === $node['index'] + 1;
+        case 'treated': return sl_exp_group($node['exp'], $p) === 2;
         case 'event':
             $ev = $p['e'][$node['name']] ?? null;
             if (!$ev) return sl_cmp(0, $node['count']);
@@ -853,6 +859,75 @@ function sl_eval(array $node, array $p, string $device, int $now): bool {
             return sl_cmp($count, $node['count']);
     }
     return false;
+}
+
+/**
+ * Expériences. Le profil garde par expérience [tirage 0..9999, empreinte, groupe d'exposition, converti].
+ * Groupe : 0 sans tirage, 1 témoin (contenu de base), 2 et plus pour les bras, ou 2 pour le segment mesuré.
+ */
+function sl_exp_group(string $exp, array $p): int {
+    global $SL_SPEC;
+    $x = $SL_SPEC['experiments'][$exp] ?? null; $s = $p['x'][$exp] ?? null;
+    if (!$x || !is_array($s) || !is_numeric($s[0] ?? null)) return 0;
+    $d = (int)$s[0];
+    if (isset($x['arms'])) { foreach ($x['arms'] as $i => $a) if ($d < $a['upto']) return $i + 2; return 1; }
+    return $d < $x['holdout'] ? 1 : 2;
+}
+
+function sl_exp_allowed(): bool {
+    global $SL_SPEC, $site;
+    if (empty($SL_SPEC['experiments']) || ($site['personalization']['enabled'] ?? true) === false) return false;
+    return !(($site['personalization']['requires_consent'] ?? true) && sl_consent() !== true);
+}
+
+/** Tirage côté serveur pour un visiteur déjà connu dont le profil n'a pas encore l'expérience : le premier rendu montre déjà son groupe. Un nouveau visiteur est tiré par le navigateur. */
+function sl_exp_assign(): void {
+    global $SL_SPEC;
+    if (!sl_exp_allowed() || !isset($_COOKIE['sl_p']) || headers_sent()) return;
+    $o = json_decode((string)$_COOKIE['sl_p']); // objets conservés : {} ne devient pas []
+    if (!is_object($o)) return;
+    if (!isset($o->x) || !is_object($o->x)) $o->x = new stdClass();
+    $changed = false;
+    foreach ($SL_SPEC['experiments'] as $name => $def) {
+        $cur = $o->x->{$name} ?? null;
+        if (is_array($cur) && is_numeric($cur[0] ?? null)) continue;
+        $o->x->{$name} = [random_int(0, 9999), $def['sig'], 0, 0]; $changed = true;
+    }
+    if (!$changed) return;
+    $json = json_encode($o, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($json === false || strlen(rawurlencode($json)) > 3800) return;
+    setrawcookie('sl_p', rawurlencode($json), ['expires' => time() + 180 * 86400, 'path' => '/', 'samesite' => 'Lax']);
+    $_COOKIE['sl_p'] = $json; unset($GLOBALS['SL_PROFILE']);
+}
+
+/** Événement d'expérience reçu du navigateur : le groupe vient du profil, jamais de la requête. null = à ignorer. */
+function sl_exp_event(string $name, array $data): ?array {
+    global $SL_SPEC;
+    $exp = is_string($data['exp'] ?? null) ? $data['exp'] : ''; $x = $SL_SPEC['experiments'][$exp] ?? null;
+    if (!$x || !sl_exp_allowed()) return null;
+    $p = sl_profile(); $s = $p['x'][$exp] ?? null;
+    if (!is_array($s) || count($s) < 4 || ($s[1] ?? null) !== $x['sig']) return null;
+    $g = (int)$s[2];
+    if ($g < 1 || $g !== sl_exp_group($exp, $p)) return null;
+    if ($name === 'exp_conversion' && empty($s[3])) return null;
+    return ['exp' => $exp, 'group' => $x['groups'][$g - 1], 'sig' => $x['sig']];
+}
+
+/** Segment (bras ou segment mesuré) → expérience. */
+function sl_exp_owners(): array {
+    global $SL_SPEC; static $o = null;
+    if ($o !== null) return $o;
+    $o = [];
+    foreach (($SL_SPEC['experiments'] ?? []) as $name => $x) foreach (array_slice($x['groups'], 1) as $g) $o[$g] = $name;
+    return $o;
+}
+
+/** Formulaires acceptés par le serveur sur cette réponse (hors pot de miel) : source de l'événement form_sent. */
+function sl_forms_sent(): array {
+    $out = []; $c = $GLOBALS['formResult'] ?? null;
+    if (is_array($c) && ($c['status'] ?? null) === 'ok' && !empty($c['id'])) $out[] = 'contact';
+    foreach (($GLOBALS['SL_FORMS'] ?? []) as $n => $r) if (($r['status'] ?? null) === 'ok' && !empty($r['id'])) $out[] = (string)$n;
+    return $out;
 }
 
 /** Segments actifs pour ce visiteur, dans l'ordre de priorité. Vide sans consentement quand il est requis. */
@@ -896,8 +971,16 @@ function sl_render_page(array $sections, ?array $pageVariants): void {
     foreach (sl_page_order($sections, $pageVariants) as $s) {
         if ($only !== null && ($s['props']['id'] ?? null) !== $only) continue;
         $p = $s['variants'] ? sl_variant($s['props'], $s['variants']) : $s['props'];
-        if ($s['variants']) $p['_fragment'] = true; // section rafraîchissable par /_fragment
+        if ($s['variants']) {
+            $p['_fragment'] = true; // section rafraîchissable par /_fragment
+            $ex = array_values(array_unique(array_intersect_key(sl_exp_owners(), $s['variants'])));
+            if ($ex) $p['_exp'] = implode(' ', $ex); // expériences qui agissent ici : voir cette section, c'est être exposé
+        }
         render_component($s['name'], $p);
+    }
+    if ($only === null && $pageVariants) {
+        $ex = array_values(array_unique(array_intersect_key(sl_exp_owners(), $pageVariants)));
+        if ($ex) echo '<span hidden data-sl-exp="' . e(implode(' ', $ex)) . '"></span>' . "\\n";
     }
 }
 

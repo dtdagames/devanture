@@ -32,7 +32,7 @@ const SETTINGS = [
   [/^champs$/, 'fields', 'champs'],
 ];
 export const FORM_SETTINGS = SETTINGS.map(s => s[2]);
-const RESERVED_STORES = ['orders', 'events', 'stock', 'products'], RESERVED_FIELDS = ['website'];
+export const RESERVED_STORES = ['orders', 'events', 'stock', 'products'], RESERVED_FIELDS = ['website'];
 
 function lev(a, b) { const d = Array.from({ length: a.length + 1 }, (_, i) => [i]); for (let j = 1; j <= b.length; j++) d[0][j] = j; for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[a.length][b.length]; }
 const nearest = (w, list) => { let best = null, bd = Infinity; for (const c of list) { const d = lev(norm(w), norm(c)); if (d < bd) { bd = d; best = c; } } return bd <= Math.max(2, Math.floor(String(w).length / 3)) ? best : null; };

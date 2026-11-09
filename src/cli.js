@@ -12,6 +12,8 @@ import { TYPE_WORDS } from './lang/donnees.js';
 import { PRIMITIVE_HELP } from './lang/forme.js';
 import { INTENT_NAMES } from './lang/apparence.js';
 import { FIELD_TYPE_WORDS, FIELD_MODIFIERS, FORM_SETTINGS } from './lang/fonctionnement.js';
+import { EVENTS, GOAL_EVENTS, CONTROL, DEFAULT_MINIMUM } from './segments.js';
+import { DEFAULTS as IMAGE_DEFAULTS } from './images/index.js';
 import fs from 'node:fs/promises';
 
 const HELP = `sitec — compilateur Devanture (sites vitrines → PHP + JS)
@@ -41,8 +43,8 @@ Usage :
   sitec build … --draft                      Compile malgré des textes à compléter
   sitec keywords <dossier-projet> [--all] [--dry-run] [--export f.json] [--import f.json] [--model id]
                                              Fait proposer par un LLM les mots-clés de recherche de chaque section et les fige dans le YAML
-  sitec init  <dossier> [--name "Nom du site"] [--repo github:compte/depot#tag | --local]
-                                             Crée un dépôt de site sans PHP : squelette YAML, brief, README, CLAUDE.md, .gitignore, flux GitHub Actions (vérifier, déployer), premier commit
+  sitec init  <dossier> [--name "Nom du site"] [--repo github:compte/depot#tag | --local] [--no-git]
+                                             Crée un dépôt de site sans PHP : squelette YAML, brief, README, CLAUDE.md, .gitignore, flux GitHub Actions (vérifier, déployer), premier commit (--no-git : sans dépôt ni commit)
   sitec host  <dossier-hôte> [--draft]        Compile les sites listés dans hosts.yaml en un seul dist/ routé par domaine
   sitec deploy <dossier-projet> [--to https://domaine | SITE_URL] [--secret s | DEVANTURE_DEPLOY_SECRET]
                                              Pousse dist/ vers /_deploy du site (envois signés, intégrité vérifiée, données conservées)
@@ -531,8 +533,10 @@ function printCatalog(catalog, proj = null) {
 }
 
 function explainSite() {
+  const goalEvents = Object.entries(GOAL_EVENTS).map(([k, w]) => k + (w.length ? ' (' + w.join(', ') + ')' : '')).join(', ');
   console.log(`# site.yaml
-Clé racine : site. Props :
+Clés racines : language (version du langage, 1), site (obligatoire), constants ({ nom: valeur } lues par {{ const.nom }}), collections et packages (voir sitec explain langage).
+Props de site :
   name (obligatoire): string — nom du site (en-tête, pied, titres par défaut)
   tagline: string — accroche, sert de meta description par défaut
   locale: string — ex. fr-FR
@@ -550,44 +554,81 @@ ${Object.entries(THEME_PRESETS.clair).map(([k, v]) => `          ${k.padEnd(18)}
       .enabled: boolean (défaut true)   .placeholder: string
   agents: objet — jumeau pour agents (/site.json, /llms.txt, JSON-LD)
       .enabled: boolean (défaut true)   .summary: string (une phrase)   .business_type: string (type schema.org, défaut LocalBusiness)
-  personalization: objet — segments et variantes (voir segments.yaml)
-  static: objet — { enabled: true } cache statique des pages sans état pour les visiteurs sans cookie (servi par Apache sans PHP) ; défaut : activé
-  studio: objet — { enabled: false } embarque l'atelier (compilateur navigateur + source du site) sur /_studio, derrière ADMIN_TOKEN ; défaut : désactivé
-  offline: objet — { enabled: false, short_name, theme_color } service worker : assets et versions texte consultables hors ligne ; défaut : désactivé
-  language (racine, hors site) : 1 — version du langage ; constants (racine) : { nom: valeur } lues par {{ const.nom }} ; collections (racine) : voir sitec explain langage
-  images: objet — { enabled: true, widths: [480, 960, 1600], quality: 80 } variantes WebP redimensionnées à la compilation pour les JPEG, PNG et WebP de assets/ (srcset, width/height, chargement différé) ; défaut : activé si sharp est installé
-Exploitation (hors DSL) : back-office /_admin (ADMIN_TOKEN dans .env), stockage SQLite ou fichiers (STORE), déploiement signé /_deploy (DEPLOY_SECRET, commande sitec deploy), multi-sites : sitec host
+  personalization: objet — segments, variantes et expériences (voir segments.yaml plus bas)
       .enabled: boolean (défaut true)   .requires_consent: boolean (défaut true)   .consent_text: string
+  images: objet — { enabled: true, widths: [${IMAGE_DEFAULTS.widths.join(', ')}], quality: ${IMAGE_DEFAULTS.quality} } variantes WebP redimensionnées à la compilation pour les JPEG, PNG et WebP de assets/ (srcset, width/height, chargement différé) ; défaut : activé si sharp est installé
+  static: objet — { enabled: true } cache statique des pages sans état pour les visiteurs sans cookie (servi par Apache sans PHP) ; défaut : activé
+  offline: objet — { enabled: false, short_name, theme_color } service worker : assets et versions texte consultables hors ligne ; défaut : désactivé
+  studio: objet — { enabled: false } embarque l'atelier (compilateur navigateur + source du site) sur /_studio, derrière ADMIN_TOKEN ; défaut : désactivé
   shop: objet — boutique (data/products.yaml + composants products.grid, product.hero, cart.page, checkout.page, order.confirmation)
       .currency: string (défaut €)   .payment: manual | stripe (défaut manual ; clé STRIPE_SECRET_KEY dans .env)
       .manual_instructions: string   .shipping: { flat: nombre, free_from: nombre }   .order_email: email
 
-# segments.yaml (optionnel, à la racine du site)
-  segments: { nom: condition, … }   priority: [noms, du plus prioritaire au moins]
-  Conditions : visits: N | { gte: N } · device: mobile | desktop · event: nom (+ within: 7d, count: { gte: 2 }, where: { section: id | route: /p | category: x })
-               all: [c1, c2] · any: [c1, c2] · not: c
-  Événements : page_view, section_view, click_cta, form_start, form_submit, search, cart_add, checkout_start, purchase
-  Sur une section : variants: { nom_de_segment: { props surchargées } } — la première variante dont le segment est actif s'applique.
-  Sur une page : variants: { nom_de_segment: { first: [ids], hide: [ids] } } — ordre et présence des sections (ids explicites).
-
-# Page dérivée (micro-site) : extends: <id de page>, override: { id: { props } }, remove: [ids], prepend/append: [sections], route et seo propres.
-# Relecture : brief.md à la racine ; sitec review <dossier> ; [à compléter] bloque build (sauf --draft).
-  Exemple :
-    segments:
-      nouveau: { visits: 1 }
-      recurrent: { visits: { gte: 2 } }
-      devis_abandonne: { all: [ { event: form_start, within: 7d }, { not: { event: form_submit, within: 7d } } ] }
-      fan_services: { event: section_view, where: { section: services }, count: { gte: 2 } }
-    priority: [devis_abandonne, fan_services, recurrent, nouveau]
-
-Exemple :
+Exemple (site.yaml) :
+  language: 1
   site:
     name: Maison Dubois
     tagline: Savonnerie artisanale à Marseille
     theme: { preset: chaleureux, tokens: { color.primary: "#6b2d5c", font.heading: "Georgia, serif" } }
     nav: [ { label: Accueil, to: / }, { label: Contact, to: /contact } ]
     footer: { text: SIRET 123 456 789 00012, links: [ { label: Mentions légales, to: /mentions-legales } ] }
-    contact: { email: bonjour@exemple.fr, phone: 04 00 00 00 00, address: 1 rue des Lilas, 13001 Marseille }`);
+    contact: { email: bonjour@exemple.fr, phone: 04 00 00 00 00, address: "1 rue des Lilas, 13001 Marseille" }
+
+# segments.yaml (optionnel, à la racine du site)
+  segments: { nom: condition, … }   priority: [noms, du plus prioritaire au moins]
+  Conditions : visits: N | { gte: N } · device: mobile | desktop · event: nom (+ within: 7d, count: { gte: 2 }, where: { section: id | route: /p | category: x })
+               all: [c1, c2] · any: [c1, c2] · not: c
+  Événements : ${EVENTS.join(', ')}
+  Sur une section : variants: { nom_de_segment: { props surchargées } } — la première variante dont le segment est actif s'applique.
+  Sur une page : variants: { nom_de_segment: { first: [ids], hide: [ids] } } — ordre et présence des sections (ids explicites).
+
+  Mesurer si une variante sert (toujours contre un groupe témoin tiré au sort, nommé « ${CONTROL} », qui voit le contenu de base) :
+  goals: { nom: { event, where: { clé: valeur } } } — ce qu'on cherche à obtenir. Événements et précisions permises :
+      ${goalEvents}
+      form_sent = formulaire accepté par le serveur (form_submit = bouton pressé).
+  experiments: { nom: { goal, arms: [noms] | { nom: % }, minimum } } — A/B : chaque bras est un nom neuf (pas un segment), utilisé dans les variants des pages.
+      arms en liste : parts égales, témoin compris ; arms en objet : % par bras, le reste au témoin (total ≤ 99).
+  experiments: { nom: { goal, segment, holdout: %, minimum } } — variante d'un segment : holdout % des visiteurs du segment gardent le contenu de base (1 à 99, défaut 50).
+      minimum : visiteurs exposés par groupe avant tout verdict (défaut ${DEFAULT_MINIMUM}, au moins 20).
+  Un bras sans variante dans les pages est une erreur (E_EXPERIMENT_UNUSED). Un bras passe avant les segments, sauf s'il est placé dans priority.
+  Résultats : back-office /_admin, onglet « Expériences » (visiteurs exposés, objectifs atteints, écart au témoin, intervalle à 95 %, verdict).
+  Changer le contenu comparé ou la définition ouvre une nouvelle mesure. Seuls les visiteurs ayant accepté la personnalisation sont tirés et mesurés.
+
+Exemple (segments.yaml) :
+  segments:
+    nouveau: { visits: 1 }
+    recurrent: { visits: { gte: 2 } }
+    devis_abandonne: { all: [ { event: form_start, within: 7d }, { not: { event: form_submit, within: 7d } } ] }
+    fan_services: { event: section_view, where: { section: services }, count: { gte: 2 } }
+  priority: [devis_abandonne, fan_services, recurrent, nouveau]
+  goals:
+    appel: { event: click_cta, where: { to: "tel:+33400000000" } }
+    devis: { event: form_sent, where: { form: contact } }
+  experiments:
+    accroche: { goal: appel, arms: [question] }
+    relance: { goal: devis, segment: devis_abandonne, holdout: 20 }
+
+Exemple (pages/accueil.page.yaml) :
+  page: accueil
+  route: /
+  seo: { title: Maison Dubois }
+  sections:
+    - hero:
+        title: Savons faits main à Marseille
+        cta: { label: Appeler, to: "tel:+33400000000" }
+        variants:
+          question: { title: Et si votre savon venait de Marseille ? }
+          devis_abandonne: { title: Votre demande de devis vous attend }
+    - features:
+        id: services
+        title: Nos services
+        items:
+          - { icon: drop, title: Saponification à froid }
+          - { icon: gift, title: Coffrets sur mesure }
+
+# Page dérivée (micro-site) : extends: <id de page>, override: { id: { props } }, remove: [ids], prepend/append: [sections], route et seo propres.
+# Relecture : brief.md à la racine ; sitec review <dossier> ; [à compléter] bloque build (sauf --draft).
+# Exploitation (hors DSL) : back-office /_admin (ADMIN_TOKEN dans .env), stockage SQLite ou fichiers (STORE), déploiement signé /_deploy (DEPLOY_SECRET, commande sitec deploy), multi-sites : sitec host.`);
   return 0;
 }
 

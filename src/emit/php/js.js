@@ -31,9 +31,33 @@ const BASE_JS = `
       case 'not': return !evalNode(n.item,now);
       case 'visits': return cmp(profile.n|0,n);
       case 'device': return (window.innerWidth<768?'mobile':'desktop')===n.value;
+      case 'arm': return group(n.exp)===n.index+1;
+      case 'treated': return group(n.exp)===2;
       case 'event': var ev=profile.e[n.name]; if(!ev) return cmp(0,n.count); var count=ev.n|0; if(n.where) count=((ev.w||{})[n.where.key]||{})[n.where.value]|0; if(n.within!==null&&(ev.t|0)<now-n.within) count=0; return cmp(count,n.count);
     }
     return false;
+  }
+  /* Expériences : profile.x[nom] = [tirage 0..9999, empreinte, groupe d'exposition, converti]. Groupe : 0 sans tirage, 1 témoin, 2 et plus pour les bras (ou 2 pour le segment mesuré). Même calcul qu'en PHP. */
+  var exps=spec.experiments||null, goals=spec.goals||{};
+  function group(k){ var x=exps&&exps[k], s=(profile.x||{})[k]; if(!x||!s||typeof s[0]!=='number') return 0; var d=s[0]; if(x.arms){ for(var i=0;i<x.arms.length;i++) if(d<x.arms[i].upto) return i+2; return 1; } return d<x.holdout?1:2; }
+  /* Tirage : une fois par visiteur et par expérience. Une empreinte différente (contenu ou définition modifiés) remet exposition et conversion à zéro en gardant le tirage. */
+  function draw(){
+    if(!exps||!allowed()) return; var old=profile.x||{}, out={}, ch=false;
+    Object.keys(exps).forEach(function(k){ var s=old[k]; if(!s||typeof s[0]!=='number'){ s=[Math.floor(Math.random()*10000),exps[k].sig,0,0]; ch=true; } else if(s[1]!==exps[k].sig){ s=[s[0],exps[k].sig,0,0]; ch=true; } out[k]=s; });
+    if(Object.keys(old).length!==Object.keys(out).length) ch=true;
+    profile.x=out; if(ch) save();
+  }
+  /* Exposition : le visiteur a chargé une page où l'expérience agit (et, pour un segment mesuré, il remplit sa condition). Même règle pour le témoin et pour les bras, comptée une fois. */
+  function expose(){
+    if(!exps||!allowed()||!profile.x) return; var now=Math.floor(Date.now()/1000), hit=[];
+    Array.prototype.forEach.call(document.querySelectorAll('[data-sl-exp]'),function(el){ (el.getAttribute('data-sl-exp')||'').split(' ').forEach(function(k){ var x=exps[k], s=profile.x[k]; if(!x||!s||s[2]||hit.indexOf(k)>=0) return; if(x.cond&&!evalNode(x.cond,now)) return; s[2]=group(k); hit.push(k); }); });
+    if(hit.length){ save(); hit.forEach(function(k){ beacon('exp_exposure',{exp:k}); }); }
+  }
+  /* Conversion : l'objectif est atteint après l'exposition, comptée une fois. */
+  function convert(name,data){
+    if(!exps||!allowed()||!profile.x) return; var hit=[];
+    Object.keys(exps).forEach(function(k){ var g=goals[exps[k].goal], s=profile.x[k]; if(!g||!s||!s[2]||s[3]||g.event!==name) return; if(g.where&&!(data&&data[g.where.key]!=null&&String(data[g.where.key])===g.where.value)) return; s[3]=1; hit.push(k); });
+    if(hit.length){ save(); hit.forEach(function(k){ beacon('exp_conversion',{exp:k}); }); }
   }
   function segments(){ if(!allowed()) return []; var now=Math.floor(Date.now()/1000); return spec.priority.filter(function(name){return evalNode(spec.segments[name],now);}); }
   function remember(kind,id){ if(!id) return; profile.r=(profile.r||[]).filter(function(x){return !(x.k===kind&&x.id===id);}); profile.r.unshift({k:kind,id:id,t:Math.floor(Date.now()/1000)}); profile.r=profile.r.slice(0,10); }
@@ -52,6 +76,7 @@ const BASE_JS = `
     });
   }
   function record(name,data){
+    convert(name,data);
     if(name==='product_view'&&data&&data.product) remember('p',String(data.product));
     if(name==='section_view'&&data&&data.section&&tracked.remember) remember('s',String(data.section));
     if(tracked.events.indexOf(name)<0&&name!=='variant_shown'){ if(name==='product_view'||name==='section_view') save(); return; }
@@ -60,12 +85,15 @@ const BASE_JS = `
     (tracked.where||[]).forEach(function(k){ if(data&&data[k]!=null){ ev.w=ev.w||{}; ev.w[k]=ev.w[k]||{}; var v=String(data[k]); ev.w[k][v]=(ev.w[k][v]|0)+1; var keys=Object.keys(ev.w[k]); if(keys.length>20) delete ev.w[k][keys[0]]; } });
     save();
     try{ fragments(); }catch(e){}
+    try{ expose(); }catch(e){}
   }
   function beacon(name,data){ if(!allowed()) return; try{ var body=JSON.stringify({name:name,data:data||null}); if(navigator.sendBeacon) navigator.sendBeacon('/_event',new Blob([body],{type:'application/json'})); else fetch('/_event',{method:'POST',body:body,headers:{'content-type':'application/json'},keepalive:true}); }catch(e){} }
   function start(){
     if(!allowed()) return;
     try{ if(!sessionStorage.getItem('sl_s')){ sessionStorage.setItem('sl_s','1'); profile.n=(profile.n|0)+1; save(); } }catch(e){ if(!profile.n) profile.n=1; }
+    draw();
     record('page_view',{route:location.pathname});
+    try{ expose(); }catch(e){}
     var anchors=document.querySelectorAll('span.anchor[id]');
     if('IntersectionObserver' in window){
       var seen={}; var io=new IntersectionObserver(function(entries){ entries.forEach(function(en){ if(en.isIntersecting){ var id=en.target.getAttribute('data-sl-id'); if(id&&!seen[id]){ seen[id]=1; record('section_view',{section:id,route:location.pathname}); } } }); },{threshold:0.3});
@@ -73,7 +101,7 @@ const BASE_JS = `
     }
     Array.prototype.forEach.call(document.querySelectorAll('span.anchor[data-variant]'),function(a){ var d={section:a.id,segment:a.getAttribute('data-variant')}; record('variant_shown',d); beacon('variant_shown',d); });
     document.addEventListener('click',function(ev){ var a=ev.target.closest('a.btn'); if(a) record('click_cta',{to:a.getAttribute('href'),route:location.pathname}); });
-    Array.prototype.forEach.call(document.querySelectorAll('form.contact-form'),function(f){ var started=false; f.addEventListener('input',function(){ if(!started){ started=true; record('form_start',{route:location.pathname}); } }); f.addEventListener('submit',function(){ record('form_submit',{route:location.pathname}); beacon('form_submit',{route:location.pathname}); }); });
+    Array.prototype.forEach.call(document.querySelectorAll('form.contact-form, form.sl-form'),function(f){ var started=false, d={route:location.pathname,form:f.getAttribute('data-sl-form')||'contact'}; f.addEventListener('input',function(){ if(!started){ started=true; record('form_start',d); } }); f.addEventListener('submit',function(){ record('form_submit',d); beacon('form_submit',d); }); });
     var intent=document.querySelector('.intent'); if(intent) intent.addEventListener('submit',function(){ var q=intent.querySelector('input').value; if(q) record('search',{q:q}); });
     /* Boutique : événements déclarés par les composants (checkout_start, purchase) et ajouts au panier. */
     Array.prototype.forEach.call(document.querySelectorAll('[data-sl-event]'),function(el){ var d=null; try{ d=JSON.parse(el.getAttribute('data-sl-data')||'null'); }catch(e){} var n=el.getAttribute('data-sl-event'); record(n,d); beacon(n,d); });
@@ -86,7 +114,7 @@ const BASE_JS = `
     banner.querySelector('.consent-refuse').addEventListener('click',function(){ setCookie('sl_c','0',365); banner.hidden=true; });
   } else { start(); }
   try{ fragments(); }catch(e){}
-  window.devanture={profile:profile,segments:segments,record:record,serverSegments:SL.segments,refresh:fragments};
+  window.devanture={profile:profile,segments:segments,record:record,serverSegments:SL.segments,refresh:fragments,group:function(k){ var g=group(k); return g&&exps[k]?exps[k].groups[g-1]:null; }};
 })();
 
 /* Navigation par intention : index produit à la compilation, recherche locale, lien vers la section exacte. */

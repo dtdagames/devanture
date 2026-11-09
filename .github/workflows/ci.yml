@@ -38,6 +38,11 @@ jobs:
       - name: Outils du langage (paquets de composants, sitec test, sitec migrate)
         env: { PHP_BIN: php }
         run: bash scripts/ci-run.sh "outils du langage" node scripts/verify-lang-tools.mjs
+      - name: Banc des expériences (tirage, exposition, objectif, verdicts, avec des visiteurs simulés)
+        env: { PHP_BIN: php }
+        run: bash scripts/ci-run.sh "banc expériences" node scripts/verify-experiments.mjs examples/plomberie-martin/dist 8974
+      - name: Banc de la documentation (exemples compilés, commandes, options et listes comparées au compilateur)
+        run: bash scripts/ci-run.sh "banc documentation" node scripts/verify-docs.mjs
       - name: Dépôt de site (sitec init) et compilation dans l'atelier
         run: |
           bash scripts/ci-run.sh "sitec init" node bin/sitec.js init /tmp/site-test --name "Site de test" --no-git --local

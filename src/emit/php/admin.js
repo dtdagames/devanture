@@ -38,6 +38,7 @@ function admin_layout(string $title, string $body, string $tab): void {
     global $site;
     $tabs = function_exists('shop_products') ? [['', 'Tableau de bord'], ['messages', 'Messages'], ['orders', 'Commandes'], ['stock', 'Stock'], ['events', 'Mesures'], ['integrity', 'Intégrité']] : [['', 'Tableau de bord'], ['messages', 'Messages'], ['events', 'Mesures'], ['integrity', 'Intégrité']];
     if (!empty($GLOBALS['SL_STORES'])) array_splice($tabs, 2, 0, [['forms', 'Formulaires']]);
+    if (!empty($GLOBALS['SL_SPEC']['experiments'])) array_splice($tabs, count($tabs) - 1, 0, [['experiments', 'Expériences']]);
     header('Content-Type: text/html; charset=UTF-8');
     echo '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>' . e($title) . ' · ' . e($site['name']) . '</title><link rel="stylesheet" href="/assets/site.css"><style>
     .adm{max-width:1100px;margin:0 auto;padding:20px 16px 60px}.adm h1{font-size:1.4rem;margin:0 0 4px}.adm-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 22px}.adm-tabs a{padding:7px 12px;border:1px solid var(--color-border);border-radius:999px;text-decoration:none;color:var(--color-fg)}.adm-tabs a.on{background:var(--color-primary);color:var(--color-primary-fg);border-color:var(--color-primary)}
@@ -60,6 +61,59 @@ function admin_csv(string $name, array $rows): void {
     foreach ($rows as $r) fputcsv($out, array_map(fn($k) => is_array($r[$k] ?? null) ? json_encode($r[$k], JSON_UNESCAPED_UNICODE) : (string)($r[$k] ?? ''), $keys), ';');
     exit;
 }
+
+/** Intervalle de Wilson d’une proportion. */
+function admin_wilson(int $c, int $n, float $z): array {
+    if ($n === 0) return [0.0, 1.0];
+    $p = $c / $n; $z2 = $z * $z; $den = 1 + $z2 / $n;
+    $mid = ($p + $z2 / (2 * $n)) / $den; $half = $z * sqrt($p * (1 - $p) / $n + $z2 / (4 * $n * $n)) / $den;
+    return [max(0.0, $mid - $half), min(1.0, $mid + $half)];
+}
+
+/**
+ * Mesure des expériences déclarées dans segments.yaml. Par groupe : visiteurs exposés, conversions, taux.
+ * Par bras : écart au témoin et intervalle de confiance à 95 % (méthode de Newcombe, seuil corrigé du nombre de bras).
+ * Seule la mesure portant l’empreinte courante compte : modifier le contenu mesuré ou la définition en ouvre une nouvelle.
+ */
+function admin_experiments(): array {
+    global $SL_SPEC;
+    $zs = [1 => 1.960, 2.241, 2.394, 2.498, 2.576, 2.638, 2.690, 2.734, 2.773];
+    $rows = sl_store_all('events'); $out = [];
+    foreach (($SL_SPEC['experiments'] ?? []) as $name => $x) {
+        $n = array_fill_keys($x['groups'], 0); $c = $n; $old = 0; $since = null;
+        foreach ($rows as $ev) {
+            $en = $ev['name'] ?? '';
+            if ($en !== 'exp_exposure' && $en !== 'exp_conversion') continue;
+            $d = is_array($ev['data'] ?? null) ? $ev['data'] : [];
+            if (($d['exp'] ?? null) !== $name) continue;
+            $g = (string)($d['group'] ?? '');
+            if (($d['sig'] ?? null) !== $x['sig'] || !isset($n[$g])) { $old++; continue; }
+            if ($en === 'exp_exposure') { $n[$g]++; if ($since === null || (string)$ev['at'] < $since) $since = (string)$ev['at']; } else $c[$g]++;
+        }
+        $z = $zs[max(1, min(count($x['groups']) - 1, 9))]; $ctl = $x['groups'][0]; $groups = [];
+        foreach ($x['groups'] as $i => $g) {
+            $row = ['name' => $g, 'exposed' => $n[$g], 'conversions' => $c[$g], 'rate' => $n[$g] ? $c[$g] / $n[$g] : null];
+            if ($i > 0) {
+                if ($n[$g] > 0 && $n[$ctl] > 0) {
+                    $p1 = $c[$g] / $n[$g]; $p2 = $c[$ctl] / $n[$ctl];
+                    [$l1, $u1] = admin_wilson($c[$g], $n[$g], $z); [$l2, $u2] = admin_wilson($c[$ctl], $n[$ctl], $z);
+                    $row['diff'] = $p1 - $p2;
+                    $row['low'] = $row['diff'] - sqrt(($p1 - $l1) ** 2 + ($u2 - $p2) ** 2);
+                    $row['high'] = $row['diff'] + sqrt(($u1 - $p1) ** 2 + ($p2 - $l2) ** 2);
+                }
+                $missing = max(0, (int)$x['minimum'] - min($n[$g], $n[$ctl]));
+                if ($missing > 0) { $row['verdict'] = 'insufficient'; $row['missing'] = $missing; }
+                elseif ($c[$g] + $c[$ctl] < 10) $row['verdict'] = 'few_conversions';
+                else $row['verdict'] = $row['low'] > 0 ? 'better' : ($row['high'] < 0 ? 'worse' : 'none');
+            }
+            $groups[] = $row;
+        }
+        $out[$name] = ['goal' => $x['goal'], 'goal_def' => $SL_SPEC['goals'][$x['goal']] ?? null, 'kind' => isset($x['arms']) ? 'arms' : 'segment', 'where' => $x['where'] ?? [], 'minimum' => (int)$x['minimum'], 'sig' => $x['sig'], 'since' => $since, 'ignored' => $old, 'groups' => $groups];
+    }
+    return $out;
+}
+
+function admin_points(float $v, bool $sign = true): string { return ($sign && $v > 0 ? '+' : '') . str_replace('-', '−', number_format($v * 100, 1, ',', ' ')); }
 
 function admin_dispatch(string $path, array $site): void {
     sl_session();
@@ -122,6 +176,31 @@ function admin_dispatch(string $path, array $site): void {
         $conv = ['form_submit' => $byName['form_submit'] ?? 0, 'purchase' => $byName['purchase'] ?? 0, 'checkout_start' => $byName['checkout_start'] ?? 0];
         $b .= '<h2>Conversions</h2><p>Formulaires envoyés : <b>' . $conv['form_submit'] . '</b> · Commandes commencées : <b>' . $conv['checkout_start'] . '</b> · Achats : <b>' . $conv['purchase'] . '</b></p><p class="muted">Seuls les visiteurs ayant accepté la personnalisation envoient des événements.</p>';
         admin_layout('Mesures', $b, 'events');
+    }
+    if ($sub === 'experiments' && !empty($GLOBALS['SL_SPEC']['experiments'])) {
+        $report = admin_experiments();
+        if (isset($_GET['json'])) { header('Content-Type: application/json; charset=UTF-8'); echo json_encode($report, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); exit; }
+        $b = '<p class="muted">Chaque expérience compare une variante à un groupe témoin tiré au sort, qui voit le contenu de base. Elles se déclarent dans <code>segments.yaml</code> ; rien ne se règle ici.</p>';
+        foreach ($report as $name => $r) {
+            $gd = $r['goal_def']; $goal = e($r['goal']) . ($gd ? ' <span class="muted">(' . e($gd['event']) . (!empty($gd['where']) ? ', ' . e($gd['where']['key']) . ' = ' . e($gd['where']['value']) : '') . ')</span>' : '');
+            $b .= '<h2>' . e($name) . '</h2><p>Objectif : <b>' . $goal . '</b> · ' . ($r['kind'] === 'arms' ? 'tirage entre le témoin et ' . (count($r['groups']) - 1) . ' variante' . (count($r['groups']) > 2 ? 's' : '') : 'groupe témoin tiré dans le segment <b>' . e($r['groups'][1]['name']) . '</b>') . ' · agit sur ' . e(implode(', ', $r['where']) ?: 'aucune section') . '</p>';
+            $b .= '<table><tr><th>Groupe</th><th>Visiteurs exposés</th><th>Objectif atteint</th><th>Taux</th><th>Écart au témoin</th><th>Intervalle à 95 %</th></tr>';
+            foreach ($r['groups'] as $i => $g) $b .= '<tr><td><b>' . e($g['name']) . '</b>' . ($i === 0 ? ' <span class="muted">contenu de base</span>' : '') . '</td><td>' . $g['exposed'] . '</td><td>' . $g['conversions'] . '</td><td>' . ($g['rate'] === null ? '–' : admin_points($g['rate'], false) . ' %') . '</td><td>' . (isset($g['diff']) ? admin_points($g['diff']) . ' pt' : '–') . '</td><td>' . (isset($g['diff']) ? admin_points($g['low']) . ' à ' . admin_points($g['high']) . ' pt' : '–') . '</td></tr>';
+            $b .= '</table>';
+            foreach (array_slice($r['groups'], 1) as $g) {
+                $who = '<b>' . e($g['name']) . '</b>';
+                $b .= '<p>' . match ($g['verdict']) {
+                    'insufficient' => '<span class="tag">Pas assez de données</span> ' . $who . ' : il manque ' . $g['missing'] . ' visiteurs exposés dans le plus petit des deux groupes (minimum ' . $r['minimum'] . ' par groupe). Aucune conclusion avant.',
+                    'few_conversions' => '<span class="tag">Pas assez de données</span> ' . $who . ' : moins de 10 objectifs atteints au total, l’écart ne se lit pas encore.',
+                    'better' => '<span class="tag">Fait mieux</span> ' . $who . ' fait mieux que le témoin : ' . admin_points($g['diff']) . ' pt (entre ' . admin_points($g['low']) . ' et ' . admin_points($g['high']) . '). Vous pouvez en faire le contenu de base, puis retirer l’expérience.',
+                    'worse' => '<span class="tag">Fait moins bien</span> ' . $who . ' fait moins bien que le témoin : ' . admin_points($g['diff']) . ' pt (entre ' . admin_points($g['low']) . ' et ' . admin_points($g['high']) . '). Retirez cette variante.',
+                    default => '<span class="tag">Pas de différence mesurable</span> ' . $who . ' : l’écart réel se situe entre ' . admin_points($g['low']) . ' et ' . admin_points($g['high']) . ' pt. Si cette variante coûte à tenir à jour, retirez-la.',
+                } . '</p>';
+            }
+            $b .= '<p class="muted">' . ($r['since'] ? 'Mesure en cours depuis le ' . e(date('d/m/Y', (int)strtotime($r['since']))) . '.' : 'Aucun visiteur exposé pour l’instant.') . ($r['ignored'] ? ' ' . $r['ignored'] . ' événements d’une mesure précédente ignorés : le contenu comparé ou la définition a changé depuis.' : '') . '</p>';
+        }
+        $b .= '<h2>Comment lire</h2><p class="muted">Un visiteur compte une fois, à la première page où l’expérience agit, puis une fois s’il atteint l’objectif ensuite. Seuls les visiteurs ayant accepté la personnalisation sont tirés au sort et mesurés. Le verdict ne s’affiche qu’une fois le minimum atteint dans chaque groupe : consulter le tableau chaque jour et s’arrêter au premier écart favorable ferait prendre un hasard pour un effet. Un intervalle qui contient zéro veut dire que la variante peut aussi bien n’avoir aucun effet.</p>';
+        admin_layout('Expériences', $b, 'experiments');
     }
     if ($sub === 'integrity') {
         $report = sl_integrity_check();

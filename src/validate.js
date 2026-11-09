@@ -4,7 +4,7 @@ import { err, nearest } from './errors.js';
 import { SHARED_DEFS } from './catalog.js';
 import { THEME_PRESETS } from './emit/php/css.js';
 import { normalizeContactFields } from './forms.js';
-import { compileSegments } from './segments.js';
+import { compileSegments, experimentUsage, stampExperiments } from './segments.js';
 import { validateProducts, validateShop } from './shop.js';
 import { resolveData, resolvePages } from './lang/resolve.js';
 import { normalizeSpec, normalizeItems } from './collections.js';
@@ -400,6 +400,16 @@ export function validateProject(project, catalog) {
     });
     // Erreurs dans une section issue d'une composition : nommer l'assemblage et l'usage, car l'index final ne figure pas dans le YAML.
     for (let k = before; k < errors.length; k++) { const m = /^sections[(d+)]/.exec(errors[k].path || ''); const o = m && origins[Number(m[1])]; if (o && errors[k].file === file) errors[k].message += ` (section produite par le composant composé ${o.via}, utilisé en ${o.usage})`; }
+  }
+
+  // --- expériences : chaque bras, chaque segment mesuré, doit changer quelque chose sur une page
+  if (project.segments?.experiments) {
+    const usage = experimentUsage(project.segments, project.pages);
+    stampExperiments(project.segments, project.pages); // empreinte du contenu mesuré
+    for (const [name, x] of Object.entries(project.segments.experiments)) {
+      const used = new Set(usage[name].map(u => u.key));
+      for (const g of x.groups.slice(1)) if (!used.has(g)) errors.push(err('E_EXPERIMENT_UNUSED', { file: project.segmentsFile, path: x.segment ? `experiments.${name}.segment` : `experiments.${name}.arms.${g}`, message: x.segment ? `L'expérience ${name} mesure le segment ${g}, mais aucune section n'a de variante pour lui : il n'y a rien à mesurer.` : `Le bras ${g} de l'expérience ${name} n'est utilisé par aucune section : ses visiteurs verraient le contenu de base, comme le témoin.`, hint: `Dans une page, sur la section à comparer : variants: { ${g}: { title: … } }.` }));
+    }
   }
 
   // --- boutique : cohérence des pages et composants
