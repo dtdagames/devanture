@@ -14,6 +14,7 @@ import { compileTemplate } from './lang/template.js';
 import { loadComposites, expandComposites } from './composition.js';
 import { lintComponentCss } from './lang/css-lint.js';
 import { compileVocabulaire, prefixedWords } from './lang/vocabulaire.js';
+import { checkRules } from './lang/fonctionnement.js';
 import { BEHAVIORS, BEHAVIOR_NAMES, behaviorsUsedIn } from './lang/behaviors.js';
 
 /** Versions du langage que ce compilateur sait lire (site.yaml › language). */
@@ -267,7 +268,7 @@ export function validateProject(project, catalog) {
         if (k !== 'form') { ee.push(err('E_UNKNOWN_PROP', { file: mf, path: `effects.${k}`, message: `Effet inconnu : ${k}.`, expected: ['form'] })); continue; }
         const f = ef.form;
         if (!f || typeof f !== 'object' || Array.isArray(f)) { ee.push(err('E_TYPE', { file: mf, path: 'effects.form', message: 'effects.form attend { store, fields, notify, to, success }.' })); continue; }
-        for (const fk of Object.keys(f)) if (!['store', 'fields', 'notify', 'to', 'success', 'required'].includes(fk)) ee.push(err('E_UNKNOWN_PROP', { file: mf, path: `effects.form.${fk}`, message: `Propriété inconnue : ${fk}.`, expected: ['store', 'fields', 'notify', 'to', 'success'] }));
+        for (const fk of Object.keys(f)) if (!['store', 'fields', 'notify', 'to', 'success', 'required', 'rules'].includes(fk)) ee.push(err('E_UNKNOWN_PROP', { file: mf, path: `effects.form.${fk}`, message: `Propriété inconnue : ${fk}.`, expected: ['store', 'fields', 'notify', 'to', 'success'] }));
         if (typeof f.store !== 'string' || !/^[a-z][a-z0-9_]*$/.test(f.store)) ee.push(err('E_FORMAT', { file: mf, path: 'effects.form.store', message: 'store : nom de collection d\'exploitation (minuscules, chiffres, _), ex. reservations.' }));
         else if (['orders', 'events', 'stock', 'products'].includes(f.store)) ee.push(err('E_FORBIDDEN', { file: mf, path: 'effects.form.store', message: `${f.store} est réservé.` }));
         if (f.notify !== undefined && typeof f.notify !== 'boolean' && !(typeof f.notify === 'string' && /^[^@\s]+@[^@\s]+$/.test(f.notify))) ee.push(err('E_TYPE', { file: mf, path: 'effects.form.notify', message: 'notify : true, false ou une adresse e-mail.' }));
@@ -275,6 +276,8 @@ export function validateProject(project, catalog) {
         const nf = normalizeContactFields({ fields: f.fields, required: f.required }, { file: mf, path: 'effects.form' });
         ee.push(...nf.errors);
         f._fields = nf.fields;
+        // Règles écrites au format machine : mêmes contrôles que le bloc fonctionnement (qui les a déjà rapportées à leur ligne).
+        if (f.rules !== undefined && !gen) for (const m of checkRules(f.rules, nf.fields)) ee.push(err('E_FORMAT', { file: mf, path: 'effects.form.rules', message: m + '.' }));
       }
     }
     // Effets écrits par le bloc fonctionnement : ses erreurs sont déjà rapportées avec leur ligne ; sinon le chemin parle son vocabulaire.
@@ -300,6 +303,21 @@ export function validateProject(project, catalog) {
   }
   const cat = entries.length ? catalog.extend(entries) : catalog;
   project.catalog = cat;
+  // Registres : un registre appartient aux formulaires qui y écrivent ; ses règles ne se déclarent qu'une fois, et on ne lit que ce qui existe.
+  {
+    const writers = new Map();
+    for (const c of cat.list()) { const fm = c.manifest?.effects?.form; if (fm?.store) (writers.get(fm.store) || writers.set(fm.store, []).get(fm.store)).push(c); }
+    for (const [store, list] of writers) {
+      const sig = c => JSON.stringify(c.manifest.effects.form.rules || null);
+      const other = list.find(c => sig(c) !== sig(list[0]));
+      if (other) errors.push(err('E_STORE_RULES', { file: other.dir + '/manifest.yaml', path: 'fonctionnement.formulaire', message: `Le registre ${store} reçoit les envois de ${list[0].name} et de ${other.name} avec des règles différentes (places, liste d'attente, une fois par).`, hint: 'Un registre n\'a qu\'une série de règles : écrivez les mêmes dans les deux composants, ou donnez un autre nom de registre.' }));
+    }
+    for (const c of cat.list()) for (const src of c.manifest?.sources || []) {
+      if (src.id !== 'register' || !src.args.store) continue;
+      const name = String(src.args.store).replace(/'/g, '');
+      if (!writers.has(name)) errors.push(err('E_UNKNOWN_STORE', { file: c.dir + '/manifest.yaml', path: `fonctionnement.lit.${src.key}`, message: `Composant ${c.name} : registre inconnu « ${name} ».`, expected: [...writers.keys()], hint: 'Un registre est créé par le formulaire d\'un composant (« enregistre dans: »).' }));
+    }
+  }
   // Gabarits neutres (template.html) : compilés dès la vérification, erreurs avec numéro de ligne.
   for (const c of cat.list()) {
     if (c.files['template.html'] === undefined || c.compiled) continue;

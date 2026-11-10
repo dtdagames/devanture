@@ -125,13 +125,51 @@ function admin_dispatch(string $path, array $site): void {
     $shop = function_exists('shop_products');
 
     if ($sub === 'forms' && !empty($GLOBALS['SL_STORES'])) {
-        $store = (string)($_GET['store'] ?? $GLOBALS['SL_STORES'][0]);
+        $store = (string)($_GET['store'] ?? $_POST['store'] ?? $GLOBALS['SL_STORES'][0]);
         if (!in_array($store, $GLOBALS['SL_STORES'], true)) $store = $GLOBALS['SL_STORES'][0];
+        $reg = $GLOBALS['SL_REGISTERS'][$store] ?? null; $rules = $reg['rules'] ?? []; $cap = $rules['capacity'] ?? null;
+        // Annuler, rétablir, donner la place : sous le verrou du registre, les places sont recomptées avant chaque écriture.
+        if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['act'])) {
+            admin_check_csrf(); $id = (string)($_POST['id'] ?? ''); $act = (string)$_POST['act'];
+            $msg = sl_reg_lock($store, function () use ($store, $rules, $cap, $id, $act) {
+                $doc = sl_store_get($store, $id); if (!$doc) return 'Envoi introuvable.';
+                if ($act === 'cancel') { sl_store_update($store, $id, fn($d) => array_merge($d, ['cancelled' => true, 'cancelled_at' => date('c')])); return ''; }
+                if ($act !== 'restore' && $act !== 'seat') return 'Action inconnue.';
+                if ($act === 'restore' && empty($doc['cancelled'])) return ''; if ($act === 'seat' && (empty($doc['waiting']) || !empty($doc['cancelled']))) return '';
+                $room = !$cap || sl_reg_qty($rules, $doc) <= (int)sl_reg_left($store, $rules, $doc);
+                if (!$room && ($act === 'seat' || empty($cap['waitlist']))) return 'Plus assez de places : annulez d\\'abord un autre envoi' . (sl_reg_group($rules, $doc) !== '' ? ' pour « ' . sl_reg_group($rules, $doc) . ' »' : '') . '.';
+                sl_store_update($store, $id, function ($d) use ($room) { unset($d['cancelled'], $d['cancelled_at']); if ($room) unset($d['waiting']); else $d['waiting'] = true; return $d; });
+                return $room ? '' : 'Rétabli en liste d\\'attente : il n\\'y a plus de place.';
+            });
+            admin_log('form_' . $act, ['store' => $store, 'id' => $id]);
+            $_SESSION['admin_flash'] = $msg;
+            header('Location: /_admin/forms?store=' . rawurlencode($store), true, 303); exit;
+        }
         $rows = array_reverse(sl_store_all($store));
         if (isset($_GET['csv'])) admin_csv($store, $rows);
+        $flash = (string)($_SESSION['admin_flash'] ?? ''); unset($_SESSION['admin_flash']);
         $b = '<p>'; foreach ($GLOBALS['SL_STORES'] as $s) $b .= '<a class="tag" href="/_admin/forms?store=' . e($s) . '"' . ($s === $store ? ' style="font-weight:bold"' : '') . '>' . e($s) . '</a> '; $b .= '</p>';
-        $b .= '<p><a class="btn btn-outline" href="/_admin/forms?store=' . e($store) . '&csv=1">Exporter en CSV</a></p><table><tr><th>Date</th><th>Formulaire</th><th>E-mail</th><th>Contenu</th></tr>';
-        foreach ($rows as $m) { $fields = array_diff_key($m, array_flip(['id', 'at', 'form', 'ip', 'page', 'mail'])); $b .= '<tr><td>' . e(substr((string)($m['at'] ?? ''), 0, 16)) . '<br><span class="muted">' . e($m['id'] ?? '') . '</span></td><td><span class="tag">' . e($m['form'] ?? '') . '</span></td><td>' . (isset($m['mail']) ? '<span class="tag">' . e($m['mail'] === 'sent' ? 'envoyé' : ($m['mail'] === 'failed' ? 'échec' : 'aucun')) . '</span>' : '') . '</td><td>'; foreach ($fields as $k => $v) $b .= '<b>' . e($k) . '</b> : ' . nl2br(e(is_array($v) ? json_encode($v, JSON_UNESCAPED_UNICODE) : (string)$v)) . '<br>'; $b .= '</td></tr>'; }
+        if ($flash !== '') $b .= '<p class="form-error" role="alert">' . e($flash) . '</p>';
+        // Où en est le registre : places prises, restantes, en attente (par groupe quand les places se comptent par groupe).
+        $st = $reg ? sl_src_register(['store' => $store]) : null;
+        if ($st && $st['limited']) {
+            $b .= '<p class="reg-state"><b>Places</b> (' . (int)$st['capacity'] . (!empty($cap['by']) ? ' par ' . e($cap['by']) : ' en tout') . ') : ';
+            if ($st['groups']) { $parts = []; foreach ($st['groups'] as $g) $parts[] = e($g['value']) . ' <b>' . (int)$g['taken'] . '/' . (int)$st['capacity'] . '</b>' . ($g['waiting'] ? ' · ' . (int)$g['waiting'] . ' en attente' : ''); $b .= implode(' ; ', $parts); }
+            else $b .= '<b>' . (int)$st['count'] . '/' . (int)$st['capacity'] . '</b>' . ($st['waiting'] ? ' · ' . (int)$st['waiting'] . ' en attente' : '');
+            $b .= '</p>';
+        } elseif ($st) $b .= '<p class="reg-state"><b>' . (int)$st['entries'] . '</b> envoi' . ($st['entries'] > 1 ? 's' : '') . ' compté' . ($st['entries'] > 1 ? 's' : '') . '</p>';
+        $b .= '<p><a class="btn btn-outline" href="/_admin/forms?store=' . e($store) . '&csv=1">Exporter en CSV</a></p><table><tr><th>Date</th><th>Formulaire</th><th>E-mail</th><th>Contenu</th><th>Statut</th></tr>';
+        $btn = fn(string $id, string $act, string $label) => '<form class="inline" method="post" action="/_admin/forms"><input type="hidden" name="_csrf" value="' . e($csrf) . '"><input type="hidden" name="store" value="' . e($store) . '"><input type="hidden" name="id" value="' . e($id) . '"><input type="hidden" name="act" value="' . $act . '"><button class="btn btn-outline">' . $label . '</button></form>';
+        foreach ($rows as $m) {
+            $fields = array_diff_key($m, array_flip(['id', 'at', 'form', 'ip', 'page', 'mail', 'waiting', 'cancelled', 'cancelled_at']));
+            $b .= '<tr><td>' . e(substr((string)($m['at'] ?? ''), 0, 16)) . '<br><span class="muted">' . e($m['id'] ?? '') . '</span></td><td><span class="tag">' . e($m['form'] ?? '') . '</span></td><td>' . (isset($m['mail']) ? '<span class="tag">' . e($m['mail'] === 'sent' ? 'envoyé' : ($m['mail'] === 'failed' ? 'échec' : 'aucun')) . '</span>' : '') . '</td><td>';
+            foreach ($fields as $k => $v) $b .= '<b>' . e($k) . '</b> : ' . nl2br(e(is_array($v) ? json_encode($v, JSON_UNESCAPED_UNICODE) : (string)$v)) . '<br>';
+            $id = (string)($m['id'] ?? '');
+            if (!empty($m['cancelled'])) $status = '<span class="tag">annulé</span> ' . $btn($id, 'restore', 'Rétablir');
+            elseif (!empty($m['waiting'])) $status = '<span class="tag">en attente</span> ' . $btn($id, 'seat', 'Donner la place') . ' ' . $btn($id, 'cancel', 'Annuler');
+            else $status = '<span class="tag">' . ($cap ? 'inscrit' : 'reçu') . '</span> ' . $btn($id, 'cancel', 'Annuler');
+            $b .= '</td><td>' . $status . '</td></tr>';
+        }
         admin_layout('Formulaires', $b . '</table>' . (!$rows ? '<p class="muted">Aucune réponse.</p>' : ''), 'forms');
     }
     if ($sub === 'messages') {

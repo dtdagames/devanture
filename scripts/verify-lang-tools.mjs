@@ -496,6 +496,62 @@ try {
     const ms2 = JSON.parse(await fs.readFile(path.join(sav, '.devanture', 'schema', 'manifest.schema.json'), 'utf8').catch(() => 'null'));
     ok('lit : le schéma d\'éditeur propose « lit » et ses sources', /`panier du visiteur`/.test(ms2?.properties?.fonctionnement?.properties?.lit?.markdownDescription || ''), '');
 
+    // --- registre à règles : places, liste d'attente, une fois par (fonctionnement › formulaire) et lecture de son état
+    const rg = await copy('examples/le-fournil', 'reg');
+    const am = path.join(rg, 'components', 'atelier', 'manifest.yaml'), am0 = await fs.readFile(am, 'utf8');
+    const withAt = async (from, to) => { if (!am0.includes(from)) throw new Error('ancre absente de atelier : ' + from); await fs.writeFile(am, am0.replace(from, to)); const x = chk(rg); await fs.writeFile(am, am0); return x; };
+    v = chk(rg);
+    ok('registre : composant à places limitées, liste d\'attente et unicité valide', v.code === 0 && v.errs.length === 0, v.out.slice(0, 500));
+    r = run('component', 'show', rg, 'atelier');
+    ok('registre : component show donne les règles compilées et ce que la cible en fait', r.out.includes('rules: { capacity: { max: 8, by: seance, qty: personnes, waitlist: true') && r.out.includes('unique: { fields: [ email, seance ]') && /au plus 8 places par valeur de « seance », chaque envoi comptant pour la valeur de « personnes » ; au-delà : liste d'attente/.test(r.out) && /un seul envoi non annulé par email \+ seance/.test(r.out) && /places ← état du registre \(store: 'ateliers'\)/.test(r.out), r.out.slice(0, 300));
+    r = run('explain', 'état du registre');
+    ok('registre : explain de la source (nom de registre facultatif, places par groupe)', /registre <nom>/.test(r.out) && /Sans lui : le registre du formulaire du même composant/.test(r.out) && /left_text: texte, facultatif — « 3 places restantes », « Dernière place », « Complet »/.test(r.out) && /^ {2}groups: liste$/m.test(r.out), r.out.slice(0, 300));
+    v = await withAt('places: 8 par seance, comptées par personnes', 'places: 8 par seanse, comptées par personnes');
+    ok('registre : champ qui groupe mal écrit → suggestion, à la ligne de « places »', call(v, /places … par seanse : seanse n'est pas un champ du formulaire ; vouliez-vous dire « seance » \?/, 15) && once(v), v.out.slice(0, 400));
+    v = await withAt('places: 8 par seance, comptées par personnes', 'places: 8 par seance, comptées par name');
+    ok('registre : « comptées par » exige un champ nombre', call(v, /comptées par name : ce champ doit être un nombre/, 15), v.out.slice(0, 400));
+    v = await withAt('places: 8 par seance, comptées par personnes', 'places: beaucoup');
+    ok('registre : « places » mal formé → les trois écritures sont rappelées', call(v, /attendu : « 12 », « 12 par atelier » \(un champ qui groupe\) ou « 12 par atelier, comptées par personnes »/, 15), v.out.slice(0, 400));
+    v = await withAt('une fois par: email, seance', 'une fois par: mail, seance');
+    ok('registre : « une fois par » sur un champ inconnu → suggestion, à sa ligne', call(v, /une fois par mail : mail n'est pas un champ du formulaire ; vouliez-vous dire « email » \?/, 17), v.out.slice(0, 400));
+    v = await withAt('une fois par: email, seance', 'une fois par: message');
+    ok('registre : « une fois par » exige un champ obligatoire', call(v, /une fois par message : ce champ doit être obligatoire et toujours affiché/, 17), v.out.slice(0, 400));
+    v = await withAt('    places: 8 par seance, comptées par personnes\n', '');
+    ok('registre : « liste d\'attente » sans « places » est une erreur', call(v, /« liste d'attente » va avec « places: »/, 15), v.out.slice(0, 400));
+    v = await withAt('    places: 8 par seance', '    place: 8 par seance');
+    ok('registre : réglage mal écrit → suggestion', call(v, /réglage de formulaire inconnu « place » ; vouliez-vous dire « places » \?/, 15), v.out.slice(0, 400));
+    v = await withAt('      message: facultatif', '      waiting: texte — En attente');
+    ok('registre : un champ ne prend pas un nom que la cible pose sur chaque envoi', call(v, /waiting est un nom de champ réservé \(la cible le pose sur chaque envoi\)/, 24), v.out.slice(0, 400));
+    v = await withAt('    places: état du registre', '    places: état du registre, registre inscriptions');
+    ok('registre : lire un registre que personne n\'écrit → E_UNKNOWN_STORE avec les registres du site', v.code === 1 && v.errs.some(e => e.code === 'E_UNKNOWN_STORE' && /registre inconnu « inscriptions »/.test(e.message) && (e.expected || []).includes('ateliers')), v.out.slice(0, 400));
+    v = await withAt('    places: état du registre', '    places: état du registre, registre title');
+    ok('registre : le paramètre « registre » est un nom, pas une donnée du composant', v.code === 1 && v.errs.some(e => /registre inconnu « title »/.test(e.message)), v.out.slice(0, 400));
+    // un second composant écrit dans le même registre avec d'autres règles
+    await fs.mkdir(path.join(rg, 'components', 'atelier-bis'), { recursive: true });
+    await fs.writeFile(path.join(rg, 'components', 'atelier-bis', 'manifest.yaml'), am0.replace('name: atelier', 'name: atelier-bis').replace('places: 8 par seance', 'places: 10 par seance').replace('- atelier:', '- atelier-bis:'));
+    v = chk(rg);
+    ok('registre : deux composants, un registre, des règles différentes → E_STORE_RULES', v.code === 1 && v.errs.some(e => e.code === 'E_STORE_RULES' && /Le registre ateliers reçoit les envois de atelier et de atelier-bis avec des règles différentes/.test(e.message)), v.out.slice(0, 400));
+    await fs.rm(path.join(rg, 'components', 'atelier-bis'), { recursive: true, force: true });
+    // lecture sans formulaire et sans nom de registre
+    await fs.mkdir(path.join(rg, 'components', 'compteur'), { recursive: true });
+    const compteur = lit0 => fs.writeFile(path.join(rg, 'components', 'compteur', 'manifest.yaml'), `name: compteur\ndescription: Les places qui restent, sur une autre page que le formulaire.\ndonnées:\n  title: texte, facultatif\nfonctionnement:\n  lit:\n    places: ${lit0}\nforme:\n  section, seulement si places:\n    - en-tête: title\n    - texte: places.left_text\nexample: |\n  - compteur: { title: Atelier du samedi }\n`);
+    await compteur('état du registre');
+    v = chk(rg);
+    ok('registre : lecture sans formulaire dans le composant → il faut nommer le registre', call(v, /« état du registre » sans formulaire dans ce composant : nommez le registre lu \(« état du registre, registre inscriptions »\)/), v.out.slice(0, 400));
+    await compteur('état du registre, registre ateliers');
+    v = chk(rg);
+    ok('registre : un autre composant lit le registre par son nom', v.code === 0, v.out.slice(0, 400));
+    r = run('build', rg, '--out', path.join(tmp, 'reg-dist'));
+    const ridx = await fs.readFile(path.join(tmp, 'reg-dist', 'index.php'), 'utf8').catch(() => '');
+    const regs = /\$SL_REGISTERS = ([\s\S]*?);\n\$/.exec(ridx)?.[1] || '';
+    ok('registre : le site compilé connaît ses registres (règles, valeurs du champ qui groupe), jamais lus depuis la requête', r.code === 0 && /'ateliers' =>/.test(regs) && /'max' => 8/.test(regs) && /'by' => 'seance'/.test(regs) && /'Premier samedi du mois'/.test(regs) && /'waitlist' => true/.test(regs), regs.slice(0, 300) || ridx.slice(0, 200));
+    const evp = /'\/commandes-evenements' => (?:array \(|\[)([\s\S]*?)\n {2}\S/.exec(ridx)?.[1] || '';
+    ok('registre : les règles sont dans la configuration du formulaire de la page ; la page n\'est pas statique', /'rules' =>/.test(evp) && /'unique' =>/.test(evp) && !/'static' =>/.test(evp), evp.slice(0, 300));
+    const gp3 = path.join(tmp, 'gen-reg.json');
+    r = run('component', 'new', rg, 'stage', '--describe', 'Inscription à un stage, douze places.', '--export', gp3);
+    const gj3 = JSON.parse(await fs.readFile(gp3, 'utf8').catch(() => '{}'));
+    ok('registre : le guide du générateur enseigne les règles, sans inventer de nombre', /places: 12 par atelier, comptées par personnes/.test(gj3.system || '') && /liste d'attente/.test(gj3.system) && /N'invente aucun nombre de places/.test(gj3.system) && /état du registre/.test(gj3.system), (gj3.system || '').slice(0, 200));
+
     // éditeur et générateur : les mots sont connus
     r = run('schema', voc);
     const sj = async n => JSON.parse(await fs.readFile(path.join(voc, '.devanture', 'schema', n), 'utf8').catch(() => 'null'));

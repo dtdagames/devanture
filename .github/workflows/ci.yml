@@ -41,6 +41,9 @@ jobs:
       - name: Banc des expériences (tirage, exposition, objectif, verdicts, avec des visiteurs simulés)
         env: { PHP_BIN: php }
         run: bash scripts/ci-run.sh "banc expériences" node scripts/verify-experiments.mjs examples/plomberie-martin/dist 8974
+      - name: Banc des registres (places limitées, unicité, liste d'attente, back-office, envois simultanés)
+        env: { PHP_BIN: php }
+        run: bash scripts/ci-run.sh "banc registres" node scripts/verify-registre.mjs examples/le-fournil/dist 8975
       - name: Banc de la documentation (exemples compilés, commandes, options et listes comparées au compilateur)
         run: bash scripts/ci-run.sh "banc documentation" node scripts/verify-docs.mjs
       - name: Dépôt de site (sitec init) et compilation dans l'atelier
@@ -64,6 +67,7 @@ jobs:
           node bin/sitec.js build examples/savonnerie
           node bin/sitec.js build examples/plomberie-martin
           node bin/sitec.js build examples/garnier-associes
+          node bin/sitec.js build examples/le-fournil
           node bin/sitec.js host examples/hote
       - name: Image Apache
         run: docker pull -q php:8.3-apache
@@ -72,6 +76,7 @@ jobs:
           bash scripts/ci-run.sh "apache savonnerie" node scripts/verify-apache.mjs examples/savonnerie/dist 8085
           bash scripts/ci-run.sh "apache plomberie" node scripts/verify-apache.mjs examples/plomberie-martin/dist 8086
           bash scripts/ci-run.sh "apache garnier (paquet de composants)" node scripts/verify-apache.mjs examples/garnier-associes/dist 8089
+          bash scripts/ci-run.sh "apache fournil (registre à règles, envois simultanés)" node scripts/verify-apache.mjs examples/le-fournil/dist 8090
       - name: Hôte multi-sites sous Apache (un domaine à la fois)
         run: |
           bash scripts/ci-run.sh "apache hôte savonnerie" node scripts/verify-apache.mjs examples/hote/dist 8087 --host savonnerie-du-port.fr

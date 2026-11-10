@@ -178,6 +178,14 @@ try {
       ok('Banc boutique sous Apache', shop.code === 0, shopSum + ' ' + shop.out.split('\n').filter(l => l.startsWith('FAIL')).join(' | ').slice(0, 600));
       if (shopSum) console.log('  banc boutique :', shopSum);
     }
+    // Registre à règles (composant atelier de le-fournil) : sous Apache, les envois simultanés se croisent vraiment.
+    let reg = null;
+    try { const idx = await fs.readFile(path.join(work, 'index.php'), 'utf8'); if (/'ateliers' =>/.test(idx) && /'capacity' =>/.test(idx)) reg = await run('verify-registre.mjs'); } catch { /* pas de registre à règles */ }
+    if (reg) {
+      const regSum = reg.out.match(/\{"registre".*\}/)?.[0] || '';
+      ok('Banc registre sous Apache (envois simultanés)', reg.code === 0, regSum + ' ' + reg.out.split('\n').filter(l => l.startsWith('FAIL')).join(' | ').slice(0, 900));
+      if (regSum) console.log('  banc registre :', regSum);
+    }
   }
 
   // E-mails produits pendant les bancs (formulaire de contact, commandes), lus dans le puits de courrier.

@@ -413,7 +413,7 @@ Ce que le vocabulaire ne fait pas : un mot n'a pas de fonctionnement à lui (il 
 
 ### Fonctionnement
 
-Ce que le composant fait au-delà de l'affichage. Deux fonctionnements : `lit`, ce qu'il lit à chaque visite, et `formulaire`, ce qu'il fait d'une saisie.
+Ce que le composant fait au-delà de l'affichage. Deux fonctionnements : `lit`, ce qu'il lit à chaque visite, et `formulaire`, ce qu'il fait d'une saisie. Un formulaire écrit dans un registre, et ce registre peut avoir des règles : c'est ainsi qu'un composant déclare un état que le serveur tient pour lui (des places, une liste d'attente).
 
 #### Lire à la visite
 
@@ -456,6 +456,7 @@ forme:
 | `panier du visiteur` | aucun | les lignes du panier, ses totaux, les liens vers le panier et la commande |
 | `saisie de la commande` | `précisions` | les champs du formulaire de commande, la saisie conservée, les erreurs, le mode de paiement |
 | `commande de la page` | aucun | la commande d'une page `source: orders` : lignes, totaux, statut, où en est le paiement |
+| `état du registre` | `registre` | où en est le registre d'un formulaire : envois comptés, places prises et restantes (par groupe), liste d'attente |
 | `horaires du moment` | `jours`, `fuseau` | ouvert ou fermé en ce moment, prochaine ouverture, plages de chaque jour |
 | `consultations récentes` | `limite`, `types` | ce que le visiteur a consulté, s'il a accepté la personnalisation |
 
@@ -473,7 +474,7 @@ title: À saisir
     - { id: savon-miel, name: Savon miel et avoine, price: 6.9, price_text: "6,90 €", stock: 2, stock_text: Plus que 2 en stock, in_stock: true, max_qty: 2 }
 ```
 
-Ce que `lit` ne fait pas : créer un état nouveau sur le serveur. Les sources sont celles que la cible fournit ; une réservation de créneaux, une liste d'attente ou un compteur de places n'en font pas partie, et rien dans le langage ne permet de les définir. La seule écriture qu'un composant déclare lui-même reste le formulaire, ci-dessous.
+Ce que `lit` ne fait pas : écrire. Une lecture ne change rien sur le serveur, et les sources sont celles que la cible fournit. L'écriture qu'un composant déclare lui-même est le formulaire, ci-dessous ; l'état qu'il déclare lui-même est le registre de ce formulaire et ses règles, plus bas, que la source `état du registre` permet de relire.
 
 #### Recueillir une saisie
 
@@ -511,6 +512,11 @@ fonctionnement:
 | `prévient par e-mail: oui` | `oui` : e-mail au contact du site ; une adresse ; `non` |
 | `destinataire: adresse` | autre destinataire que le contact du site |
 | `confirmation: texte` | message affiché après l'envoi |
+| `places: 12 par seance` | nombre de places du registre ; règle détaillée plus bas |
+| `si complet: texte` | message de refus quand il n'y a plus de place |
+| `liste d'attente: texte` | au lieu de refuser, l'envoi est mis en attente ; `oui`, `non`, ou le message affiché |
+| `une fois par: email` | un seul envoi par valeur de ce champ, ou de ces champs (`email, seance`) |
+| `si déjà inscrit: texte` | message affiché au second envoi |
 | `champs:` puis une ligne par champ | « nom: type, précisions — Libellé (ex. exemple affiché dans le champ) » |
 | `texte`, `texte long`, `e-mail`, `téléphone`, `nombre`, `date`, `choix` | types de champ (`texte` par défaut) |
 | `facultatif` | champ non obligatoire (tout champ est obligatoire sinon) |
@@ -518,6 +524,63 @@ fonctionnement:
 | `si champ vaut valeur` | champ affiché et validé seulement dans ce cas ; le champ cité est déclaré plus haut, la valeur est l'une des siennes |
 
 Les noms `name`, `email`, `phone`, `subject`, `message` ont leur type et leur libellé habituels : rien à écrire après les deux-points. La forme place le formulaire (`- formulaire, bouton Demander un devis`) ; un formulaire déclaré que la forme n'affiche pas est une erreur, comme un `champ:` que le fonctionnement ne déclare pas. Le bloc se compile vers les effets déclarés décrits plus bas : le compilateur fournit validation serveur, jeton CSRF, pot de miel, enregistrement et e-mail. `effects` (format machine) et `fonctionnement` ensemble sont refusés.
+
+#### Tenir un registre : places, liste d'attente, une fois par personne
+
+Un formulaire range ses envois dans un registre. Des règles font de ce registre un état que le serveur tient : un nombre de places, une liste d'attente, un seul envoi par personne. `components/stage/manifest.yaml` :
+
+<!-- sitec: components/stage/manifest.yaml -->
+```yaml
+description: Inscription à un stage, douze places par séance, liste d'attente quand la séance est complète.
+données:
+  title: texte, facultatif
+fonctionnement:
+  lit:
+    places: état du registre
+  formulaire:
+    enregistre dans: stages
+    confirmation: Votre place est réservée.
+    places: 12 par seance, comptées par personnes
+    liste d'attente: Cette séance est complète, vous êtes sur la liste d'attente.
+    une fois par: email, seance
+    si déjà inscrit: Cette adresse est déjà inscrite à cette séance.
+    champs:
+      seance: choix, un parmi Samedi matin, Samedi après-midi — Séance
+      personnes: nombre — Nombre de personnes (ex. 2)
+      name:
+      email:
+forme:
+  - en-tête: title
+  - liste de places.groups:
+      - élément:
+          - texte: value
+          - badge: left_text
+  - formulaire, bouton Réserver
+```
+
+<!-- sitec: fragment sections -->
+```yaml
+- stage: { title: Stage du samedi }
+```
+
+| Règle | Ce que le serveur fait |
+|---|---|
+| `places: 12` | au plus douze envois comptés dans le registre |
+| `places: 12 par seance` | douze par valeur du champ `seance` ; ce champ est obligatoire, de préférence un `choix` (ses valeurs sont alors les seuls groupes possibles) |
+| `places: 12 par seance, comptées par personnes` | chaque envoi compte pour la valeur de `personnes`, un champ `nombre` obligatoire : un entier d'au moins 1, au plus le nombre de places |
+| `si complet: …` | l'envoi qui ne tient plus est refusé avec ce message, suivi de ce qui reste (« Il reste une place. ») |
+| `liste d'attente: …` | il est enregistré en attente, ne prend aucune place, et le visiteur lit ce message |
+| `une fois par: email, seance` | un envoi qui répète ces valeurs (casse et espaces ignorés) est refusé avec le message de `si déjà inscrit` |
+
+Les règles sont appliquées au moment d'enregistrer, sous un verrou propre au registre : le contrôle et l'écriture ne font qu'un, deux envois simultanés ne peuvent pas prendre la même dernière place. Rien n'est lu depuis la requête : ni le nombre de places, ni la liste des groupes. Dans le formulaire, une valeur complète du champ qui groupe est marquée (« — complet », non sélectionnable, ou « — liste d'attente »).
+
+La source `état du registre` relit cet état à la visite : `left_text` (« 3 places restantes », « Dernière place », « Complet »), `left`, `full`, `count`, `waiting`, et `groups` (`value`, `taken`, `left`, `left_text`) quand les places se comptent par groupe. Sans paramètre, elle lit le registre du formulaire du même composant ; un autre composant le lit par son nom (`places: état du registre, registre stages`), par exemple pour annoncer les places restantes sur la page d'accueil. Un registre sans règle se lit aussi : `count` compte ses envois (signatures, réponses).
+
+Au back-office, onglet « Formulaires », chaque envoi porte son statut (inscrit, en attente, annulé) et le registre son décompte par groupe. Annuler un envoi rend sa place ; « Donner la place » fait passer un envoi en attente parmi les inscrits s'il tient dans les places libres ; rétablir un envoi annulé le remet inscrit, ou en attente s'il n'y a plus de place. Ces trois gestes recomptent les places sous le même verrou. Un envoi annulé reste dans le registre et dans l'export CSV.
+
+Un registre n'a qu'une série de règles : deux composants qui écrivent dans le même registre avec des règles différentes sont refusés (`E_STORE_RULES`), comme la lecture d'un registre qu'aucun formulaire n'écrit (`E_UNKNOWN_STORE`). Une règle qui cite un champ inconnu, facultatif ou conditionnel est une erreur à sa ligne.
+
+Ce que les règles ne font pas. Le passage de la liste d'attente aux inscrits n'est pas automatique : il se fait au back-office. Il n'y a ni date limite, ni paiement, ni règle entre deux registres, ni calcul libre : un état qui demande autre chose que compter, grouper et dédoublonner les envois d'un formulaire reste hors du langage, et `custom` reste la porte de sortie.
 
 ### Voir ce qu'un composant produit
 
@@ -665,4 +728,4 @@ Composants natifs écrits sans code de la cible, tous au format langage (aucun g
 `sitec migrate <dossier>` fait passer un site à la dernière version, étape par étape, en modifiant le texte des fichiers (commentaires et mise en forme conservés), puis vérifie que le site migré passe `check`. `--dry-run` montre les changements sans écrire. Chaque migration propose aussi des suggestions non appliquées : ce que la nouvelle version permet d'écrire mieux (coordonnées recopiées en dur, valeurs répétées à mettre en constantes). Un site sans `language` est lu comme version 1 avec l'avertissement `W_LANGUAGE`.
 
 - **0** : sites écrits avant la déclaration de version (compilateur ≤ 0.1.3). Migration vers 1 : ajout de `language: 1`, aucune construction ne change.
-- **1** (2026-11-08) : première version écrite. Expressions, constantes, collections, composants composés, composants de projet avec gabarit neutre et effet `form`, paquets de composants, tests de composants, feuille de style encadrée, comportements déclarés. Ajouts compatibles, sans changement de version : composants en français contrôlé (compilateur 0.7.0 et 0.8.0), objectifs et expériences dans `segments.yaml` (0.9.0), vocabulaire ouvert (`vocabulaire.yaml`, 0.10.0), lectures à la visite (`fonctionnement: lit:`, 0.11.0).
+- **1** (2026-11-08) : première version écrite. Expressions, constantes, collections, composants composés, composants de projet avec gabarit neutre et effet `form`, paquets de composants, tests de composants, feuille de style encadrée, comportements déclarés. Ajouts compatibles, sans changement de version : composants en français contrôlé (compilateur 0.7.0 et 0.8.0), objectifs et expériences dans `segments.yaml` (0.9.0), vocabulaire ouvert (`vocabulaire.yaml`, 0.10.0), lectures à la visite (`fonctionnement: lit:`, 0.11.0), registres à règles (`places`, `liste d'attente`, `une fois par`, 0.12.0).

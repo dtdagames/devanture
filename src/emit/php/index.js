@@ -24,6 +24,7 @@ export async function emit(project, catalogBase, out) {
   await fs.rm(out, { recursive: true, force: true });
   await Promise.all(['lib', 'lib/data', 'pages', 'components', 'assets', 'data', 'custom', 'cache'].map(d => fs.mkdir(path.join(out, d), { recursive: true })));
   const stores = new Set();
+  const registers = {};
   // Statique d'abord : une page sans état (ni formulaire, ni panier, ni horaires calculés, ni bloc libre) peut être servie telle quelle à un visiteur sans cookie.
   const DYNAMIC = new Set(['contact.form', 'cart.page', 'checkout.page', 'order.confirmation', 'products.grid', 'product.hero', 'products.related', 'hours', 'recent', 'custom']);
   // Composants écrits dans le langage : ce qu'ils lisent à la visite (fonctionnement › lit) dit ce que la page exige.
@@ -80,7 +81,10 @@ export async function emit(project, catalogBase, out) {
       }
       // Formulaire déclaré par un composant (effects.form) : configuration fixée ici, jamais lue depuis la requête.
       const efForm = catalog.get(name)?.manifest?.effects?.form;
-      if (efForm) { forms[name] = { store: efForm.store, to: efForm.to || null, notify: efForm.notify ?? true, fields: efForm._fields || [], label: catalog.get(name).manifest.description || name, success: efForm.success || null }; stores.add(efForm.store); }
+      if (efForm) { forms[name] = { store: efForm.store, to: efForm.to || null, notify: efForm.notify ?? true, fields: efForm._fields || [], label: catalog.get(name).manifest.description || name, success: efForm.success || null, ...(efForm.rules ? { rules: efForm.rules } : {}) }; stores.add(efForm.store);
+        // Registre du site : ses règles et, quand les places se comptent par un champ à choix, les valeurs de ce champ.
+        const byField = efForm.rules?.capacity?.by ? (efForm._fields || []).find(x => x.name === efForm.rules.capacity.by) : null;
+        registers[efForm.store] = { form: name, rules: efForm.rules || {}, options: byField?.options || [], fields: (efForm._fields || []).map(x => ({ name: x.name, label: x.label })) }; }
       if (name === 'custom') {
         const rel = props.php.replace(/^\.?\//, '');
         await fs.mkdir(path.dirname(path.join(out, 'custom', rel)), { recursive: true });
@@ -129,7 +133,7 @@ export async function emit(project, catalogBase, out) {
     await fs.writeFile(path.join(out, 'llms.txt'), buildLlmsTxt(twin));
   }
   const staticEnabled = site.static?.enabled !== false;
-  await fs.writeFile(path.join(out, 'index.php'), indexPhp(site, routes, { jsonld: buildJsonLd(twin), agents: agentsOn, shop: shopCfg, dynamic, staticEnabled, stores: [...stores], collections: Object.keys(project.collections || {}) }));
+  await fs.writeFile(path.join(out, 'index.php'), indexPhp(site, routes, { jsonld: buildJsonLd(twin), agents: agentsOn, shop: shopCfg, dynamic, staticEnabled, stores: [...stores], registers, collections: Object.keys(project.collections || {}) }));
   // Assets versionnés par empreinte (cache long, Subresource Integrity) : calculés avant le layout qui les référence.
   const cssText = buildCss(site, usedList) + (customCss.length ? '\n' + customCss.join('\n\n') + '\n' : '');
   const jsText = buildJs(usedList) + (customJs.length ? '\n' + customJs.join('\n\n') + '\n' : '');

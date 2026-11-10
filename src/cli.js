@@ -528,6 +528,10 @@ Composants de projet, format langage (défaut) : un seul manifest.yaml avec donn
   fonctionnement : « formulaire: » puis ${FORM_SETTINGS.join(', ')} ; un champ par ligne « nom: type, précisions — Libellé (ex. exemple) ».
     types de champ : ${FIELD_TYPE_WORDS.join(', ')} ; précisions : ${FIELD_MODIFIERS.join(' ; ')} ; name, email, phone, subject, message sont connus (rien à écrire après).
     dans la forme : « - formulaire, bouton Envoyer » (tous les champs), ou « - formulaire: » puis « - champ: nom » pour les placer.
+    règles du registre, appliquées par le serveur à l'enregistrement, un envoi à la fois : « places: 12 », « places: 12 par atelier » (un champ qui groupe),
+      « places: 12 par atelier, comptées par personnes » (un champ nombre) ; « si complet: message » ou « liste d'attente: oui | message » ;
+      « une fois par: email » ou « email, atelier » ; « si déjà inscrit: message ». Lire où en est le registre : « lit: places: état du registre ».
+      Le back-office annule un envoi (la place est rendue), le rétablit, ou donne la place à un envoi en attente.
   ce que chaque bloc produit (schéma, effets, gabarit, feuille) : sitec component show <dossier> <nom> [--php]. Toute erreur renvoie à une ligne de manifest.yaml.
 Format html (porte de sortie) : components/<nom>/manifest.yaml + template.html (+ styles.css) ; sitec component new <dossier> <nom> [--describe "texte"] [--format html].
   CSS : sélecteurs préfixés du nom du composant, jetons du thème (var(--color-…), var(--font-…)), rien d'externe.
@@ -682,7 +686,7 @@ function printSource(name) {
   console.log(`# ${name} (source : service « ${d.service} » de la cible)\n${d.description.charAt(0).toUpperCase() + d.description.slice(1)}.${d.only ? ` Réservée au composant ${d.only}.` : ''}\n`);
   console.log(`Dans le manifeste d'un composant :\n  fonctionnement:\n    lit:\n      nom: ${sourceUsage(name)}\n`);
   const params = Object.keys(d.params);
-  console.log(params.length ? `Paramètres (facultatifs ; valeur : une donnée du composant, un nombre, oui, non ou « un texte ») : ${params.join(', ')}.` : 'Aucun paramètre.');
+  console.log(d.names?.length ? `Paramètre (facultatif) : ${params.join(', ')}, le nom d'un registre (celui d'un « enregistre dans: »). Sans lui : le registre du formulaire du même composant.` : params.length ? `Paramètres (facultatifs ; valeur : une donnée du composant, un nombre, oui, non ou « un texte ») : ${params.join(', ')}.` : 'Aucun paramètre.');
   console.log(`\nElle rend ${g.list ? 'une liste ; chaque élément' : 'un groupe'} :`);
   const show = (fs0, ind) => { for (const x of fs0) { console.log(`${ind}${x.name}: ${x.spec}`); if (x.children) show(x.children, ind + '  '); } };
   show(g.fields, '  ');

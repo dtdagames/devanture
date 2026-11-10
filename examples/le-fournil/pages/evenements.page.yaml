@@ -67,6 +67,10 @@ sections:
           author: Karim et Leïla B.
           role: Saint-Herblain
           rating: 5
+  - atelier:
+      id: atelier
+      title: Atelier pain du samedi
+      intro: Deux séances par mois, au fournil. Huit places par séance.
   - cta:
       title: Parlez-nous de votre événement
       text: Date, nombre de personnes, envies. Nous revenons vers vous sous 48 heures avec un devis.

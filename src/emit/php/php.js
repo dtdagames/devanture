@@ -210,7 +210,7 @@ function sl_fn_field(mixed $form, mixed $name): string {
     $h = '<div class="field' . ($err ? ' has-error' : '') . '"><label for="' . e($id) . '">' . e($f['label']) . ($req ? ' *' : '') . '</label>';
     $ph = !empty($f['placeholder']) ? ' placeholder="' . e($f['placeholder']) . '"' : '';
     if ($f['type'] === 'textarea') $h .= '<textarea id="' . e($id) . '" name="' . e($n) . '" rows="5"' . ($req ? ' required' : '') . $ph . '>' . e($val) . '</textarea>';
-    elseif ($f['type'] === 'select') { $h .= '<select id="' . e($id) . '" name="' . e($n) . '"' . ($req ? ' required' : '') . '><option value="">' . e($f['placeholder'] ?? 'Choisir…') . '</option>'; foreach (($f['options'] ?? []) as $o) $h .= '<option value="' . e($o) . '"' . ((string)$o === $val ? ' selected' : '') . '>' . e($o) . '</option>'; $h .= '</select>'; }
+    elseif ($f['type'] === 'select') { $h .= '<select id="' . e($id) . '" name="' . e($n) . '"' . ($req ? ' required' : '') . '><option value="">' . e($f['placeholder'] ?? 'Choisir…') . '</option>'; $cap = $form['rules']['capacity'] ?? null; $taken = ($cap && ($cap['by'] ?? null) === $n && !empty($form['store']) && function_exists('sl_reg_state')) ? sl_reg_state((string)$form['store'], $form['rules'])['taken'] : null; foreach (($f['options'] ?? []) as $o) { $isFull = $taken !== null && (int)($taken[(string)$o] ?? 0) >= (int)$cap['max']; $h .= '<option value="' . e($o) . '"' . ((string)$o === $val ? ' selected' : '') . ($isFull && empty($cap['waitlist']) ? ' disabled' : '') . '>' . e($o) . ($isFull ? (empty($cap['waitlist']) ? ' — complet' : ' — liste d\\'attente') : '') . '</option>'; } $h .= '</select>'; }
     else $h .= '<input id="' . e($id) . '" type="' . e($f['type']) . '" name="' . e($n) . '" value="' . e($val) . '"' . ($req ? ' required' : '') . $ph . ($f['type'] === 'number' ? ' inputmode="numeric"' : '') . '>';
     if ($err) $h .= '<div class="field-error">' . e($err) . '</div>';
     return $h . '</div>';
@@ -377,33 +377,126 @@ function contact_api(?array $config, array $site): void {
 function handle_declared_forms(array $site, array $page): void {
     $GLOBALS['SL_FORMS'] = [];
     foreach (($page['forms'] ?? []) as $name => $cfg) {
-        $r = ['status' => null, 'errors' => [], 'data' => [], 'fields' => $cfg['fields'] ?? [], 'name' => $name, 'success' => $cfg['success'] ?? null, 'message' => null];
+        $r = ['status' => null, 'errors' => [], 'data' => [], 'fields' => $cfg['fields'] ?? [], 'name' => $name, 'success' => $cfg['success'] ?? null, 'message' => null, 'store' => $cfg['store'] ?? null, 'rules' => $cfg['rules'] ?? null];
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && ($_POST['_form'] ?? '') === $name) {
             if (!hash_equals($_SESSION['csrf'] ?? '', (string)($_POST['_csrf'] ?? ''))) { $r['status'] = 'error'; $r['message'] = 'Session expirée, merci de réessayer.'; }
             elseif (!empty($_POST['website'])) { $r['status'] = 'ok'; }
             else {
                 [$data, $errors] = contact_validate($cfg['fields'] ?? [], $_POST);
                 if ($errors) { $r['status'] = 'error'; $r['message'] = 'Merci de corriger les champs indiqués.'; $r['errors'] = $errors; $r['data'] = $data; }
+                elseif (!empty($cfg['rules'])) {
+                    // Registre à règles : contrôle et enregistrement dans la même section verrouillée ; l'e-mail part après, hors verrou.
+                    $rules = $cfg['rules']; $store = (string)$cfg['store'];
+                    $res = sl_reg_submit($store, $rules, $data, function (bool $waiting) use (&$r, $name, $cfg, $data, $store) { $rec = sl_form_record($name, $data, $waiting ? ['waiting' => true] : []); $r['id'] = $rec['id']; sl_store_append($store, $rec + ['mail' => 'none']); });
+                    if (!$res['ok']) { $r['status'] = 'error'; $r['message'] = $res['message']; $r['data'] = $data; if (!empty($res['field'])) $r['errors'] = [$res['field'] => $res['message']]; }
+                    else {
+                        $r['status'] = 'ok'; $waiting = !empty($res['waiting']);
+                        if ($waiting) { $r['waiting'] = true; $r['success'] = $rules['capacity']['waitlist_message'] ?? 'Il n\\'y a plus de place pour l\\'instant : vous êtes sur la liste d\\'attente, nous vous écrivons si une place se libère.'; }
+                        $mail = sl_form_notify($name, $cfg, $data, $site, $waiting ? 'Statut : liste d\\'attente' : '');
+                        if ($mail !== 'none') sl_store_update($store, (string)$r['id'], fn($d) => array_merge($d, ['mail' => $mail]));
+                    }
+                }
                 else { $r['status'] = 'ok'; $r['id'] = sl_form_store($name, $cfg, $data, $site); }
             }
         }
         $GLOBALS['SL_FORMS'][$name] = $r;
     }
 }
-function sl_form_store(string $name, array $cfg, array $data, array $site): string {
+/** Fiche d'un envoi : identifiant, date, provenance, puis les champs saisis et ce que la cible y ajoute (waiting). */
+function sl_form_record(string $name, array $data, array $extra = []): array {
+    return ['id' => strtoupper(substr(bin2hex(random_bytes(4)), 0, 8)), 'at' => date('c'), 'form' => $name, 'ip' => $_SERVER['REMOTE_ADDR'] ?? '', 'page' => $_SERVER['REQUEST_URI'] ?? ''] + $data + $extra;
+}
+/** E-mail d'un envoi au destinataire du formulaire ; renvoie none | sent | failed. */
+function sl_form_notify(string $name, array $cfg, array $data, array $site, string $note = ''): string {
     $labels = []; foreach (($cfg['fields'] ?? []) as $f) $labels[$f['name']] = $f['label'];
-    $id = strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
-    $record = ['id' => $id, 'at' => date('c'), 'form' => $name, 'ip' => $_SERVER['REMOTE_ADDR'] ?? '', 'page' => $_SERVER['REQUEST_URI'] ?? ''] + $data;
-    $notify = $cfg['notify'] ?? true; $sent = null;
+    $notify = $cfg['notify'] ?? true;
     $to = is_string($notify) ? $notify : (string)($cfg['to'] ?? ($site['contact']['email'] ?? ''));
-    if ($notify !== false && $to !== '' && filter_var($to, FILTER_VALIDATE_EMAIL)) {
-        $body = ''; foreach ($data as $k => $v) $body .= ($labels[$k] ?? $k) . " : $v\n";
-        $reply = ''; foreach (($cfg['fields'] ?? []) as $f) if ($f['type'] === 'email' && !empty($data[$f['name']])) { $reply = (string)$data[$f['name']]; break; }
-        $sent = sl_mail($to, '[' . ($site['name'] ?? 'Site') . '] ' . ($cfg['label'] ?? $name), $body, ['reply_to' => $reply, 'from_name' => (string)($site['name'] ?? '')]);
-    }
-    $record['mail'] = $sent === null ? 'none' : ($sent ? 'sent' : 'failed');
+    if ($notify === false || $to === '' || !filter_var($to, FILTER_VALIDATE_EMAIL)) return 'none';
+    $body = ''; foreach ($data as $k => $v) $body .= ($labels[$k] ?? $k) . " : $v\\n";
+    if ($note !== '') $body .= $note . "\\n";
+    $reply = ''; foreach (($cfg['fields'] ?? []) as $f) if ($f['type'] === 'email' && !empty($data[$f['name']])) { $reply = (string)$data[$f['name']]; break; }
+    return sl_mail($to, '[' . ($site['name'] ?? 'Site') . '] ' . ($cfg['label'] ?? $name), $body, ['reply_to' => $reply, 'from_name' => (string)($site['name'] ?? '')]) ? 'sent' : 'failed';
+}
+function sl_form_store(string $name, array $cfg, array $data, array $site): string {
+    $record = sl_form_record($name, $data);
+    $record['mail'] = sl_form_notify($name, $cfg, $data, $site);
     sl_store_append((string)$cfg['store'], $record);
-    return $id;
+    return $record['id'];
+}
+
+/** Registres à règles (fonctionnement › formulaire : places, liste d'attente, une fois par). Un verrou par registre. */
+function sl_reg_lock(string $store, callable $fn): mixed {
+    $dir = __DIR__ . '/../data'; if (!is_dir($dir)) @mkdir($dir, 0775, true);
+    $fh = @fopen($dir . '/.' . preg_replace('/[^a-z0-9_]/', '', $store) . '.lock', 'c');
+    if ($fh) flock($fh, LOCK_EX);
+    try { return $fn(); } finally { if ($fh) { flock($fh, LOCK_UN); fclose($fh); } }
+}
+/** Places que compte un envoi : la valeur du champ « comptées par », sinon une. */
+function sl_reg_qty(array $rules, array $d): int { $q = $rules['capacity']['qty'] ?? null; return $q ? max(1, (int)($d[$q] ?? 1)) : 1; }
+function sl_reg_group(array $rules, array $d): string { $b = $rules['capacity']['by'] ?? null; return $b ? (string)($d[$b] ?? '') : ''; }
+/** État d'un registre : places prises et en attente par groupe (envois annulés exclus). */
+function sl_reg_state(string $store, ?array $rules = null): array {
+    $rules ??= ($GLOBALS['SL_REGISTERS'][$store]['rules'] ?? []);
+    $taken = []; $waiting = []; $entries = 0; $total = 0; $wtotal = 0;
+    foreach (sl_store_all($store) as $d) {
+        if (!empty($d['cancelled'])) continue;
+        $g = sl_reg_group($rules, $d); $q = sl_reg_qty($rules, $d);
+        if (!empty($d['waiting'])) { $waiting[$g] = ($waiting[$g] ?? 0) + $q; $wtotal += $q; continue; }
+        $taken[$g] = ($taken[$g] ?? 0) + $q; $total += $q; $entries++;
+    }
+    return ['taken' => $taken, 'waiting' => $waiting, 'entries' => $entries, 'total' => $total, 'waiting_total' => $wtotal];
+}
+/** Places libres pour le groupe d'un envoi (null : registre sans limite). */
+function sl_reg_left(string $store, array $rules, array $d): ?int {
+    $c = $rules['capacity'] ?? null; if (!$c) return null;
+    return (int)$c['max'] - (int)(sl_reg_state($store, $rules)['taken'][sl_reg_group($rules, $d)] ?? 0);
+}
+/**
+ * Applique les règles puis enregistre, sous le verrou du registre. $save(bool $waiting) écrit l'envoi.
+ * Renvoie ['ok' => bool, 'waiting' => bool, 'message' => string, 'field' => ?string].
+ */
+function sl_reg_submit(string $store, array $rules, array $data, callable $save): array {
+    return sl_reg_lock($store, function () use ($store, $rules, $data, $save) {
+        $u = $rules['unique'] ?? null;
+        if ($u) {
+            $key = fn(array $d) => implode('|', array_map(fn($k) => rawurlencode(sl_utf8_lower(trim((string)($d[$k] ?? '')))), $u['fields']));
+            $mine = $key($data);
+            foreach (sl_store_all($store) as $d) if (empty($d['cancelled']) && $key($d) === $mine) return ['ok' => false, 'message' => $u['message'] ?? 'Vous êtes déjà inscrit.'];
+        }
+        $waiting = false; $c = $rules['capacity'] ?? null;
+        if ($c) {
+            $q = 1;
+            if (!empty($c['qty'])) {
+                $raw = str_replace(',', '.', (string)($data[$c['qty']] ?? ''));
+                if (!is_numeric($raw) || (float)$raw != (int)$raw || (int)$raw < 1) return ['ok' => false, 'field' => $c['qty'], 'message' => 'Indiquez un nombre entier, au moins 1.'];
+                $q = (int)$raw;
+                if ($q > (int)$c['max']) return ['ok' => false, 'field' => $c['qty'], 'message' => 'Au plus ' . (int)$c['max'] . ' par envoi.'];
+            }
+            $left = (int)sl_reg_left($store, $rules, $data);
+            if ($q > $left) {
+                if (!empty($c['waitlist'])) $waiting = true;
+                else return ['ok' => false, 'message' => ($c['message'] ?? 'Il n\\'y a plus de place.') . ($left > 0 ? ($left === 1 ? ' Il reste une place.' : ' Il reste ' . $left . ' places.') : '')];
+            }
+        }
+        $save($waiting);
+        return ['ok' => true, 'waiting' => $waiting, 'message' => ''];
+    });
+}
+/** Source « état du registre » : places prises, restantes, en attente ; par groupe quand les places sont comptées par groupe. */
+function sl_src_register(array $a): ?array {
+    $store = sl_str($a['store'] ?? ''); $reg = $GLOBALS['SL_REGISTERS'][$store] ?? null;
+    if (!$reg || !function_exists('sl_store_all')) return null;
+    $rules = $reg['rules'] ?? []; $c = $rules['capacity'] ?? null; $st = sl_reg_state($store, $rules);
+    $text = fn(int $left) => $left <= 0 ? 'Complet' : ($left === 1 ? 'Dernière place' : $left . ' places restantes');
+    $out = ['limited' => (bool)$c, 'count' => $st['total'], 'entries' => $st['entries'], 'waiting' => $st['waiting_total'], 'capacity' => null, 'left' => null, 'full' => false, 'left_text' => null, 'groups' => []];
+    if (!$c) return $out;
+    $max = (int)$c['max'];
+    if (empty($c['by'])) { $left = max(0, $max - (int)($st['taken'][''] ?? 0)); return ['capacity' => $max, 'left' => $left, 'full' => $left <= 0, 'left_text' => $text($left)] + $out; }
+    $known = $reg['options'] ?? []; $values = $known;
+    foreach (array_keys($st['taken'] + $st['waiting']) as $g) if ((string)$g !== '' && !in_array((string)$g, $values, true)) $values[] = (string)$g;
+    $sum = 0; $groups = [];
+    foreach ($values as $g) { $t = (int)($st['taken'][$g] ?? 0); $left = max(0, $max - $t); $sum += $left; $groups[] = ['value' => (string)$g, 'taken' => $t, 'left' => $left, 'full' => $left <= 0, 'left_text' => $text($left), 'waiting' => (int)($st['waiting'][$g] ?? 0)]; }
+    return ['capacity' => $max, 'left' => $known ? $sum : null, 'full' => $known ? $sum <= 0 : false, 'left_text' => $known ? $text($sum) : null, 'groups' => $groups] + $out;
 }
 /** État du formulaire d'un composant, pour son gabarit : status, message, errors, data (alias values), fields, success. */
 function sl_form_state(string $name): array {
@@ -424,7 +517,7 @@ function csrf_token(): string {
 }
 `;
 
-export function indexPhp(site, routes, { jsonld = '', agents = true, shop = null, dynamic = [], staticEnabled = true, stores = [], collections = [] } = {}) {
+export function indexPhp(site, routes, { jsonld = '', agents = true, shop = null, dynamic = [], staticEnabled = true, stores = [], collections = [], registers = {} } = {}) {
   return `<?php
 declare(strict_types=1);
 // Généré par sitec. Front controller : route → page. Compatible \`php -S host:port index.php\`.
@@ -445,6 +538,7 @@ $jsonld = ${phpValue(jsonld)};
 $product = null; $order = null; $SL_ITEM = null; $checkoutResult = ['status' => null];
 $SL_STATIC = ${staticEnabled ? 'true' : 'false'};
 $SL_STORES = ${phpValue(stores)};
+$SL_REGISTERS = ${phpValue(registers)};
 $SL_COLLECTIONS = ${phpValue(collections)};
 /** Élément d'une collection compilée (lib/data/<nom>.json), par id. */
 function sl_collection(string $name): array { static $c = []; if (!isset($c[$name])) { $f = __DIR__ . '/lib/data/' . preg_replace('/[^a-z0-9_]/', '', $name) . '.json'; $c[$name] = is_file($f) ? (json_decode((string)file_get_contents($f), true) ?: []) : []; } return $c[$name]; }

@@ -1,6 +1,19 @@
 # Journal des versions
 
-Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.11.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.12.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+
+## v0.12.0 — 2026-11-10 — un état déclaré : le registre et ses règles
+
+- **Règles de registre** dans `fonctionnement: formulaire:` : « places: 12 », « places: 12 par seance » (un champ qui groupe), « places: 12 par seance, comptées par personnes » (un champ nombre) ; « si complet: message » ou « liste d'attente: message » ; « une fois par: email, seance » ; « si déjà inscrit: message ». Le registre d'un formulaire devient un état que le serveur tient : des places, une liste d'attente, un envoi par personne.
+- **Appliquées sous verrou** : contrôle et enregistrement dans la même section critique, propre au registre ; rien n'est lu depuis la requête (ni le nombre de places, ni les groupes). L'e-mail part après, hors verrou.
+- **Lecture** : source « état du registre » (`left_text`, `left`, `full`, `count`, `waiting`, `groups`), pour le composant qui porte le formulaire ou pour un autre (« état du registre, registre stages »). Dans le formulaire, une valeur complète du champ qui groupe est marquée.
+- **Back-office** : onglet « Formulaires » avec le décompte par groupe et le statut de chaque envoi ; annuler (la place est rendue), donner la place à un envoi en attente, rétablir. Les envois annulés restent dans le registre et dans le CSV.
+- **Vérifications** : règle sur un champ inconnu, facultatif ou conditionnel refusée à sa ligne ; deux composants qui écrivent dans le même registre avec des règles différentes (`E_STORE_RULES`) ; lecture d'un registre que personne n'écrit (`E_UNKNOWN_STORE`).
+- **Exemple** : `examples/le-fournil/components/atelier` (huit places par séance, comptées par personnes, liste d'attente, une inscription par adresse et par séance).
+- **Banc** `scripts/verify-registre.mjs` (36 contrôles, lancé à chaque push, y compris sous Apache) : places décomptées, refus de saisie, unicité, liste d'attente, actions du back-office, et douze inscriptions simultanées pour six places. Sous Apache (requêtes réellement simultanées, SQLite), exactement six inscrits ; le même banc sans le verrou compte dix places prises pour huit.
+- Banc des sites : le formulaire de contact est reconnu à son nom, pour qu'un formulaire à règles placé avant la page de contact ne soit pas pris à sa place.
+- Limites dites : la liste d'attente ne se vide pas seule (le client attribue les places au back-office) ; ni date limite, ni paiement, ni règle entre deux registres, ni calcul libre. Ce qui demande plus que compter, grouper et dédoublonner les envois d'un formulaire reste hors du langage. Rien de cela n'a encore servi sur un site réel.
+- Bancs : 183 contrôles d'outillage (dont 19 pour les règles), 229 contrôles de documentation (29 blocs compilés).
 
 ## v0.11.0 — 2026-11-10 — lire un état à la visite : la boutique, les horaires et le contact sans PHP
 

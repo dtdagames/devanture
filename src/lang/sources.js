@@ -100,6 +100,21 @@ export const SOURCES = {
       },
     } },
   },
+  'état du registre': {
+    id: 'register', service: 'registre', description: 'où en est le registre d\'un formulaire : envois comptés, places prises et restantes, liste d\'attente',
+    params: { 'registre': 'store' }, names: ['registre'],
+    gives: { group: {
+      limited: 'oui ou non, facultatif — le registre a un nombre de places',
+      capacity: 'nombre, facultatif — places par groupe, ou en tout',
+      count: 'nombre — places prises (envois annulés et liste d\'attente exclus)',
+      entries: 'nombre — envois comptés',
+      waiting: 'nombre — places demandées en liste d\'attente',
+      left: 'nombre, facultatif — places restantes, tous groupes confondus',
+      full: 'oui ou non, facultatif — plus aucune place',
+      left_text: 'texte, facultatif — « 3 places restantes », « Dernière place », « Complet »',
+      'groups (liste)': { value: 'texte — valeur du champ qui groupe', taken: 'nombre', left: 'nombre', full: 'oui ou non, facultatif', left_text: 'texte', waiting: 'nombre' },
+    } },
+  },
   'horaires du moment': {
     id: 'hours', service: 'horaires', description: 'les horaires d\'ouverture lus à l\'heure de la visite',
     params: { 'jours': 'days', 'fuseau': 'timezone' },
@@ -184,7 +199,9 @@ export function compileLit(block, { props = null, path = 'fonctionnement.lit', c
       const rest = part.trim().split(/\s+/).slice(pn.split(/\s+/).length).join(' ');
       if (!rest) { fail(fp, `paramètre « ${pn} » sans valeur : « ${pn} donnée », « ${pn} 3 »`, ref); ok = false; continue; }
       if (def.params[pn] in args) { fail(fp, `paramètre « ${pn} » donné deux fois`, ref); ok = false; continue; }
-      const v = valueExpr(rest, props);
+      const isName = (def.names || []).includes(pn);
+      if (isName && !/^(«\s*)?[a-z][a-z0-9_]*(\s*»)?$/.test(rest.trim())) { fail(fp, `paramètre « ${pn} » : attendu le nom du registre (celui de « enregistre dans: »), ex. « ${pn} inscriptions »`, ref); ok = false; continue; }
+      const v = isName ? { expr: "'" + rest.replace(/[«»\s]/g, '') + "'" } : valueExpr(rest, props);
       if (v.error) { fail(fp, `paramètre « ${pn} » : ${v.error}`, ref); ok = false; continue; }
       args[def.params[pn]] = v.expr;
     }
@@ -198,7 +215,7 @@ export function compileLit(block, { props = null, path = 'fonctionnement.lit', c
 /** Phrase d'emploi d'une source : « nom: source, paramètre donnée ». */
 export function sourceUsage(name) {
   const d = SOURCES[name];
-  return `${name}${Object.keys(d.params).map(p => `, ${p} <donnée>`).join('')}`;
+  return `${name}${Object.keys(d.params).map(p => `, ${p} ${(d.names || []).includes(p) ? '<nom>' : '<donnée>'}`).join('')}`;
 }
 /** Ce que rend une source, champ par champ, tel qu'écrit dans ce fichier : [{ name, spec, children? }]. */
 export function sourceFields(name) {

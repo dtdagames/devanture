@@ -29,10 +29,47 @@ const SETTINGS = [
   [/^previent par (e-?mail|courriel)$|^prevenir par (e-?mail|courriel)$/, 'notify', 'prévient par e-mail'],
   [/^destinataire$/, 'to', 'destinataire'],
   [/^(message de )?confirmation$/, 'success', 'confirmation'],
+  // Règles du registre : appliquées par la cible sous verrou, au moment où l'envoi est enregistré.
+  [/^places$/, 'places', 'places'],
+  [/^si (c'est )?complet$/, 'full', 'si complet'],
+  [/^liste d'attente$/, 'waitlist', 'liste d\'attente'],
+  [/^une (seule )?fois par$/, 'unique', 'une fois par'],
+  [/^si deja (inscrit|envoye|fait)$/, 'duplicate', 'si déjà inscrit'],
   [/^champs$/, 'fields', 'champs'],
 ];
 export const FORM_SETTINGS = SETTINGS.map(s => s[2]);
 export const RESERVED_STORES = ['orders', 'events', 'stock', 'products'], RESERVED_FIELDS = ['website'];
+/** Champs que la cible ajoute à un envoi : un champ déclaré ne peut pas porter ces noms. */
+export const RECORD_FIELDS = ['id', 'at', 'form', 'ip', 'page', 'mail', 'waiting', 'cancelled', 'cancelled_at'];
+export const RULE_DEFAULTS = {
+  full: 'Il n\'y a plus de place.',
+  waitlist: 'Il n\'y a plus de place pour l\'instant : vous êtes sur la liste d\'attente, nous vous écrivons si une place se libère.',
+  duplicate: 'Vous êtes déjà inscrit.',
+};
+
+/**
+ * Vérifie des règles de registre contre les champs du formulaire. rules : { capacity: { max, by, qty, message, waitlist,
+ * waitlist_message }, unique: { fields, message } }. Renvoie des messages d'erreur (liste vide si tout va bien).
+ */
+export function checkRules(rules, fields) {
+  const out = [], by = n => (fields || []).find(x => (typeof x === 'string' ? x : x?.name) === n), names = (fields || []).map(x => (typeof x === 'string' ? x : x?.name)).filter(Boolean);
+  const hint = n => { const s2 = nearest(n, names); return s2 ? ` ; vouliez-vous dire « ${s2} » ?` : ` (champs : ${names.join(', ')})`; };
+  if (!rules || typeof rules !== 'object' || Array.isArray(rules)) return ['règles : attendu { capacity, unique }'];
+  for (const k of Object.keys(rules)) if (!['capacity', 'unique'].includes(k)) out.push(`règle inconnue « ${k} » (capacity, unique)`);
+  const c = rules.capacity;
+  if (c !== undefined) {
+    if (!c || !Number.isInteger(c.max) || c.max < 1 || c.max > 100000) out.push('places : un nombre entier, au moins 1');
+    if (c?.by) { const fd = by(c.by); if (!fd) out.push(`places … par ${c.by} : ${c.by} n'est pas un champ du formulaire${hint(c.by)}`); else if (typeof fd === 'object' && (fd.required === false || fd.when)) out.push(`places … par ${c.by} : ce champ doit être obligatoire et toujours affiché (il dit à quel groupe l'envoi appartient)`); }
+    if (c?.qty) { const fd = by(c.qty); if (!fd) out.push(`comptées par ${c.qty} : ${c.qty} n'est pas un champ du formulaire${hint(c.qty)}`); else if (typeof fd !== 'object' || fd.type !== 'number') out.push(`comptées par ${c.qty} : ce champ doit être un nombre (« ${c.qty}: nombre — Nombre de personnes »)`); else if (fd.required === false || fd.when) out.push(`comptées par ${c.qty} : ce champ doit être obligatoire et toujours affiché`); }
+    if (c?.by && c.by === c.qty) out.push('places : le champ qui groupe et le champ qui compte sont le même');
+  }
+  const u = rules.unique;
+  if (u !== undefined) {
+    if (!u || !Array.isArray(u.fields) || !u.fields.length) out.push('une fois par : au moins un champ (« une fois par: email »)');
+    else for (const n of u.fields) { const fd = by(n); if (!fd) out.push(`une fois par ${n} : ${n} n'est pas un champ du formulaire${hint(n)}`); else if (typeof fd === 'object' && (fd.required === false || fd.when)) out.push(`une fois par ${n} : ce champ doit être obligatoire et toujours affiché (sans lui, rien ne distingue deux envois)`); }
+  }
+  return out;
+}
 
 function lev(a, b) { const d = Array.from({ length: a.length + 1 }, (_, i) => [i]); for (let j = 1; j <= b.length; j++) d[0][j] = j; for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[a.length][b.length]; }
 const nearest = (w, list) => { let best = null, bd = Infinity; for (const c of list) { const d = lev(norm(w), norm(c)); if (d < bd) { bd = d; best = c; } } return bd <= Math.max(2, Math.floor(String(w).length / 3)) ? best : null; };
@@ -94,6 +131,7 @@ export function compileFonctionnement(block, path = 'fonctionnement') {
     const fp = `${path}.formulaire`;
     if (!v || typeof v !== 'object' || Array.isArray(v)) { fail(fp, `attendu : ${FORM_SETTINGS.map(s => `« ${s}: »`).join(', ')}`, ref); continue; }
     const form = { fields: [], required: [] }; let storeSeen = false;
+    const raw = {}; // réglages de règles, résolus quand tous les champs sont connus (l'ordre des lignes est libre)
     for (const [sk, sv] of Object.entries(v)) {
       const sref = { in: v, at: sk };
       const hit = SETTINGS.find(([re]) => re.test(norm(sk)));
@@ -109,12 +147,13 @@ export function compileFonctionnement(block, path = 'fonctionnement') {
       }
       else if (key === 'to') { if (typeof sv === 'string' && /^[^@\s]+@[^@\s]+$/.test(sv.trim())) form.to = sv.trim(); else fail(`${fp}.${sk}`, 'attendu : une adresse e-mail', sref); }
       else if (key === 'success') { if (typeof sv === 'string' && sv.trim()) form.success = sv.trim(); else fail(`${fp}.${sk}`, 'attendu : le message affiché après l\'envoi', sref); }
+      else if (['places', 'full', 'waitlist', 'unique', 'duplicate'].includes(key)) raw[key] = { value: sv, ref: sref, path: `${fp}.${sk}` };
       else if (key === 'fields') {
         if (!sv || typeof sv !== 'object' || Array.isArray(sv)) { fail(`${fp}.${sk}`, 'attendu : un champ par ligne, « nom: type, précisions — Libellé »', sref); continue; }
         for (const [fname, fspec] of Object.entries(sv)) {
           const fref = { in: sv, at: fname }, p = `${fp}.champs.${fname}`;
           if (!/^[a-z][a-z0-9_]*$/.test(fname)) { fail(p, `nom de champ « ${fname} » : minuscules sans accent, chiffres et _ (il sert dans la forme et dans le registre)`, fref); continue; }
-          if (RESERVED_FIELDS.includes(fname)) { fail(p, `${fname} est un nom de champ réservé`, fref); continue; }
+          if (RESERVED_FIELDS.includes(fname) || RECORD_FIELDS.includes(fname)) { fail(p, `${fname} est un nom de champ réservé${RECORD_FIELDS.includes(fname) ? ' (la cible le pose sur chaque envoi)' : ''}`, fref); continue; }
           if (fspec !== null && typeof fspec !== 'string') { fail(p, 'attendu : un texte comme « texte long, facultatif — Précisions »', fref); continue; }
           if (form.fields.some(f => f.name === fname)) { fail(p, `champ déclaré deux fois : ${fname}`, fref); continue; }
           const r = parseFieldSpec(fname, fspec, form.fields);
@@ -122,6 +161,33 @@ export function compileFonctionnement(block, path = 'fonctionnement') {
           form.fields.push(r.field);
         }
       }
+    }
+    // --- règles du registre
+    const rules = {}; const text = x => (typeof x.value === 'string' && x.value.trim() ? x.value.trim() : null);
+    if (raw.places) {
+      const v = raw.places.value, t = typeof v === 'number' ? String(v) : typeof v === 'string' ? v.trim() : '';
+      const m = /^(\d+)(?:\s+par\s+([a-z][a-z0-9_]*))?(?:\s*,\s*compt[ée]e?s?\s+par\s+([a-z][a-z0-9_]*))?$/i.exec(t);
+      if (!m) fail(raw.places.path, 'attendu : « 12 », « 12 par atelier » (un champ qui groupe) ou « 12 par atelier, comptées par personnes » (un champ nombre)', raw.places.ref);
+      else rules.capacity = { max: Number(m[1]), ...(m[2] ? { by: m[2] } : {}), ...(m[3] ? { qty: m[3] } : {}) };
+    }
+    if (raw.full) { if (!rules.capacity && !raw.places) fail(raw.full.path, '« si complet » va avec « places: »', raw.full.ref); else if (!text(raw.full)) fail(raw.full.path, 'attendu : le message affiché quand il n\'y a plus de place', raw.full.ref); else if (rules.capacity) rules.capacity.message = text(raw.full); }
+    if (raw.waitlist) {
+      const v = raw.waitlist.value, low = typeof v === 'string' ? v.trim().toLowerCase() : v;
+      if (!rules.capacity && !raw.places) fail(raw.waitlist.path, '« liste d\'attente » va avec « places: »', raw.waitlist.ref);
+      else if (v === true || low === 'oui') { if (rules.capacity) rules.capacity.waitlist = true; }
+      else if (v === false || low === 'non') { /* refus quand c'est complet */ }
+      else if (text(raw.waitlist)) { if (rules.capacity) { rules.capacity.waitlist = true; rules.capacity.waitlist_message = text(raw.waitlist); } }
+      else fail(raw.waitlist.path, 'attendu : oui, non, ou le message affiché à qui est mis en attente', raw.waitlist.ref);
+    }
+    if (raw.unique) {
+      const t = text(raw.unique), list = t ? t.split(/\s*,\s*|\s+et\s+/).map(x => x.trim()).filter(Boolean) : [];
+      if (!list.length || list.some(x => !/^[a-z][a-z0-9_]*$/.test(x))) fail(raw.unique.path, 'attendu : un ou plusieurs champs, « email » ou « email, atelier »', raw.unique.ref);
+      else rules.unique = { fields: list };
+    }
+    if (raw.duplicate) { if (!rules.unique && !raw.unique) fail(raw.duplicate.path, '« si déjà inscrit » va avec « une fois par: »', raw.duplicate.ref); else if (!text(raw.duplicate)) fail(raw.duplicate.path, 'attendu : le message affiché à qui s\'inscrit deux fois', raw.duplicate.ref); else if (rules.unique) rules.unique.message = text(raw.duplicate); }
+    if (Object.keys(rules).length) {
+      for (const m of checkRules(rules, form.fields)) { const k = /^une fois|^si déjà/.test(m) ? raw.unique : raw.places; fail(k?.path || fp, m, k?.ref || ref); }
+      form.rules = rules;
     }
     if (!form.store && !storeSeen) fail(fp, 'réglage manquant : « enregistre dans: <registre> » (où ranger les envois, ex. devis)', ref);
     if (!form.fields.length) fail(fp, 'un formulaire déclare ses champs : « champs: » puis « nom: type — Libellé » par ligne', ref);

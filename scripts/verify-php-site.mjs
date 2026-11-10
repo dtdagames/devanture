@@ -51,7 +51,7 @@ try {
   const navHtml = /<nav[\s\S]*?<\/nav>/i.exec(home.text)?.[0] || '';
   const navRoutes = new Set([...navHtml.matchAll(/href="(\/[a-z0-9\-\/]*)"/g)].map(m => m[1].replace(/\/+$/, '') || '/'));
 
-  let contactPath = null;
+  let contactPath = null, contactExact = false;
   const pagesHtml = [];
   for (const r of routes) {
     const res = await get(r);
@@ -64,7 +64,11 @@ try {
     ok(`GET ${r} a une meta description`, !!desc && desc[1].length > 10, desc ? desc[1].slice(0, 60) : 'absente');
     if (r !== '/' && navRoutes.has(r)) ok(`GET ${r} marque la nav (aria-current)`, /aria-current="page"/.test(res.text));
     const isContact = /<form[^>]+method="post"/i.test(res.text) && /_csrf|csrf|token/i.test(res.text) && !/name="action" value="add"|name="_form" value="checkout"/.test(res.text);
-    if (isContact) contactPath = contactPath || r;
+    // Le formulaire de contact du langage se reconnaît à son nom ; à défaut (site écrit à la main), le premier formulaire trouvé.
+    // Sans cette préférence, un formulaire à règles (inscription à places limitées) placé avant la page de contact serait pris à sa place.
+    const exact = /name="_form" value="contact"/.test(res.text);
+    if (isContact && exact && !contactExact) { contactPath = r; contactExact = true; }
+    else if (isContact) contactPath = contactPath || r;
   }
 
   // Images : si le site compilé a des variantes WebP, les <img> des pages doivent porter dimensions, srcset et chargement différé.

@@ -281,6 +281,11 @@ async function claims() {
     claim('LANGAGE.md : fonctions du gabarit', ticks(grab(s, /\. Fonctions : (.*)$/m) || '').map(fnName), FUNCTION_NAMES); }
   claim('LANGAGE.md : jetons de couleur = ceux du thème', ticks(lineWith(L, /^Jetons de couleur : /)), THEME_KEYS.filter(k => k.startsWith('color.')).map(k => k.slice(6)));
   { const t = rows(L, /^\| Comportement \| Attributs \|/); claim('LANGAGE.md : comportements déclarés', t && t.map(r => ticks(r[0])[0]), BEHAVIOR_NAMES); }
+  // Règles de registre : chaque règle documentée est un réglage du formulaire, et inversement pour les cinq réglages de règle.
+  { const t = rows(L, /^\| Règle \| Ce que le serveur fait \|/);
+    const RULE_SETTINGS = ['places', 'si complet', 'liste d\'attente', 'une fois par', 'si déjà inscrit'];
+    claim('LANGAGE.md : règles de registre documentées = réglages de règle du formulaire', t && uniq(t.map(r => (ticks(r[0])[0] || '').split(':')[0])), RULE_SETTINGS.filter(x => x !== 'si déjà inscrit'));
+    claim('fonctionnement.js : les réglages de règle existent', RULE_SETTINGS.filter(x => FORM_SETTINGS.includes(x)), RULE_SETTINGS); }
   // Lectures à la visite : sources et paramètres de la table = ceux du compilateur ; sources citées par CLAUDE.md.
   { const t = rows(L, /^\| Source \| Paramètres \| Ce qu'elle rend \|/);
     claim('LANGAGE.md : sources lues à la visite = SOURCES', t && t.map(r => ticks(r[0])[0]), PUBLIC_SOURCE_NAMES);

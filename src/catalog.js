@@ -103,6 +103,12 @@ export function buildComponent({ name, shortName = null, pkg = null, dir, manife
       generated.effects = r.errors.length ? 'invalid' : true;
     }
   }
+  // « état du registre » sans nom de registre : celui du formulaire de ce composant.
+  for (const src of manifest.sources || []) if (src.id === 'register' && !src.args.store) {
+    const own = manifest.effects?.form?.store;
+    if (typeof own === 'string' && own) src.args.store = "'" + own.replace(/[^a-z0-9_]/g, '') + "'";
+    else errors.push(`fonctionnement.lit.${src.key} : « état du registre » sans formulaire dans ce composant : nommez le registre lu (« ${src.source}, registre inscriptions »)`, at('fonctionnement'));
+  }
   // Forme et apparence (français contrôlé) : compilées vers le gabarit neutre et la feuille encadrée ; le reste de la chaîne est inchangé.
   if (manifest.forme !== undefined) {
     if (files['template.html'] !== undefined || files['template.php'] !== undefined) errors.push('forme et template.html à la fois : la forme produit le gabarit, retirez template.html (ou retirez forme)', at('forme'));
