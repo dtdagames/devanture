@@ -133,7 +133,8 @@ try {
   const racers = await Promise.all(Array.from({ length: 12 }, (_, i) => visitor()).map((v, i) => v.submit(entry(100 + i, S2, 1))));
   const won = racers.filter(x => success(x.text)).length, queued = racers.filter(x => waitlisted(x.text)).length, broken = racers.filter(x => phpErr(x.text) || x.status !== 200).length;
   pg = await visitor().page(); adm = await adminPage();
-  ok('simultané : six places, douze envois → six inscrits, six en attente, aucune erreur', before === '6 places restantes' && won === 6 && queued === 6 && broken === 0, `avant ${before} ; ${won} inscrits, ${queued} en attente, ${broken} erreurs`);
+  const bad = racers.find(x => phpErr(x.text) || x.status !== 200);
+  ok('simultané : six places, douze envois → six inscrits, six en attente, aucune erreur', before === '6 places restantes' && won === 6 && queued === 6 && broken === 0, `avant ${before} ; ${won} inscrits, ${queued} en attente, ${broken} erreurs${bad ? ` ; première erreur (HTTP ${bad.status}) : ${(/(Fatal error|Warning|Uncaught|Exception)[^\n]{0,260}/.exec(bad.text) || [bad.text.replace(/\s+/g, ' ').slice(0, 200)])[0]}` : ''}`);
   ok('simultané : le registre compte exactement huit places prises, jamais plus', shown(pg.text, S2) === 'Complet' && new RegExp(S2 + ' <b>8/8</b> · 6 en attente').test(adm.text), (/<p class="reg-state">([\s\S]*?)<\/p>/.exec(adm.text) || [])[1]);
 
   // --- règles sans liste d'attente : la fonction de la cible, appelée directement sur un registre d'essai (serveur local seulement)

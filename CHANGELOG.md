@@ -1,6 +1,13 @@
 # Journal des versions
 
-Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.12.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.12.1`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+
+## v0.12.1 — 2026-11-10 — le stockage SQLite sous écritures simultanées
+
+- **Correctif** : `sl_store_update` (mise à jour d'un envoi, d'une commande, d'un message) lisait avant de prendre le droit d'écrire ; SQLite refusait alors la transaction sans attendre (« database is locked ») dès qu'un autre processus avait écrit entre les deux. La transaction commence maintenant par `BEGIN IMMEDIATE`, et le délai d'attente est posé avant le passage en WAL. Le défaut datait du stockage SQLite (v0.1.x) et touchait aussi les commandes (webhook Stripe pendant une action du back-office) ; aucun banc ne tirait d'écritures simultanées avant celui des registres.
+- Comment il a été vu : l'intégration continue de la v0.12.0, sous Linux avec six processus PHP, a renvoyé une erreur pour dix des douze inscriptions simultanées. Le décompte des places, lui, était juste : le verrou du registre tenait, c'est la mise à jour du statut d'e-mail, après le verrou, qui échouait. Sous Windows (un seul processus) et sous Apache en local, rien ne se voyait.
+- La v0.12.0 ne doit pas être utilisée avec des règles de registre sous SQLite : passer à la v0.12.1.
+- Banc des registres : le contrôle des envois simultanés cite la première erreur rencontrée.
 
 ## v0.12.0 — 2026-11-10 — un état déclaré : le registre et ses règles
 

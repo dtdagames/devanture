@@ -18,7 +18,8 @@ function sl_store_db(): PDO {
     static $pdo = null;
     if ($pdo) return $pdo;
     $pdo = new PDO('sqlite:' . sl_store_dir() . '/site.sqlite', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-    $pdo->exec('PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;');
+    // Le délai d'attente d'abord : le passage en WAL demande un verrou, et sans délai il échoue dès qu'un autre processus ouvre la base au même instant.
+    $pdo->exec('PRAGMA busy_timeout=5000;'); $pdo->exec('PRAGMA journal_mode=WAL;');
     foreach (['messages', 'orders', 'events'] as $t) $pdo->exec("CREATE TABLE IF NOT EXISTS $t (seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT, at TEXT, doc TEXT NOT NULL)");
     $pdo->exec('CREATE INDEX IF NOT EXISTS orders_id ON orders(id); CREATE INDEX IF NOT EXISTS messages_id ON messages(id);');
     // Reprise des fichiers JSONL existants, une seule fois.
@@ -57,9 +58,11 @@ function sl_store_get(string $t, string $id): ?array {
 function sl_store_update(string $t, string $id, callable $fn): ?array {
     $t = sl_store_table($t);
     if (sl_store_kind() === 'sqlite') {
-        $db = sl_store_db(); $db->beginTransaction();
-        try { $st = $db->prepare("SELECT seq, doc FROM $t WHERE id = ? ORDER BY seq DESC LIMIT 1"); $st->execute([$id]); $row = $st->fetch(PDO::FETCH_ASSOC); if (!$row) { $db->commit(); return null; } $doc = $fn(json_decode($row['doc'], true)); $up = $db->prepare("UPDATE $t SET doc = ?, at = ? WHERE seq = ?"); $up->execute([json_encode($doc, JSON_UNESCAPED_UNICODE), $doc['at'] ?? date('c'), $row['seq']]); $db->commit(); return $doc; }
-        catch (Throwable $e) { $db->rollBack(); throw $e; }
+        // BEGIN IMMEDIATE : le droit d'écrire est pris avant de lire. Une transaction qui lit d'abord puis écrit est refusée par SQLite
+        // (« database is locked », sans attendre) dès qu'un autre processus a écrit entre les deux : vu avec douze envois simultanés.
+        $db = sl_store_db(); $db->exec('BEGIN IMMEDIATE');
+        try { $st = $db->prepare("SELECT seq, doc FROM $t WHERE id = ? ORDER BY seq DESC LIMIT 1"); $st->execute([$id]); $row = $st->fetch(PDO::FETCH_ASSOC); $st->closeCursor(); if (!$row) { $db->exec('COMMIT'); return null; } $doc = $fn(json_decode($row['doc'], true)); $up = $db->prepare("UPDATE $t SET doc = ?, at = ? WHERE seq = ?"); $up->execute([json_encode($doc, JSON_UNESCAPED_UNICODE), $doc['at'] ?? date('c'), $row['seq']]); $db->exec('COMMIT'); return $doc; }
+        catch (Throwable $e) { try { $db->exec('ROLLBACK'); } catch (Throwable $e2) { /* transaction déjà close */ } throw $e; }
     }
     $f = sl_store_dir() . "/$t.jsonl"; if (!is_file($f)) return null;
     $fh = fopen($f, 'c+'); if (!$fh) return null; flock($fh, LOCK_EX);
