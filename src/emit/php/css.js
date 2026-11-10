@@ -105,5 +105,9 @@ export function buildCss(site, usedComponents) {
   const vars = Object.entries(tokens).map(([k, v]) => `  --${k.replace(/\./g, '-')}: ${v};`).join('\n');
   const comps = usedComponents.map(c => c.files['styles.css'] ? `/* ${c.name} */\n${c.files['styles.css'].trim()}` : '').filter(Boolean).join('\n\n');
   const beh = behaviorsAssets(usedComponents).css;
-  return `:root {\n${vars}\n}\n${BASE_CSS}\n${beh ? '/* comportements déclarés */\n' + beh + '\n' : ''}${comps}\n`;
+  // Feuilles des mots du vocabulaire : une fois par site, quel que soit le nombre de composants qui emploient le mot.
+  const seen = new Map();
+  for (const c of usedComponents) for (const w of c.wordsCss || []) if (!seen.has(w.id)) seen.set(w.id, `/* mot : ${w.name} */\n${w.css}`);
+  const words = [...seen.values()].join('\n\n');
+  return `:root {\n${vars}\n}\n${BASE_CSS}\n${beh ? '/* comportements déclarés */\n' + beh + '\n' : ''}${words ? words + '\n\n' : ''}${comps}\n`;
 }

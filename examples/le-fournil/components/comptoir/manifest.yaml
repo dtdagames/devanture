@@ -8,6 +8,7 @@ données:
     category: texte — famille, sert de filtre (Pains, Viennoiseries…)
     image: image, facultatif — photo, agrandie au clic
     note: texte, facultatif — une ligne sous le nom
+    baked: texte, facultatif — heure de sortie du four (07:30)
     detail: texte, facultatif — précisions, repliées
   phone: texte, facultatif — numéro pour commander, avec un bouton pour le copier
 forme:
@@ -17,13 +18,11 @@ forme:
           - image, agrandissable: image, name
           - titre: name
           - texte discret: note
+          - sortie du four: baked
           - si detail:
               - repli, libellé « En savoir plus »:
                   - texte: detail
-  - si phone:
-      - bloc « comptoir-commande »:
-          - texte: phone
-          - copier, libellé « Copier le numéro »: phone
+  - commande par téléphone: phone
 apparence:
   cartes: compactes
   comptoir-commande: en ligne, espace au-dessus

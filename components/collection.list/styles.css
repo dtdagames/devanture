@@ -1,10 +1,1 @@
-.col-item{display:flex;flex-direction:column;padding:0;overflow:hidden}
-.col-item .col-img img{width:100%;aspect-ratio:4/3;object-fit:cover}
-.col-item .col-body{padding:16px 18px 18px;display:flex;flex-direction:column;gap:6px;flex:1}
-.col-item h3{margin:0;font-size:1.05rem}
-.col-item h3 a{color:inherit;text-decoration:none}
-.col-item h3 a:hover{text-decoration:underline}
-.col-meta{margin:0;font-size:.85rem;text-transform:uppercase;letter-spacing:.04em}
-.col-text{margin:0;font-size:.92rem;flex:1}
-.col-more{align-self:flex-start;font-weight:600;text-decoration:none;margin-top:4px}
-.col-cta{text-align:center;margin-top:24px}
+.col-cta{text-align:center;margin-top:24px;margin-bottom:1em}

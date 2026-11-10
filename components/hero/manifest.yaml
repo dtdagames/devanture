@@ -1,16 +1,21 @@
 name: hero
 order: 10
 description: Bandeau d'en-tête de page, avec titre, sous-titre, image de fond optionnelle et 1 ou 2 boutons.
-props:
-  type: object
-  required: [title]
-  properties:
-    title: { type: string, description: titre principal (h1) }
-    subtitle: { type: string, description: phrase d'accroche sous le titre }
-    image: { type: string, format: asset, description: "image de fond, fichier dans assets/" }
-    cta: { $ref: "#/$defs/link", description: bouton principal }
-    secondary: { $ref: "#/$defs/link", description: "second bouton, style contour" }
-    align: { type: string, enum: [left, center], description: alignement du texte (défaut center) }
+données:
+  title: texte — titre principal (h1)
+  subtitle: texte, facultatif — phrase d'accroche sous le titre
+  image: image, facultatif — image de fond, fichier dans assets/
+  cta: lien, facultatif — bouton principal
+  secondary: lien, facultatif — second bouton, style contour
+  align: texte, facultatif, un parmi left, center — alignement du texte (défaut center)
+forme:
+  bandeau, variante align par défaut center, image de fond image, conteneur « hero-inner »:
+    - titre principal: title
+    - texte « hero-sub »: subtitle
+    - si cta ou secondary:
+        - bloc « hero-actions »:
+            - bouton: cta
+            - bouton discret: secondary
 example: |
   - hero:
       title: Des savons faits main

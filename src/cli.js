@@ -9,7 +9,9 @@ import { describeComposite } from './composition.js';
 import { TEMPLATE_VOCABULARY } from './lang/template.js';
 import { BEHAVIORS } from './lang/behaviors.js';
 import { TYPE_WORDS } from './lang/donnees.js';
-import { PRIMITIVE_HELP } from './lang/forme.js';
+import { PRIMITIVE_HELP, nearest } from './lang/forme.js';
+import { wordUsage, WORD_KEYS } from './lang/vocabulaire.js';
+import YAML from 'yaml';
 import { INTENT_NAMES } from './lang/apparence.js';
 import { FIELD_TYPE_WORDS, FIELD_MODIFIERS, FORM_SETTINGS } from './lang/fonctionnement.js';
 import { EVENTS, GOAL_EVENTS, CONTROL, DEFAULT_MINIMUM } from './segments.js';
@@ -71,7 +73,11 @@ export async function run(argv) {
       if (name === 'langage' || name === 'language' || name === 'expressions') { explainLanguage(); return 0; }
       const proj = args[1] ? await projectCatalog(args[1], catalog) : null;
       if (proj?.project.composites?.[name]) { printComposite(proj.project.composites[name]); return 0; }
-      return explain(proj?.catalog || catalog, name);
+      // Un mot du vocabulaire (natif, du site ou d'un paquet) s'explique comme un composant : « sitec explain "carte de visite" <dossier> ».
+      const words = proj?.project.words || catalog.words;
+      const word = words.get(name.trim().toLowerCase().replace(/\s+/g, ' '));
+      if (word && !(proj?.catalog || catalog).has(name)) { printWord(word); return 0; }
+      return explain(proj?.catalog || catalog, name, words);
     }
 
     case 'schema': {
@@ -507,6 +513,10 @@ Composants de projet, format langage (défaut) : un seul manifest.yaml avec donn
   données : nom: ${TYPE_WORDS.join(' | ')}, puis facultatif, au moins N, au plus N, de A à B, un parmi a, b — description ; « items (liste): » puis les champs.
   forme : ${Object.keys(PRIMITIVE_HELP).join(', ')}.
     comportements posés par la forme, sans rien déclarer : défilement, onglets, accordéon, repli, filtres de x selon champ, image agrandissable, copier.
+  vocabulaire (des mots en plus des primitives, sans toucher au compilateur) : vocabulaire.yaml à la racine du site ou d'un paquet ; « mots: » puis, par mot,
+    ${WORD_KEYS.join(', ')}. Un mot se définit par une forme (primitives, autres mots, « contenu » pour ce que l'appelant place dedans)
+    ou par un fragment de gabarit, avec « feuille » pour son CSS. Emploi : « - mot: a, b » ou « - mot, a, b: » puis des éléments ; un mot de paquet : « - paquet.mot: a ».
+    Liste des mots : sitec catalog <dossier> ; fiche : sitec explain "<mot>" <dossier>.
   apparence : partie: ${INTENT_NAMES.join(', ')} ; « sur téléphone: ».
   fonctionnement : « formulaire: » puis ${FORM_SETTINGS.join(', ')} ; un champ par ligne « nom: type, précisions — Libellé (ex. exemple) ».
     types de champ : ${FIELD_TYPE_WORDS.join(', ')} ; précisions : ${FIELD_MODIFIERS.join(' ; ')} ; name, email, phone, subject, message sont connus (rien à écrire après).
@@ -529,6 +539,11 @@ function printCatalog(catalog, proj = null) {
     console.log(`${c.name.padEnd(14)} ${c.manifest.description}${c.package ? `   [paquet ${c.package}]` : c.project ? '   [composant du projet]' : ''}\n${''.padEnd(14)} props: ${props}`);
   }
   for (const def of Object.values(proj?.project?.composites || {})) console.log(`${def.name.padEnd(14)} ${def.description}   [composé ${def.package ? `du paquet ${def.package}` : 'du projet'} → ${def.sections.map(s => Object.keys(s)[0]).join(' + ')}]\n${''.padEnd(14)} params: ${Object.entries(def.params).map(([k, v]) => v.required ? k + '*' : k).join(', ')}`);
+  const words = proj?.project?.words || catalog.words;
+  if (words?.size) {
+    console.log('\nMots du vocabulaire (forme des composants, en plus des primitives). Détail : sitec explain "<mot>"' + (proj ? ' <dossier>' : '') + '\n');
+    for (const w of words.values()) console.log(`${wordUsage(w).padEnd(34)} ${w.description}   [${wordOrigin(w)}]`);
+  }
   console.log(`\nFichiers attendus : site.yaml, pages/*.page.yaml, assets/ (images). Voir CLAUDE.md.\nConfiguration du site (nav, thème, tokens, pied, coordonnées) : sitec explain site`);
 }
 
@@ -632,11 +647,32 @@ Exemple (pages/accueil.page.yaml) :
   return 0;
 }
 
-function explain(catalog, name) {
+function wordOrigin(w) {
+  const scope = w.id.split(':')[0];
+  return scope === 'natif' ? 'mot natif' : scope === 'site' ? 'mot du site, vocabulaire.yaml' : `mot du paquet ${scope}`;
+}
+
+function printWord(w) {
+  console.log(`# ${w.name} (${wordOrigin(w)})\n${w.description}\n\nDans une forme :\n  - ${wordUsage(w)}${w.container ? '\n      - … (les éléments placés dedans)' : ''}\n`);
+  if (w.params.length) {
+    console.log('Données, dans l\'ordre où elles se passent :');
+    for (const p of w.params) console.log(`  ${p.name}${p.required ? ' (obligatoire)' : ''}: ${describeSchema(p.schema)}${p.schema.description ? ` — ${p.schema.description}` : ''}`);
+    console.log('  Une donnée s\'écrit comme pour une primitive : un nom de donnée du composant, « un texte », un nombre, oui, non, rien.');
+  } else console.log('Aucune donnée.');
+  // La définition elle-même : ce qui est écrit dans le vocabulaire est ce qui entre dans la page, rien n'est déduit.
+  const ind = t => String(t).trimEnd().split('\n').map(l => '    ' + l).join('\n');
+  const where = w.line ? ` (ligne ${w.line} du vocabulaire)` : '';
+  if (w.kind === 'forme') console.log(`\nDéfini par une forme, faite de primitives et d'autres mots${where} :\n${ind(YAML.stringify(w.forme, { lineWidth: 0 }))}`);
+  else console.log(`\nDéfini par un fragment de gabarit${where} :\n${ind(w.gabarit)}`);
+  if (w.apparence) console.log(`\nSon apparence :\n${ind(YAML.stringify(w.apparence, { lineWidth: 0 }))}`);
+  if (w.feuille) console.log(`\nSa feuille (ajoutée une fois à la feuille du site quand le mot sert) :\n${ind(w.feuille)}`);
+}
+
+function explain(catalog, name, words = null) {
   if (name === 'site' || name === 'theme' || name === 'site.yaml') return explainSite();
   const c = catalog.get(name);
   if (!c) {
-    const hint = catalog.suggest(name);
+    const hint = catalog.suggest(name) || (words?.size ? nearest(name, [...words.keys()]) : null);
     console.error(`Composant inconnu : ${name}.${hint ? ` Vouliez-vous dire ${hint} ?` : ''} (sitec catalog pour la liste)`);
     return 1;
   }

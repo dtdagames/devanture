@@ -229,8 +229,10 @@ try {
   ok('component show --php : le PHP exécuté par le serveur', r.code === 0 && /== PHP compilé/.test(r.out) && /<\?php \/\* comptoir — compilé depuis template\.html par sitec \*\//.test(r.out));
   r = run('component', 'show', lf, 'team');
   ok('component show : natif écrit dans le langage (portrait : photo ronde ou initiale)', r.code === 0 && /composant natif/.test(r.out) && /\{% if it1\.photo %\}<div class="team-avatar">/.test(r.out) && /team-avatar-initiale" aria-hidden="true">\{\{ it1\.name \| trim \| first \| upper \}\}/.test(r.out), r.out.slice(0, 200));
-  r = run('component', 'show', lf, 'hero');
-  ok('component show : composant au format html, rien de produit pour la structure', r.code === 0 && /format html, composant natif/.test(r.out) && /le fichier est la source/.test(r.out));
+  r = run('component', 'show', lf, 'products.grid');
+  ok('component show : natif à traitement serveur (format php), rien de produit pour la structure', r.code === 0 && /format php, composant natif/.test(r.out) && /le fichier est la source/.test(r.out));
+  r = run('component', 'show', path.join(ROOT, 'examples', 'garnier-associes'), 'vitrine.encart');
+  ok('component show : composant au format html, rien de produit pour la structure', r.code === 0 && /format html, paquet/.test(r.out) && /le fichier est la source/.test(r.out), r.out.slice(0, 200));
   r = run('component', 'show', lf, 'inconnu');
   ok('component show : composant introuvable → code 1', r.code === 1 && /Composant introuvable ou en erreur : inconnu/.test(r.out));
   let y = await withComptoir('filtres de items, selon category', 'filtres de items, selon categorie');
@@ -294,6 +296,159 @@ try {
     const s5 = await sigs(path.join(tmp, 'xp-5'));
     ok('site sans expérience : ni objectifs, ni expériences, ni marqueur dans le site compilé', s5.code === 0 && !s5.accroche && !/'experiments' =>/.test(s5.all) && !/'goals' =>/.test(s5.all), s5.all.match(/'(experiments|goals)' =>.{0,80}/)?.[0] || '');
     await fs.writeFile(segFile, seg0); await fs.writeFile(pageFile, page0);
+  }
+
+  // --- vocabulaire : des mots nouveaux pour la forme, définis hors du compilateur (site, paquet, natif)
+  {
+    const voc = await copy('examples/le-fournil', 'voc');
+    const vf = path.join(voc, 'vocabulaire.yaml'), v0 = await fs.readFile(vf, 'utf8');
+    const mf = path.join(voc, 'components', 'comptoir', 'manifest.yaml'), m0 = await fs.readFile(mf, 'utf8');
+    const chk = dir => { const x = run('check', dir); return { code: x.code, out: x.out, errs: lines(x.out).filter(e => e.code && !e.code.startsWith('W_')) }; };
+    const withVoc = async text => { await fs.writeFile(vf, text); const x = chk(voc); await fs.writeFile(vf, v0); return x; };
+    const withMan = async (from, to) => { if (!m0.includes(from)) throw new Error('ancre absente du manifeste : ' + from); await fs.writeFile(mf, m0.replace(from, to)); const x = chk(voc); await fs.writeFile(mf, m0); return x; };
+    const word = (x, re, line) => x.code === 1 && x.errs.some(e => e.code === 'E_WORD' && e.file === 'vocabulaire.yaml' && re.test(e.message) && (!line || e.path === 'ligne ' + line));
+    const call = (x, re, line) => x.code === 1 && x.errs.some(e => e.code === 'E_COMPONENT' && re.test(e.message) && (!line || e.path === 'ligne ' + line));
+    const once = x => x.errs.length === 1; // l'erreur est dite une fois, à l'endroit où elle se corrige
+
+    let v = chk(voc);
+    ok('vocabulaire : site avec des mots à lui valide', v.code === 0 && v.errs.length === 0, v.out.slice(0, 300));
+    r = run('catalog', voc);
+    ok('vocabulaire : catalogue liste les mots du site et les mots natifs, avec leurs données', /^sortie du four: heure .*\[mot du site, vocabulaire\.yaml\]/m.test(r.out) && /^ligne de tarif: nom, prix, .*\[mot natif\]/m.test(r.out), r.out.slice(-600));
+    r = run('explain', 'sortie du four', voc);
+    ok('vocabulaire : explain d\'un mot à gabarit montre le fragment, sa ligne et sa feuille', /^# sortie du four \(mot du site/m.test(r.out) && /Défini par un fragment de gabarit \(ligne 13 du vocabulaire\)/.test(r.out) && r.out.includes('<time datetime="{{ heure }}">') && /Sa feuille/.test(r.out) && r.out.includes('.sortie-du-four-point{'), r.out.slice(0, 400));
+    r = run('explain', 'commande par téléphone', voc);
+    ok('vocabulaire : explain d\'un mot à forme montre la forme', /Défini par une forme, faite de primitives et d'autres mots \(ligne 4 du vocabulaire\)/.test(r.out) && /- copier, libellé « Copier le numéro »: numero/.test(r.out), r.out.slice(0, 400));
+    r = run('explain', 'ligne de tarif');
+    ok('vocabulaire : explain d\'un mot natif, sans dossier', /^# ligne de tarif \(mot natif\)/m.test(r.out) && /prix \(obligatoire\): string ou number/.test(r.out) && /Défini par un fragment de gabarit/.test(r.out), r.out.slice(0, 300));
+    r = run('explain', 'sortie du fou', voc);
+    ok('vocabulaire : explain d\'un mot mal écrit → suggestion', r.code === 1 && /Vouliez-vous dire sortie du four/.test(r.out), r.out.slice(0, 200));
+    r = run('component', 'show', voc, 'comptoir');
+    ok('vocabulaire : le mot est développé dans le gabarit du composant ; donnée obligatoire liée à une donnée facultative → gardé par un si', r.out.includes('{% if it1.baked %}<p class="sortie-du-four">') && r.out.includes('<time datetime="{{ it1.baked }}">') && /mots du vocabulaire employés : sortie du four, commande par téléphone/.test(r.out), r.out.slice(0, 300));
+    ok('vocabulaire : un mot à forme apporte ses parties à l\'apparence du composant', /parties que l'apparence peut viser : .*comptoir-commande/.test(r.out) && r.out.includes('.comptoir .comptoir-commande{'), '');
+    r = run('build', voc, '--out', path.join(tmp, 'voc-dist'));
+    const vcss = await fs.readFile(path.join(tmp, 'voc-dist', 'assets', 'site.css'), 'utf8').catch(() => '');
+    const vphp = await fs.readFile(path.join(tmp, 'voc-dist', 'components', 'comptoir.php'), 'utf8').catch(() => '');
+    ok('vocabulaire : compilation, feuille du mot une seule fois dans site.css, balisage du mot dans le composant compilé', r.code === 0 && vcss.split('/* mot : sortie du four */').length === 2 && vcss.includes('.sortie-du-four-point{') && vphp.includes('<time datetime="'), r.out.slice(-300));
+    ok('vocabulaire : la feuille d\'un mot natif n\'entre dans site.css que s\'il sert', !vcss.includes('/* mot : ligne de tarif */') && !vcss.includes('/* mot : carte à la demande */') && !vcss.includes('.pricelist-item'), '');
+
+    // définition d'un mot : erreurs à la ligne du vocabulaire
+    v = await withVoc(v0 + '\n  titre:\n    description: Un titre à nous.\n    forme:\n      - texte: « a »\n');
+    ok('mot : le nom d\'une primitive est refusé (E_WORD, ligne)', word(v, /c'est déjà une primitive/, 23) && once(v), v.out.slice(0, 300));
+    v = await withVoc(v0 + '\n  ligne de tarif:\n    description: La nôtre.\n    forme:\n      - texte: « a »\n');
+    ok('mot : un vocabulaire ajoute des mots, il ne redéfinit pas un mot natif', word(v, /existe déjà dans le langage/, 23), v.out.slice(0, 300));
+    v = await withVoc(v0.replace('    description: Un numéro à appeler pour commander, avec un bouton qui le copie.\n', ''));
+    ok('mot : description obligatoire ; le composant qui l\'emploie ne répète pas l\'erreur', word(v, /description manquante/, 4) && once(v), v.out.slice(0, 500));
+    v = await withVoc(v0 + '\n  duo:\n    description: Deux textes.\n    données:\n      a: texte, facultatif\n      b: texte\n    forme:\n      - texte: a\n      - texte: b\n');
+    ok('mot : données obligatoires avant les facultatives', word(v, /donnée « b » : les données obligatoires se déclarent avant/, 25), v.out.slice(0, 300));
+    v = await withVoc(v0 + '\n  vide:\n    description: Rien.\n');
+    ok('mot : ni forme ni gabarit', word(v, /ni forme ni gabarit/, 23), v.out.slice(0, 300));
+    v = await withVoc(v0 + '\n  double:\n    description: Deux.\n    forme:\n      - texte: « a »\n    gabarit: <p>a</p>\n');
+    ok('mot : forme et gabarit à la fois', word(v, /forme et gabarit à la fois/, 23), v.out.slice(0, 300));
+    v = await withVoc(v0 + '\n  autre:\n    description: Deux.\n    forme:\n      - texte: « a »\n    style: gras\n');
+    ok('mot : clé inconnue, à sa ligne', word(v, /clé inconnue « style »/, 27), v.out.slice(0, 300));
+    v = await withVoc(v0.replace('- texte: numero', '- texte: numéro'));
+    ok('mot : donnée inconnue dans sa forme → suggestion, une seule erreur', word(v, /« numéro » n'est ni une donnée du mot.*vouliez-vous dire « numero »/, 10) && once(v), v.out.slice(0, 500));
+    v = await withVoc(v0.replace('datetime="{{ heure }}"', 'datetime="{{ heur }}"'));
+    ok('mot : variable inconnue dans son gabarit, à la ligne du fragment', word(v, /« heur » n'est ni une donnée du mot \(heure\)/, 18) && once(v), v.out.slice(0, 500));
+    v = await withVoc(v0.replace('</time></p>\n', '</time></p>\n      <script>alert(1)</script>\n'));
+    ok('mot : <script> refusé dans un gabarit de mot', word(v, /<script> interdit/, 19) && once(v), v.out.slice(0, 500));
+    v = await withVoc(v0.replace('<p class="sortie-du-four">', '<p class="sortie-du-four" onclick="x()">'));
+    ok('mot : attribut d\'événement refusé dans un gabarit de mot', word(v, /attribut d'événement \(onclick=…\) interdit/, 18) && once(v), v.out.slice(0, 500));
+    v = await withVoc(v0.replace('.sortie-du-four-point{', 'p{margin:0}\n      .sortie-du-four-point{'));
+    ok('mot : feuille encadrée, sélecteur hors du mot refusé à sa ligne', word(v, /feuille : sélecteur « p » hors du composant/, 21) && once(v), v.out.slice(0, 500));
+    v = await withVoc(v0 + '\n  boucle:\n    description: Tourne.\n    forme:\n      - boucle\n');
+    ok('mot : un mot qui s\'emploie lui-même', word(v, /s'emploie lui-même/), v.out.slice(0, 300));
+    v = await withVoc(v0 + '\n  cassé: [\n');
+    ok('vocabulaire illisible : une erreur, à la ligne, sans cascade dans les composants', word(v, /vocabulaire\.yaml illisible/, 24) && once(v), v.out.slice(0, 500));
+
+    // emploi d'un mot : erreurs à la ligne du manifeste
+    v = await withMan('- sortie du four: baked', '- sortie du fou: baked');
+    ok('emploi : mot mal écrit → suggestion à la ligne du manifeste, sans la liste des primitives', call(v, /« sortie du fou » ; vouliez-vous dire « sortie du four » \?\.?$/, 21) && once(v), v.out.slice(0, 400));
+    v = await withMan('- sortie du four: baked', '- sortie du four: baked, note');
+    ok('emploi : trop de données', call(v, /« sortie du four » reçoit 2 données pour 1 déclarée : « sortie du four: heure »/, 21), v.out.slice(0, 400));
+    v = await withMan('          - sortie du four: baked', '          - sortie du four');
+    ok('emploi : donnée obligatoire absente', call(v, /la donnée « heure » est obligatoire/, 21), v.out.slice(0, 400));
+    v = await withMan('          - sortie du four: baked', '          - sortie du four:\n              - texte: note');
+    ok('emploi : éléments sous un mot qui n\'en contient pas', call(v, /ne contient pas d'éléments \(sa définition n'emploie pas « contenu »\)/, 21), v.out.slice(0, 400));
+    v = await withMan('  - commande par téléphone: phone', '  - commande par téléphone: items');
+    ok('emploi : une liste là où le mot attend un texte', call(v, /donnée « numero » : attendu une valeur simple.*reçu une liste/, 25), v.out.slice(0, 400));
+    v = await withMan('  - commande par téléphone: phone', '  - contenu');
+    ok('emploi : « contenu » hors de la définition d\'un mot', call(v, /« contenu » ne s'emploie que dans la définition d'un mot/, 25), v.out.slice(0, 400));
+
+    // mot conteneur : « contenu » dans sa forme, les éléments de l'appelant dedans
+    await fs.writeFile(vf, v0 + '\n  encadré:\n    description: Un cadre avec un titre, autour de ce qu\'on écrit dessous.\n    données:\n      titre: texte, facultatif\n    forme:\n      - bloc « cadre »:\n          - titre: titre\n          - contenu\n');
+    await fs.writeFile(mf, m0.replace('  - commande par téléphone: phone', '  - encadré, title:\n      - commande par téléphone: phone'));
+    v = chk(voc); r = run('component', 'show', voc, 'comptoir');
+    ok('mot conteneur : « mot, donnée: » puis des éléments, placés là où la définition écrit « contenu »', v.code === 0 && /<div class="cadre">[\s\S]*<div class="comptoir-commande">[\s\S]*<\/div>\s*<\/div>/.test(r.out), v.out.slice(0, 300) + r.out.slice(0, 200));
+    await fs.writeFile(mf, m0.replace('  - commande par téléphone: phone', '  - encadré: title'));
+    v = chk(voc);
+    ok('mot conteneur : employé sans éléments → erreur qui montre l\'écriture', call(v, /« encadré » contient des éléments : « encadré, titre: » puis la liste en dessous/, 25), v.out.slice(0, 300));
+    await fs.writeFile(vf, v0); await fs.writeFile(mf, m0);
+
+    // données : calculé, groupe libre, expression avec virgule
+    v = await withMan('forme:\n', 'calculé:\n  total: nombre\nforme:\n');
+    ok('calculé : réservé aux composants natifs', call(v, /calculé est réservé aux composants natifs/, 14), v.out.slice(0, 300));
+    v = await withMan('  phone: texte', '  filtre: groupe libre, facultatif — clés au choix de la page\n  phone: texte');
+    ok('données : « groupe libre » accepté (objet aux clés libres)', v.code === 0, v.out.slice(0, 300));
+    v = await withMan('  phone: texte', '  filtre (groupe libre, facultatif):\n    a: texte\n  phone: texte');
+    ok('données : un groupe libre ne décrit pas ses champs', call(v, /un groupe libre ne décrit pas ses champs/, 13), v.out.slice(0, 300));
+    await fs.writeFile(mf, m0.replace('- titre: name', '- titre: "{{ name | default(\'Pain, sans nom\') }}"'));
+    r = run('component', 'show', voc, 'comptoir');
+    ok('forme : une virgule dans une expression {{ … }} ne coupe pas la valeur', r.code === 0 && r.out.includes('<h3>{{ it1.name | default(\'Pain, sans nom\') }}</h3>'), r.out.slice(0, 300));
+    await fs.writeFile(mf, m0);
+
+    // mot de paquet : sans préfixe dans le paquet, « préfixe.mot » depuis le site
+    const vg = await copy('examples/garnier-associes', path.join('vp', 'garnier-associes'));
+    const vpk = path.join(await copy('examples/paquets', path.join('vp', 'paquets')), 'vitrine');
+    const pvf = path.join(vpk, 'vocabulaire.yaml');
+    const mention = d => `mots:\n  mention:\n    description: Une ligne discrète, pour une mention légale ou une précision.\n    données:\n      texte: texte\n    forme:\n      - texte discret « mention »: ${d}\n`;
+    await fs.writeFile(pvf, mention('texte'));
+    const of = path.join(vpk, 'components', 'onglets', 'manifest.yaml');
+    await fs.writeFile(of, (await fs.readFile(of, 'utf8')).replace('  - en-tête: title, intro\n', '  - en-tête: title, intro\n  - mention: intro\n'));
+    await fs.mkdir(path.join(vg, 'components', 'pied'), { recursive: true });
+    const pied = w => fs.writeFile(path.join(vg, 'components', 'pied', 'manifest.yaml'), `name: pied\ndescription: Une note en bas de page.\ndonnées:\n  note: texte\nforme:\n  - ${w}: note\nexample: |\n  - pied: { note: Cabinet inscrit au barreau. }\n`);
+    await pied('vitrine.mention');
+    v = chk(vg);
+    ok('mot de paquet : site valide, le paquet l\'emploie sans préfixe, le site avec', v.code === 0, v.out.slice(0, 400));
+    r = run('catalog', vg);
+    ok('mot de paquet : catalogue le liste préfixé [mot du paquet vitrine]', /^vitrine\.mention: texte .*\[mot du paquet vitrine\]/m.test(r.out), r.out.slice(-400));
+    r = run('explain', 'vitrine.mention', vg);
+    ok('mot de paquet : explain', /^# vitrine\.mention \(mot du paquet vitrine\)/m.test(r.out) && /- texte discret « mention »: texte/.test(r.out), r.out.slice(0, 300));
+    r = run('component', 'show', vg, 'pied');
+    const r2 = run('component', 'show', vg, 'vitrine.onglets');
+    ok('mot de paquet : développé dans le composant du site et dans celui du paquet', r.out.includes('<p class="muted mention">{{ p.note }}</p>') && r2.out.includes('{% if p.intro %}<p class="muted mention">{{ p.intro }}</p>{% endif %}'), r.out.slice(0, 300));
+    await pied('mention');
+    v = chk(vg);
+    ok('mot de paquet : sans préfixe depuis le site → l\'erreur donne l\'écriture', call(v, /un mot de paquet s'écrit avec son préfixe : « vitrine\.mention »/, 6) && once(v), v.out.slice(0, 400));
+    await pied('vitrine.mention');
+    await fs.writeFile(pvf, mention('text'));
+    v = chk(vg);
+    ok('mot de paquet en erreur : E_WORD dans le fichier du paquet, une seule fois', v.code === 1 && once(v) && v.errs[0].code === 'E_WORD' && /paquets\/vitrine\/vocabulaire\.yaml$/.test(v.errs[0].file) && v.errs[0].path === 'ligne 7' && /vouliez-vous dire « texte »/.test(v.errs[0].message), v.out.slice(0, 500));
+
+    // comportement map et état du catalogue natif
+    r = run('component', 'show', voc, 'map');
+    ok('map : le mot « carte à la demande » pose le comportement map, sans script dans le composant', r.out.includes('data-sl-map="{{ p.lat }},{{ p.lon }},') && /comportements ajoutés : map/.test(r.out) && /mots du vocabulaire employés : adresse, itinéraire, carte à la demande/.test(r.out), r.out.slice(0, 300));
+    const pmDist = path.join(tmp, 'pm-dist');
+    r = run('build', await copy('examples/plomberie-martin', 'pm'), '--out', pmDist);
+    const pjs = await fs.readFile(path.join(pmDist, 'assets', 'site.js'), 'utf8').catch(() => '');
+    const pcss = await fs.readFile(path.join(pmDist, 'assets', 'site.css'), 'utf8').catch(() => '');
+    ok('map : compilation, comportement dans le script du site, feuilles des mots natifs employés', r.code === 0 && pjs.includes('data-sl-map') && pjs.includes('openstreetmap.org/export/embed.html') && pcss.includes('/* mot : carte à la demande */') && pcss.includes('/* mot : carte de collection */'), r.out.slice(-300));
+    const natives = (await fs.readdir(path.join(ROOT, 'components'), { withFileTypes: true })).filter(d => d.isDirectory()).map(d => d.name);
+    const has = async (n, f) => fs.access(path.join(ROOT, 'components', n, f)).then(() => true, () => false);
+    const html = [], php = [];
+    for (const n of natives) { if (await has(n, 'template.html')) html.push(n); if (await has(n, 'template.php')) php.push(n); }
+    ok('catalogue natif : plus aucun gabarit HTML ; restent en PHP les dix composants à traitement serveur', html.length === 0 && php.sort().join(' ') === 'cart.page checkout.page contact.form custom hours order.confirmation product.hero products.grid products.related recent', JSON.stringify({ html, php }));
+
+    // éditeur et générateur : les mots sont connus
+    r = run('schema', voc);
+    const sj = async n => JSON.parse(await fs.readFile(path.join(voc, '.devanture', 'schema', n), 'utf8').catch(() => 'null'));
+    const vs = await sj('vocabulaire.schema.json'), ms = await sj('manifest.schema.json');
+    const vsc = JSON.parse(await fs.readFile(path.join(voc, '.vscode', 'settings.json'), 'utf8').catch(() => '{}'))['yaml.schemas'] || {};
+    ok('éditeur : schéma de vocabulaire.yaml branché, mots du site au survol de « forme »', r.code === 0 && Object.keys(vs?.properties?.mots?.additionalProperties?.properties || {}).join() === 'description,données,forme,apparence,gabarit,feuille' && (vsc['./.devanture/schema/vocabulaire.schema.json'] || []).includes('vocabulaire.yaml') && /`sortie du four: heure`/.test(ms?.properties?.forme?.markdownDescription || '') && /`ligne de tarif: nom, prix/.test(ms.properties.forme.markdownDescription), r.out.slice(0, 300));
+    const gp = path.join(tmp, 'gen-voc.json');
+    r = run('component', 'new', voc, 'annonce', '--describe', 'Une annonce avec l\'heure de sortie du four.', '--export', gp);
+    const gj = JSON.parse(await fs.readFile(gp, 'utf8').catch(() => '{}'));
+    ok('générateur : la demande liste les mots utilisables, le guide dit comment les employer', r.code === 0 && /Mots du vocabulaire utilisables dans la forme[\s\S]*- sortie du four: heure — /.test(gj.user || '') && /Mots du vocabulaire : quand la demande en liste/.test(gj.system || '') && /- map : /.test(JSON.stringify(gj)) === false, r.out.slice(0, 300));
   }
 
   // --- migrate

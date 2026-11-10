@@ -7,6 +7,7 @@ import { compileForme } from './lang/forme.js';
 import { compileApparence, wantedParts } from './lang/apparence.js';
 import { compileFonctionnement } from './lang/fonctionnement.js';
 import { parseWithLines } from './lang/lines.js';
+import { compileVocabulaire } from './lang/vocabulaire.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const COMPONENTS_DIR = path.join(ROOT, 'components');
@@ -25,7 +26,7 @@ export const SHARED_DEFS = {
 };
 
 const SCHEMA_KEYS = new Set(['type', 'description', 'enum', 'items', 'properties', 'required', 'additionalProperties', 'minItems', 'maxItems', 'minimum', 'maximum', 'minLength', 'format', 'pattern', '$ref', '$defs', 'default']);
-const MANIFEST_KEYS = new Set(['name', 'order', 'description', 'props', 'données', 'forme', 'apparence', 'fonctionnement', 'example', 'intents', 'effects', 'behaviors', 'readable']);
+const MANIFEST_KEYS = new Set(['name', 'order', 'description', 'props', 'données', 'forme', 'apparence', 'fonctionnement', 'example', 'intents', 'effects', 'behaviors', 'readable', 'calculé']);
 
 /** Garde-fou pour les auteurs de manifestes : une virgule non protégée dans une description crée des clés parasites. */
 function lintManifest(name, schema, errors, p = 'props') {
@@ -42,8 +43,9 @@ function lintManifest(name, schema, errors, p = 'props') {
  * files : { 'template.php', 'template.html', 'styles.css', 'module.js' } (textes). project : composant défini dans le site.
  * Renvoie { entry, errors, details } ; les erreurs sont des phrases (le catalogue natif les lève, un composant de projet les
  * rapporte), précédées de « ligne N : » quand la ligne du manifeste est connue ; details : [{ line, message }], même ordre.
+ * words : mots du vocabulaire visibles depuis ce composant (Map), employés dans sa forme comme des primitives.
  */
-export function buildComponent({ name, shortName = null, pkg = null, dir, manifestText, files, project = false }) {
+export function buildComponent({ name, shortName = null, pkg = null, dir, manifestText, files, project = false, words = null }) {
   const details = [];
   let manifest, lineOf = () => null;
   // Une erreur garde la ligne du manifeste quand on la connaît (ref : objet lu, ou { in: conteneur, at: clé ou indice }).
@@ -77,6 +79,7 @@ export function buildComponent({ name, shortName = null, pkg = null, dir, manife
   lintManifest(name, manifest.props, errors);
   // Fonctionnement (français contrôlé) : compilé vers les effets déclarés, avant la forme qui en lit les champs.
   const generated = {}, produced = {};
+  let wordsCss = [];
   if (manifest.fonctionnement !== undefined) {
     if (manifest.effects !== undefined) errors.push('effects et fonctionnement à la fois : gardez fonctionnement (ou effects, en format machine), pas les deux', at('effects'));
     const r = compileFonctionnement(manifest.fonctionnement);
@@ -87,15 +90,26 @@ export function buildComponent({ name, shortName = null, pkg = null, dir, manife
   // Forme et apparence (français contrôlé) : compilées vers le gabarit neutre et la feuille encadrée ; le reste de la chaîne est inchangé.
   if (manifest.forme !== undefined) {
     if (files['template.html'] !== undefined || files['template.php'] !== undefined) errors.push('forme et template.html à la fois : la forme produit le gabarit, retirez template.html (ou retirez forme)', at('forme'));
-    const r = compileForme(manifest.forme, { name, props: manifest.props, want: wantedParts(manifest.apparence), effects: manifest.effects || null });
+    // « calculé » (natifs) : données que le compilateur fournit à la section (éléments d'une collection, par exemple), lues comme les autres.
+    let computed = null;
+    if (manifest['calculé'] !== undefined) {
+      if (project) errors.push('calculé est réservé aux composants natifs : ces données viennent du compilateur', at('calculé'));
+      const r = compileDonnees(manifest['calculé'], 'calculé');
+      for (const e of r.errors) errors.push(`${e.path} : ${e.message}`, e.ref, at('calculé'));
+      computed = new Map(Object.entries(r.schema.properties).map(([k, schema]) => [k, { expr: `p._${k}`, required: (r.schema.required || []).includes(k), schema, simple: true }]));
+    }
+    const r = compileForme(manifest.forme, { name, props: manifest.props, want: wantedParts(manifest.apparence), effects: manifest.effects || null, words, computed });
     for (const e of r.errors) errors.push(`${e.path} : ${e.message}`, e.ref, at('forme'));
     files = { ...files, 'template.html': r.template };
     if (r.behaviors.size) manifest.behaviors = [...new Set([...(Array.isArray(manifest.behaviors) ? manifest.behaviors : []), ...r.behaviors])];
     if (r.css) files['styles.css'] = [files['styles.css'], r.css].filter(Boolean).join('\n');
-    Object.assign(produced, { template: r.template, formeCss: r.css || '', parts: [...r.parts.keys()], formeLine: lineOf(at('forme')) });
+    Object.assign(produced, { template: r.template, formeCss: r.css || '', parts: [...r.parts.keys()], formeLine: lineOf(at('forme')), words: [...r.usedWords] });
+    // Feuilles des mots employés : émises une fois par site, pas une fois par composant.
+    wordsCss = [...r.wordsCss].map(([id, w]) => ({ id, ...w }));
     if (manifest.apparence !== undefined) {
       const a = compileApparence(manifest.apparence, { parts: r.parts, sectionClass: r.sectionClass });
-      for (const e of a.errors) errors.push(`${e.path} : ${e.message}`, e.ref, at('apparence'));
+      // Forme incomplète (un mot du vocabulaire en erreur) : ses parties manquent, l'apparence ne peut pas être jugée dessus.
+      for (const e of a.errors) if (!(r.incomplete && /^partie inconnue/.test(e.message))) errors.push(`${e.path} : ${e.message}`, e.ref, at('apparence'));
       files['styles.css'] = [files['styles.css'], a.css].filter(Boolean).join('\n');
       produced.apparenceCss = a.css;
     }
@@ -108,7 +122,7 @@ export function buildComponent({ name, shortName = null, pkg = null, dir, manife
   }
   if (!/^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*$/.test(name)) errors.push(`nom de composant mal formé : ${name} (minuscules, chiffres et tirets, points pour les familles : produit.carte)`);
   // produced : ce que chaque bloc du langage a donné (gabarit, feuille de la forme, feuille de l'apparence), pour sitec component show.
-  return done({ name, dir, manifest, files, project, package: pkg, produced });
+  return done({ name, dir, manifest, files, project, package: pkg, produced, wordsCss });
 }
 
 const COMPONENT_FILES = ['template.php', 'template.html', 'styles.css', 'module.js'];
@@ -122,15 +136,17 @@ export async function readComponentDir(dir) {
   return { name: path.basename(dir), dir, manifestText, files };
 }
 
-function makeCatalog(components) {
+function makeCatalog(components, words = new Map()) {
   return {
+    /** Mots du vocabulaire natif (Map nom → mot), visibles de tous les composants. */
+    words,
     get: n => components.get(n),
     has: n => components.has(n),
     names: () => [...components.keys()].sort(),
     list: () => [...components.values()].sort((a, b) => (a.manifest.order ?? 50) - (b.manifest.order ?? 50) || a.name.localeCompare(b.name)),
     suggest: n => nearest(n, [...components.keys()]),
     /** Catalogue étendu de composants de projet (entrées déjà construites), sans modifier celui-ci. */
-    extend: (entries) => { const m = new Map(components); for (const e of entries) m.set(e.name, e); return makeCatalog(m); },
+    extend: (entries) => { const m = new Map(components); for (const e of entries) m.set(e.name, e); return makeCatalog(m, words); },
     size: components.size,
   };
 }
@@ -139,13 +155,20 @@ function makeCatalog(components) {
 export async function loadCatalog() {
   const entries = await fs.readdir(COMPONENTS_DIR, { withFileTypes: true });
   const components = new Map();
+  // Vocabulaire natif : les mots que les composants natifs partagent, écrits dans le langage comme ceux d'un site.
+  let words = new Map();
+  try {
+    const v = compileVocabulaire(await fs.readFile(path.join(COMPONENTS_DIR, 'vocabulaire.yaml'), 'utf8'), { scope: 'natif', lint: false });
+    if (v.errors.length) throw new Error(`Vocabulaire natif : ${v.errors.map(e => (e.line ? `ligne ${e.line} : ` : '') + e.message).join(' ; ')}`);
+    words = v.words;
+  } catch (e) { if (e.code !== 'ENOENT') throw e; }
   for (const e of entries) {
     if (!e.isDirectory()) continue;
     const src = await readComponentDir(path.join(COMPONENTS_DIR, e.name));
     if (!src) continue;
-    const { entry, errors } = buildComponent(src);
+    const { entry, errors } = buildComponent({ ...src, words });
     if (errors.length) throw new Error(`Manifeste ${e.name} : ${errors.join(' ; ')}`);
     components.set(entry.name, entry);
   }
-  return makeCatalog(components);
+  return makeCatalog(components, words);
 }

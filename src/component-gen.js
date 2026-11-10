@@ -13,6 +13,7 @@ import { THEME_PRESETS } from './emit/php/css.js';
 import { TEMPLATE_VOCABULARY } from './lang/template.js';
 import { BEHAVIORS } from './lang/behaviors.js';
 import { cssPrefixes } from './lang/css-lint.js';
+import { wordUsage } from './lang/vocabulaire.js';
 
 export const DEFAULT_MODEL = 'claude-opus-5-5';
 
@@ -128,6 +129,7 @@ Une ligne par champ : « nom: type, précisions — description ». Noms en minu
 Une liste d'éléments ; chaque élément est « primitive: données » ou « primitive: » suivi d'éléments en dessous. Dans une liste (grille, défilement…), les noms désignent d'abord les champs de l'élément, puis les données du composant.
 ${Object.entries(PRIMITIVE_HELP).map(([k, v]) => `- ${k} : ${v}`).join('\n')}
 - Un nom entre « » donne une classe à l'élément (« carte « offre » ») : utile pour l'apparence.
+- Mots du vocabulaire : quand la demande en liste, ils s'emploient comme des primitives, « mot: donnée, donnée » dans l'ordre indiqué (« mot, donnée: » puis des éléments pour un mot qui en contient). N'en invente aucun : un mot absent de la liste est une erreur.
 - Texte littéral avec données : texte: "Réponse sous {{ delai }}." (balisage léger accepté : **gras**, [texte](lien)). Expression : "{{ title | default(label) }}".
 - Option de section en tête : « section, conteneur « nom-interne »: » puis la liste ; « section, variante style par défaut primary: » ajoute une classe selon une donnée.
 - Une donnée facultative rend son élément conditionnel automatiquement.
@@ -251,17 +253,25 @@ const fence = (lang, t) => `${FENCE}${lang}\n${String(t).trim()}\n${FENCE}`;
 const filesBlock = f => `manifest.yaml :\n${fence('yaml', f.manifest)}${f.template ? `\ntemplate.html :\n${fence('html', f.template)}` : ''}${f.styles ? `\nstyles.css :\n${fence('css', f.styles)}` : ''}\nfixtures :\n${f.fixtures.map(x => `- ${x.name} :\n${fence('yaml', x.yaml)}`).join('\n')}`;
 
 /** Message utilisateur : la demande, le contexte du site ; pour une modification, les fichiers actuels ; pour une réparation, les problèmes. */
+/** Mots du vocabulaire visibles depuis le composant visé : natifs et du paquet (sans préfixe) pour un composant de paquet, tous pour un composant du site. */
+export function visibleWords(project, target = null) {
+  if (target?.pkg) { const p = (project.packages || []).find(x => x.prefix === target.pkg); return new Map([...(project.catalog?.words || []), ...(p?.words || [])]); }
+  return project.words || project.catalog?.words || new Map();
+}
+
 export function buildUserPrompt({ name, description, project, previous = null, problems = [], target = null, current = null, request = null }) {
   const t = target || { name, manifestName: name, pkg: null };
   const site = project.site?.site || {};
   const theme = site.theme || {};
   const existing = project.catalog ? project.catalog.names().filter(n => n !== t.name) : [];
+  const words = [...visibleWords(project, t).values()].filter(w => !w.broken);
   const ctx = [
     `Site : ${site.name || '?'}${site.tagline ? ' — ' + site.tagline : ''}`,
     `Thème : ${theme.preset || 'clair'}${theme.tokens ? ' ; surcharges ' + JSON.stringify(theme.tokens) : ''}`,
     `Images disponibles dans assets/ (pour l'exemple et les cas de test) : ${[...project.assets].filter(a => /\.(jpe?g|png|webp|svg)$/i.test(a)).slice(0, 30).join(', ') || 'aucune'}`,
     `Composants déjà présents (ne pas réutiliser ces noms) : ${existing.join(', ')}`,
     `Préfixes de classe CSS à utiliser : ${cssPrefixes(t.name).map(p => '.' + p).join(' ou ')}`,
+    ...(words.length ? [`Mots du vocabulaire utilisables dans la forme, en plus des primitives :\n${words.map(w => `  - ${wordUsage(w)} — ${w.description}`).join('\n')}`] : []),
     t.pkg ? `Paquet : ${t.pkg}. Dans manifest.yaml, name: ${t.manifestName} (nom court) ; dans l'exemple et les pages, le composant s'écrit « - ${t.name}: ».` : `Dans manifest.yaml, name: ${t.manifestName}.`,
   ].join('\n');
   let msg = `Nom du composant : ${t.name}\n\nDescription :\n${String(description).trim()}\n\nContexte :\n${ctx}`;

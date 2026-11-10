@@ -1,0 +1,104 @@
+# Mots natifs du langage : des éléments de forme en plus des primitives, définis ici et non dans le compilateur.
+# Un site ou un paquet en ajoute de la même façon dans son propre vocabulaire.yaml. Fiche d'un mot : sitec explain "<mot>".
+mots:
+  ligne de tarif:
+    description: "Une ligne de carte ou de tarif, à placer dans une liste : nom, prix, puis description, mention mise en avant et unité."
+    données:
+      nom: texte
+      prix: texte ou nombre — un nombre est affiché avec €
+      description: texte, facultatif
+      mention: texte, facultatif — mention courte mise en avant (Nouveau, Médaille d'argent)
+      unite: texte, facultatif — unité ou condition (/ kg, la pièce, par heure)
+    gabarit: |
+      <li class="pricelist-item">
+        <div class="pricelist-main">
+          <span class="pricelist-name">{{ nom }}{% if mention %} <span class="badge">{{ mention }}</span>{% endif %}</span>
+          {% if description %}<span class="pricelist-desc muted">{{ description }}</span>{% endif %}
+        </div>
+        <span class="pricelist-price">{{ prix | price }}{% if unite %} <span class="muted pricelist-unit">{{ unite }}</span>{% endif %}</span>
+      </li>
+    feuille: |
+      .pricelist-item{display:flex;justify-content:space-between;gap:16px;align-items:baseline;padding:10px 0;border-bottom:1px dashed var(--color-border)}
+      .pricelist-main{display:flex;flex-direction:column;gap:2px}
+      .pricelist-name{font-weight:600}
+      .pricelist-desc{font-size:.92rem}
+      .pricelist-price{font-family:var(--font-heading);font-weight:700;color:var(--color-primary);white-space:nowrap}
+      .pricelist-unit{font-family:var(--font-body);font-weight:400;font-size:.9rem}
+      .badge{display:inline-block;font-size:.75rem;font-weight:600;background:var(--color-accent);color:#1b1f24;padding:1px 8px;border-radius:999px;margin-left:6px;vertical-align:middle}
+
+  adresse:
+    description: "Une adresse postale sur ses lignes ; sans donnée, celle du site (site.contact.address)."
+    données:
+      lieu: texte, facultatif
+    gabarit: |
+      {% set a = lieu | default(site.contact.address) | default('') %}
+      {% if a %}<p class="map-address">{{ lines(a) }}</p>{% endif %}
+    feuille: |
+      .map-address{font-size:1.1rem;font-weight:600}
+
+  itinéraire:
+    description: "Deux boutons, « Itinéraire » et « Voir sur OpenStreetMap », vers un point (latitude, longitude) ou, à défaut, vers une adresse (celle du site sans donnée)."
+    données:
+      lieu: texte, facultatif
+      lat: nombre, facultatif
+      lon: nombre, facultatif
+      zoom: nombre entier, facultatif — de 10 à 19, 16 par défaut
+    gabarit: |
+      {% if lat and lon %}
+      {% set osm = 'https://www.openstreetmap.org/?mlat=' ~ lat ~ '&mlon=' ~ lon ~ '#map=' ~ (zoom | default(16) | int) ~ '/' ~ lat ~ '/' ~ lon %}
+      {% set gm = 'https://www.google.com/maps/dir/?api=1&destination=' ~ lat ~ ',' ~ lon %}
+      {% else %}
+      {% set a = lieu | default(site.contact.address) | default('') %}
+      {% set osm = 'https://www.openstreetmap.org/search?query=' ~ (a | url_encode) %}
+      {% set gm = 'https://www.google.com/maps/dir/?api=1&destination=' ~ (a | url_encode) %}
+      {% endif %}
+      <p class="map-links"><a class="btn" href="{{ gm }}" rel="noopener" target="_blank">Itinéraire</a> <a class="btn btn-outline" href="{{ osm }}" rel="noopener" target="_blank">Voir sur OpenStreetMap</a></p>
+    feuille: |
+      .map-links{display:flex;gap:10px;flex-wrap:wrap}
+
+  carte à la demande:
+    description: "Carte OpenStreetMap d'un point, chargée seulement quand le visiteur clique : aucun appel à un tiers avant son accord."
+    données:
+      lat: nombre
+      lon: nombre
+      zoom: nombre entier, facultatif — de 10 à 19, 16 par défaut
+    gabarit: |
+      <div class="map-frame" data-sl-map="{{ lat }},{{ lon }},{{ zoom | default(16) | int }}">
+        <button type="button" class="map-load">Afficher la carte<span class="muted">OpenStreetMap, chargée à votre demande</span></button>
+      </div>
+    feuille: |
+      .map-frame{min-height:280px;border:1px solid var(--color-border);border-radius:var(--radius);overflow:hidden;background:var(--color-surface);display:flex;align-items:center;justify-content:center}
+      .map-load{font:inherit;background:var(--color-bg);border:1px solid var(--color-border);border-radius:var(--radius);padding:16px 22px;cursor:pointer;color:var(--color-fg);display:flex;flex-direction:column;gap:4px;align-items:center}
+      .map-load .muted{font-size:.85rem}
+
+  carte de collection:
+    description: "Carte d'un élément de collection : image, surtitre (date ou catégorie), titre, résumé, et lien vers sa page quand elle existe."
+    données:
+      titre: texte
+      image: image, facultatif
+      surtitre: texte, facultatif — catégorie, écrite en clair
+      date: date, facultatif — affichée « Mois année », à la place du surtitre
+      resume: texte, facultatif — coupé à 160 caractères
+      url: texte, facultatif — adresse de la page de l'élément
+    gabarit: |
+      <article class="card col-item">
+        {% if image %}
+        {% if url %}<a href="{{ url }}" class="col-img">{{ img(image, titre, '(max-width: 700px) 100vw, 33vw') }}</a>{% else %}<div class="col-img">{{ img(image, titre, '(max-width: 700px) 100vw, 33vw') }}</div>{% endif %}
+        {% endif %}
+        <div class="col-body">
+          {% if date %}<p class="col-meta muted">{{ date | date('F Y') | capitalize }}</p>{% elif surtitre %}<p class="col-meta muted">{{ surtitre | replace('-', ' ') | capitalize }}</p>{% endif %}
+          <h3>{% if url %}<a href="{{ url }}">{{ titre }}</a>{% else %}{{ titre }}{% endif %}</h3>
+          {% if resume %}<p class="col-text">{{ resume | truncate(160) }}</p>{% endif %}
+          {% if url %}<a class="col-more" href="{{ url }}">Voir →</a>{% endif %}
+        </div>
+      </article>
+    feuille: |
+      .col-item{display:flex;flex-direction:column;padding:0;overflow:hidden}
+      .col-item .col-img img{width:100%;aspect-ratio:4/3;object-fit:cover}
+      .col-item .col-body{padding:16px 18px 18px;display:flex;flex-direction:column;gap:6px;flex:1}
+      .col-item h3{margin:0;font-size:1.05rem}
+      .col-item h3 a{color:inherit;text-decoration:none}
+      .col-item h3 a:hover{text-decoration:underline}
+      .col-meta{margin:0;font-size:.85rem;text-transform:uppercase;letter-spacing:.04em}
+      .col-text{margin:0;font-size:.92rem;flex:1}
+      .col-more{align-self:flex-start;font-weight:600;text-decoration:none;margin-top:4px}

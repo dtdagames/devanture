@@ -12,6 +12,7 @@ import { PRODUCT_KEYS } from './shop.js';
 import { BEHAVIOR_NAMES } from './lang/behaviors.js';
 import { TYPE_WORDS } from './lang/donnees.js';
 import { PRIMITIVE_HELP } from './lang/forme.js';
+import { wordUsage, WORD_KEYS } from './lang/vocabulaire.js';
 import { INTENT_NAMES } from './lang/apparence.js';
 import { FORM_SETTINGS, FIELD_TYPE_WORDS, FIELD_MODIFIERS } from './lang/fonctionnement.js';
 
@@ -94,12 +95,14 @@ export function buildSchemas(project, catalog) {
     sections: { type: 'array', minItems: 1, items: { anyOf: branches(true) }, description: 'sections produites ; {{ p.param }} et { for: p.liste, as: x, item: {…} }' },
   } } } } };
 
+  // Mots du vocabulaire visibles du site (natifs, des paquets, du site) : montrés au survol de « forme ».
+  const wordList = [...(project.words || cat.words || new Map()).values()].filter(w => !w.broken);
   const fieldSpec = { anyOf: [{ type: 'string', description: `type (${TYPE_WORDS.join(', ')}), puis précisions : facultatif, au moins N, au plus N, de A à B, un parmi a, b — description` }, { type: 'object', description: 'champs d\'une liste ou d\'un groupe : « nom (liste, au moins 1): » puis les champs' }] };
   out['manifest.schema.json'] = { $schema: 'http://json-schema.org/draft-07/schema#', title: 'Manifeste de composant (components/<nom>/manifest.yaml)', type: 'object', additionalProperties: false, required: ['description'], properties: {
     name: { type: 'string' }, order: { type: 'number' }, description: { type: 'string', description: 'une phrase : ce que montre le composant et quand l\'utiliser' },
     props: { type: 'object', description: 'format html : schéma JSON des props ; au format langage, écrivez plutôt données' },
     'données': { type: 'object', additionalProperties: fieldSpec, markdownDescription: 'Ce que le composant accepte, une ligne par champ :\n\n```yaml\ntitle: texte, facultatif — titre de la section\nitems (liste, au moins 1):\n  text: texte\n  rating: nombre entier, de 1 à 5, facultatif\n```' },
-    forme: { anyOf: [{ type: 'array' }, { type: 'object' }], markdownDescription: `La structure, en primitives : ${Object.keys(PRIMITIVE_HELP).join(', ')}.\n\n\`\`\`yaml\n- en-tête: title, intro\n- grille de items, 3 colonnes:\n    - carte:\n        - titre: title\n        - texte discret: text\n\`\`\`` },
+    forme: { anyOf: [{ type: 'array' }, { type: 'object' }], markdownDescription: `La structure, en primitives : ${Object.keys(PRIMITIVE_HELP).join(', ')}.\n\n\`\`\`yaml\n- en-tête: title, intro\n- grille de items, 3 colonnes:\n    - carte:\n        - titre: title\n        - texte discret: text\n\`\`\`${wordList.length ? `\n\nMots du vocabulaire, employés comme des primitives :\n\n${wordList.map(w => `- \`${wordUsage(w)}\` : ${w.description}`).join('\n')}` : ''}` },
     apparence: { type: 'object', markdownDescription: `L'allure, par partie (primitive ou nom « ») : ${INTENT_NAMES.join(', ')} ; « sur téléphone: » pour les petits écrans.` },
     fonctionnement: { type: 'object', additionalProperties: false, properties: { formulaire: { type: 'object', description: `réglages : ${FORM_SETTINGS.join(', ')}`, properties: {
       'enregistre dans': { type: 'string', pattern: '^[a-z][a-z0-9_]*$', description: 'registre où ranger les envois (onglet « Formulaires » du back-office), ex. devis' },
@@ -113,6 +116,15 @@ export function buildSchemas(project, catalog) {
     behaviors: { type: 'array', items: { type: 'string', enum: BEHAVIOR_NAMES }, description: 'comportements navigateur fournis par le compilateur, posés par des attributs data-sl-… dans le gabarit' },
     effects: { type: 'object', additionalProperties: false, properties: { form: { type: 'object', additionalProperties: false, required: ['store'], properties: { store: { type: 'string', pattern: '^[a-z][a-z0-9_]*$', description: 'collection d\'exploitation des réponses' }, notify: { anyOf: [{ type: 'boolean' }, { type: 'string', format: 'email' }] }, to: { type: 'string', format: 'email' }, success: { type: 'string' }, required: { type: 'array', items: { type: 'string' } }, fields: { type: 'array', items: { anyOf: [{ type: 'string', enum: ['name', 'email', 'phone', 'subject', 'message'] }, { type: 'object', required: ['name', 'label'], additionalProperties: false, properties: { name: { type: 'string', pattern: '^[a-z][a-z0-9_]*$' }, label: { type: 'string' }, type: { type: 'string', enum: ['text', 'email', 'tel', 'number', 'date', 'select', 'textarea'] }, required: { type: 'boolean' }, options: { type: 'array', items: { type: 'string' } }, placeholder: { type: 'string' }, when: { type: 'object' } } }] } } } } } },
   } };
+  out['vocabulaire.schema.json'] = { $schema: 'http://json-schema.org/draft-07/schema#', title: 'Vocabulaire (vocabulaire.yaml) : des mots nouveaux pour la forme des composants', type: 'object', additionalProperties: false, required: ['mots'], properties: { mots: { type: 'object', description: 'un mot par clé, en minuscules (« carte de visite ») ; il s\'emploie dans une forme comme une primitive', additionalProperties: { type: 'object', additionalProperties: false, required: ['description'], properties: {
+    description: { type: 'string', description: 'une phrase : ce que le mot affiche' },
+    'données': { type: 'object', additionalProperties: fieldSpec, description: 'ce que le mot reçoit, dans l\'ordre où l\'appelant le passe ; les obligatoires d\'abord' },
+    forme: { type: 'array', markdownDescription: `Le mot défini par des primitives et d'autres mots ; « contenu » marque la place des éléments écrits sous le mot.\n\n\`\`\`yaml\n- carte « fiche »:\n    - sous-titre: nom\n    - texte discret: role\n\`\`\`` },
+    apparence: { type: 'object', description: `l'allure des parties de la forme du mot : ${INTENT_NAMES.join(', ')}` },
+    gabarit: { type: 'string', description: 'à défaut de forme : un fragment de gabarit neutre ({{ donnée }}, {% if %}, {% for %}), sans script ; le mot ne voit que ses données' },
+    feuille: { type: 'string', description: 'CSS du fragment : chaque sélecteur commence par la classe du mot (.carte-de-visite…), couleurs par les jetons du thème' },
+  } } } } };
+  if (Object.keys(out['vocabulaire.schema.json'].properties.mots.additionalProperties.properties).join() !== WORD_KEYS.join()) throw new Error('schéma du vocabulaire : clés désaccordées avec WORD_KEYS');
   out['package.schema.json'] = { $schema: 'http://json-schema.org/draft-07/schema#', title: 'Paquet de composants (package.yaml)', type: 'object', additionalProperties: false, required: ['name'], properties: { name: { type: 'string', pattern: '^[a-z][a-z0-9-]*$', description: 'préfixe des composants du paquet' }, description: { type: 'string' }, version: { type: 'string' }, language: { type: 'integer', enum: LANGUAGE_VERSIONS } } };
 
   // Props d'un composant de projet seules : pour ses cas de test (fixtures/*.yaml).
@@ -133,7 +145,7 @@ export function buildSchemas(project, catalog) {
 
 /** Correspondance fichiers ↔ schémas pour l'extension YAML de VS Code (chemins relatifs au dossier du site). */
 export function schemaMap(schemas) {
-  const map = { 'site.schema.json': ['site.yaml'], 'page.schema.json': ['pages/*.page.yaml'], 'components.schema.json': ['components.yaml'], 'manifest.schema.json': ['components/*/manifest.yaml', 'paquets/*/components/*/manifest.yaml'], 'package.schema.json': ['package.yaml', 'paquets/*/package.yaml'] };
+  const map = { 'site.schema.json': ['site.yaml'], 'page.schema.json': ['pages/*.page.yaml'], 'components.schema.json': ['components.yaml'], 'manifest.schema.json': ['components/*/manifest.yaml', 'paquets/*/components/*/manifest.yaml'], 'package.schema.json': ['package.yaml', 'paquets/*/package.yaml'], 'vocabulaire.schema.json': ['vocabulaire.yaml', 'paquets/*/vocabulaire.yaml'] };
   for (const f of Object.keys(schemas)) {
     let m;
     if ((m = /^fixture\.(.+)\.schema\.json$/.exec(f))) map[f] = [`components/${m[1]}/fixtures/*.yaml`];

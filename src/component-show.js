@@ -44,16 +44,18 @@ export async function describeComponent(entry, { php = false } = {}) {
       notes: f ? [`réponses enregistrées dans la collection d'exploitation « ${f.store} » (back-office, onglet Formulaires)`] : [],
     });
   } else if (value.effects !== undefined) blocks.push({ key: 'effects', target: 'effets en format machine, repris tels quels', source: blockSource(lines, starts, 'effects'), output: null, notes: [] });
+  if (value['calculé'] !== undefined) blocks.push({ key: 'calculé', target: 'données que le compilateur fournit à la section (lues par la forme comme les autres)', source: blockSource(lines, starts, 'calculé'), output: null, notes: [] });
   if (value.forme !== undefined) {
     blocks.push({
       key: 'forme', target: 'gabarit neutre (template.html en mémoire), puis PHP', source: blockSource(lines, starts, 'forme'), output: (made.template ?? entry.files['template.html'] ?? '').trim(),
       notes: [
+        ...(made.words?.length ? [`mots du vocabulaire employés : ${made.words.join(', ')} (sitec explain "<mot>")`] : []),
         ...(m.behaviors?.length ? [`comportements ajoutés : ${m.behaviors.join(', ')} (script commun du site, aucun JavaScript dans le composant)`] : []),
         ...(made.parts?.length ? [`parties que l'apparence peut viser : ${made.parts.join(', ')}`] : []),
       ],
       extra: made.formeCss ? { title: 'feuille de base des primitives', text: made.formeCss.trim() } : null,
     });
-  } else if (entry.files['template.html'] === undefined && entry.files['template.php'] !== undefined) blocks.push({ key: 'template.php', target: 'gabarit PHP du compilateur (composant natif pas encore écrit dans le langage)', source: null, output: null, notes: ['rien n\'est généré pour la structure : le fichier est la source'] });
+  } else if (entry.files['template.html'] === undefined && entry.files['template.php'] !== undefined) blocks.push({ key: 'template.php', target: 'gabarit PHP du compilateur (composant natif à traitement serveur : panier, commande, formulaire de contact, horaires)', source: null, output: null, notes: ['rien n\'est généré pour la structure : le fichier est la source'] });
   else blocks.push({ key: 'template.html', target: 'gabarit écrit à la main (format html), compilé en PHP', source: null, output: null, notes: ['rien n\'est généré pour la structure : le fichier est la source'] });
   if (value.apparence !== undefined) blocks.push({ key: 'apparence', target: 'feuille de style encadrée (sélecteurs préfixés, jetons du thème)', source: blockSource(lines, starts, 'apparence'), output: (made.apparenceCss ?? '').trim() || '(aucune règle)', notes: [] });
   let compiled = null;
@@ -61,7 +63,7 @@ export async function describeComponent(entry, { php = false } = {}) {
     const r = entry.compiled || compileTemplate(entry.files['template.html'], { name: entry.name, props: m.props, effects: m.effects || null });
     compiled = r.php ?? `(gabarit en erreur : ${r.errors.map(e => `ligne ${e.line} : ${e.message}`).join(' ; ')})`;
   }
-  return { name: entry.name, file, format: value.forme !== undefined ? 'langage' : 'html', native: !entry.project, package: entry.package || null, blocks, php: compiled };
+  return { name: entry.name, file, format: value.forme !== undefined ? 'langage' : entry.files['template.html'] === undefined && entry.files['template.php'] !== undefined ? 'php' : 'html', native: !entry.project, package: entry.package || null, blocks, php: compiled };
 }
 
 const indent = (t, n = 4) => String(t).split('\n').map(l => ' '.repeat(n) + l).join('\n');

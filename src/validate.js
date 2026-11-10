@@ -13,6 +13,7 @@ import { buildComponent } from './catalog.js';
 import { compileTemplate } from './lang/template.js';
 import { loadComposites, expandComposites } from './composition.js';
 import { lintComponentCss } from './lang/css-lint.js';
+import { compileVocabulaire, prefixedWords } from './lang/vocabulaire.js';
 import { BEHAVIORS, BEHAVIOR_NAMES, behaviorsUsedIn } from './lang/behaviors.js';
 
 /** Versions du langage que ce compilateur sait lire (site.yaml › language). */
@@ -228,12 +229,34 @@ export function validateProject(project, catalog) {
     for (const src of pkg.componentSources) sources.push({ ...src, name: `${name}.${src.name}`, shortName: src.name, pkg: name });
   });
 
+  // --- vocabulaires : mots natifs, puis ceux de chaque paquet (vus « préfixe.mot » depuis le site), puis ceux du site.
+  // Un composant de paquet voit les mots natifs et ceux de son paquet ; un composant du site voit tout.
+  const vocab = (text, file, opts) => {
+    const v = compileVocabulaire(text, opts);
+    for (const e of v.errors) errors.push(err('E_WORD', { file, path: e.line ? `ligne ${e.line}` : '', message: e.message + (/[.?!…]$/.test(e.message) ? '' : '.'), hint: 'Un mot : description, données, puis forme (primitives et autres mots) ou gabarit. sitec explain langage.' }));
+    for (const w of v.warnings) (project.componentWarnings ||= []).push({ level: 'warning', code: 'W_CSS', file, path: w.line ? `ligne ${w.line}` : '', message: w.message + (/[.?!…]$/.test(w.message) ? '' : '.') });
+    return v;
+  };
+  const wordsOf = new Map();
+  let siteInherited = new Map(catalog.words);
+  for (const pkg of project.packages || []) {
+    if (!pkg.prefix) continue;
+    const v = typeof pkg.vocabText === 'string' ? vocab(pkg.vocabText, pkg.vocabFile, { scope: pkg.prefix, inherited: catalog.words }) : { words: catalog.words, own: new Map() };
+    wordsOf.set(pkg.prefix, v.words); pkg.words = v.own;
+    const seen = siteInherited;
+    siteInherited = new Map([...siteInherited, ...prefixedWords(v.own, pkg.prefix)]);
+    siteInherited.broken = new Set([...(seen.broken || []), ...[...(v.words.broken || [])].map(n => `${pkg.prefix}.${n}`)]);
+    if (seen.unreadable || v.words.unreadable) siteInherited.unreadable = true;
+  }
+  const siteVocab = typeof project.vocabText === 'string' ? vocab(project.vocabText, project.vocabFile, { scope: 'site', inherited: siteInherited }) : { words: siteInherited, own: new Map() };
+  project.words = siteVocab.words; project.ownWords = siteVocab.own;
+
   // --- composants de projet (components/<nom>/manifest.yaml + template.html) et des paquets : construits, vérifiés, ajoutés au catalogue
   const entries = [];
   for (const src of [...sources, ...(project.componentSources || [])]) {
     const mf = src.dir + '/manifest.yaml';
     if (!src.pkg && prefixes.has(src.name.split('.')[0]) && src.name.includes('.')) { errors.push(err('E_COMPONENT_CONFLICT', { file: mf, path: '', message: `Le préfixe ${src.name.split('.')[0]} appartient à un paquet.` })); continue; }
-    const { entry, details: ce } = buildComponent({ ...src, project: true });
+    const { entry, details: ce } = buildComponent({ ...src, project: true, words: src.pkg ? wordsOf.get(src.pkg) : siteVocab.words });
     for (const d of ce) errors.push(err('E_COMPONENT', { file: mf, path: d.line ? `ligne ${d.line}` : '', message: `Composant ${src.name} : ${d.message}${/[.?!…]$/.test(d.message) ? '' : '.'}` }));
     if (!entry) continue;
     if (catalog.has(entry.name)) { errors.push(err('E_COMPONENT_CONFLICT', { file: mf, path: 'name', message: `${entry.name} existe déjà dans le catalogue natif.`, hint: 'Renommez le composant de projet (ex. ' + entry.name + '.maison).' })); continue; }

@@ -33,7 +33,8 @@ Le mode d'emploi du langage, écrit pour un auteur humain ou modèle : [CLAUDE.m
 ## Ce que produit le compilateur
 
 - Un site PHP sans framework ni extension optionnelle, un routeur, des pages, des composants, un CSS à jetons et un JS vanille.
-- Des composants écrits en français contrôlé, sans HTML, CSS, JavaScript ni PHP : un seul `manifest.yaml` à quatre blocs, `données` (ce qu'il accepte), `forme` (sa structure en primitives), `apparence` (son allure en intentions liées au thème), `fonctionnement` (formulaire enregistré et notifié), compilé vers le HTML, la CSS et le PHP. 63 % de tokens en moins à écrire que gabarit + feuille + schéma (`scripts/measure-format.mjs`). Chaque erreur renvoie à une ligne du manifeste, et `sitec component show <dossier> <nom>` affiche chaque bloc à côté de ce qu'il produit (schéma, effets, gabarit, feuille, PHP avec `--php`). Le vocabulaire est fermé : ce qu'il n'exprime pas s'écrit au format html (gabarit neutre et feuille encadrée).
+- Des composants écrits en français contrôlé, sans HTML, CSS, JavaScript ni PHP : un seul `manifest.yaml` à quatre blocs, `données` (ce qu'il accepte), `forme` (sa structure en primitives), `apparence` (son allure en intentions liées au thème), `fonctionnement` (formulaire enregistré et notifié), compilé vers le HTML, la CSS et le PHP. 63 % de tokens en moins à écrire que gabarit + feuille + schéma (`scripts/measure-format.mjs`). Chaque erreur renvoie à une ligne du manifeste, et `sitec component show <dossier> <nom>` affiche chaque bloc à côté de ce qu'il produit (schéma, effets, gabarit, feuille, PHP avec `--php`).
+- Un vocabulaire ouvert : quand il manque un élément aux primitives de la forme, un site, un paquet ou le catalogue définit un mot dans `vocabulaire.yaml` (une description, ses données, puis une forme faite de primitives et d'autres mots, ou un fragment de gabarit neutre avec sa feuille encadrée). Le mot s'emploie ensuite comme une primitive (`- carte de visite: name, job`), sans toucher au compilateur ; `sitec explain "<mot>" <dossier>` montre sa définition. Les quatorze composants natifs de présentation sont écrits ainsi, sans aucun gabarit HTML ; cinq mots natifs portent le balisage que les primitives n'écrivent pas. Restent hors du langage les dix natifs à traitement serveur (panier, commande, formulaire de contact, horaires…), écrits pour la cible, et le format html pour un composant entier que ni primitives ni mots n'expriment.
 - Des composants décrits en langage naturel : `sitec component new <dossier> <nom> --describe "…"` les fait écrire par Claude en formats neutres, puis les vérifie et les fait réparer jusqu'à passer (CSS encadré, comportements déclarés, cas de test rendus) ; `component edit --ask "…"` les fait évoluer, `component preview` en montre tous les cas avec le thème du site.
 - Un langage, pas seulement un catalogue : expressions `{{ const.delai }}`, constantes, collections génériques avec page par élément et liste, composants composés (`components.yaml`) et composants de projet avec gabarit neutre, design propre et effets déclarés (formulaire enregistré et notifié) sans une ligne de PHP. Spécification : [docs/LANGAGE.md](docs/LANGAGE.md).
 - Images optimisées à la compilation : variantes WebP redimensionnées, `srcset`, dimensions déclarées, chargement différé (sharp sous Node, canvas dans l'atelier).
@@ -69,12 +70,12 @@ bin/            sitec
 src/            compilateur : chargement, validation (ajv), revue, mots-clés, hôte, init
 src/emit/php/   émetteur de la cible PHP (PHP, JS, CSS, back-office, déploiement) ; src/emit/index.js choisit la cible
 src/lang/       le langage : expressions (expr.js, évaluateur JS et traduction PHP), interpolation (resolve.js), gabarit neutre (template.js),
-                composants en français contrôlé (donnees.js, forme.js, apparence.js, fonctionnement.js), comportements (behaviors.js), règles CSS (css-lint.js)
+                composants en français contrôlé (donnees.js, forme.js, apparence.js, fonctionnement.js), mots du vocabulaire (vocabulaire.js), comportements (behaviors.js), règles CSS (css-lint.js)
 src/segments.js segments, objectifs et expériences (segments.yaml)
 src/collections.js  collections génériques ; src/composition.js  composants composés (components.yaml)
 src/images/     pipeline d'images : dimensions, variantes WebP (sharp sous Node, canvas dans l'atelier), manifeste
 src/studio/     remplaçants Node pour l'atelier navigateur (fichiers en mémoire, chemins, sha256, canvas)
-components/     un dossier par composant natif : manifest.yaml seul (format langage), ou avec template.html (gabarit neutre) ou template.php (primitives à effets, écrites pour la cible), styles.css, module.js
+components/     un dossier par composant natif : manifest.yaml seul (format langage), ou avec template.php (primitives à effets, écrites pour la cible), styles.css ; vocabulaire.yaml : les mots natifs
 studio/         atelier navigateur (index.html, app.js ; sitec-browser.js est produit par npm run build:studio)
 examples/       sites de démonstration (plomberie, boutique savonnerie, cabinet, fournil, hôte multi-sites) et paquets/vitrine (paquet de composants partagé)
 scripts/        bancs de vérification (sites produits, outillage, expériences, documentation) et scripts de mesure
@@ -91,7 +92,7 @@ node bin/sitec.js build examples/savonnerie
 node scripts/verify-shop.mjs examples/savonnerie/dist 8970        # parcours d'achat, stock, webhook
 node scripts/verify-php-site.mjs examples/savonnerie/dist 8971    # routes, SEO, formulaires, sécurité
 node scripts/verify-lang.mjs examples/plomberie-martin/dist 8973  # langage : expressions JS = PHP, gabarits, collections, composition, composant de projet
-node scripts/verify-lang-tools.mjs                                # paquets de composants, sitec test, sitec migrate, schémas de l'éditeur
+node scripts/verify-lang-tools.mjs                                # paquets de composants, vocabulaire, sitec test, sitec migrate, schémas de l'éditeur
 node scripts/verify-experiments.mjs examples/plomberie-martin/dist 8974   # expériences : tirage, exposition, objectif, verdicts, avec des visiteurs simulés
 node scripts/verify-docs.mjs                                      # documentation : exemples compilés, commandes, options et listes comparées au compilateur
 node bin/sitec.js test examples/plomberie-martin --catalog        # rend les cas et exemples de tous les composants à gabarit

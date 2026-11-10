@@ -59,6 +59,10 @@ export async function loadProject(root) {
   project.componentsRaw = null;
   try { await fs.access(project.componentsFile); project.componentsRaw = await readYaml(project.componentsFile, project.loadErrors) ?? null; } catch { /* pas de composants composés */ }
 
+  // Vocabulaire du projet (optionnel) : vocabulaire.yaml, des mots nouveaux pour la forme des composants. Lu en texte : ses erreurs renvoient à la ligne.
+  project.vocabFile = path.join(root, 'vocabulaire.yaml');
+  project.vocabText = await fs.readFile(project.vocabFile, 'utf8').catch(() => null);
+
   // Composants de projet (gabarit neutre) : components/<nom>/manifest.yaml + template.html (+ styles.css, module.js).
   project.componentSources = [];
   try { for (const d of await fs.readdir(path.join(root, 'components'), { withFileTypes: true })) if (d.isDirectory() && !d.name.startsWith('.')) { const src = await readComponentDir(path.join(root, 'components', d.name)); if (src) project.componentSources.push(src); } } catch { /* pas de composants de projet */ }
@@ -71,10 +75,11 @@ export async function loadProject(root) {
     if (typeof spec !== 'string' || !spec) continue;
     const local = /^(\.{1,2}[\\/]|[\\/]|[A-Za-z]:)/.test(spec);
     const dir = local ? path.resolve(root, spec) : path.join(root, 'node_modules', spec);
-    const pkg = { spec, dir, local, file: path.join(dir, 'package.yaml'), meta: null, componentSources: [], compositesRaw: null, compositesFile: path.join(dir, 'components.yaml'), missing: false };
+    const pkg = { spec, dir, local, file: path.join(dir, 'package.yaml'), meta: null, componentSources: [], compositesRaw: null, compositesFile: path.join(dir, 'components.yaml'), vocabFile: path.join(dir, 'vocabulaire.yaml'), vocabText: null, missing: false };
     try { await fs.access(pkg.file); } catch { pkg.missing = true; project.packages.push(pkg); continue; }
     pkg.meta = await readYaml(pkg.file, project.loadErrors) ?? null;
     try { for (const d of await fs.readdir(path.join(dir, 'components'), { withFileTypes: true })) if (d.isDirectory() && !d.name.startsWith('.')) { const src = await readComponentDir(path.join(dir, 'components', d.name)); if (src) pkg.componentSources.push(src); } } catch { /* pas de composants à gabarit */ }
+    pkg.vocabText = await fs.readFile(pkg.vocabFile, 'utf8').catch(() => null);
     try { await fs.access(pkg.compositesFile); pkg.compositesRaw = await readYaml(pkg.compositesFile, project.loadErrors) ?? null; } catch { /* pas de composés */ }
     project.packages.push(pkg);
   }

@@ -30,6 +30,7 @@ import { PRODUCT_KEYS } from '../src/shop.js';
 import { BEHAVIOR_NAMES } from '../src/lang/behaviors.js';
 import { ICON_NAMES, TYPE_WORDS } from '../src/lang/donnees.js';
 import { PRIMITIVES } from '../src/lang/forme.js';
+import { WORD_KEYS, compileVocabulaire } from '../src/lang/vocabulaire.js';
 import { INTENT_NAMES } from '../src/lang/apparence.js';
 import { FIELD_TYPE_WORDS, FORM_SETTINGS, RESERVED_STORES } from '../src/lang/fonctionnement.js';
 import { FILTERS, FUNCTION_NAMES, SAFE_FUNCTIONS } from '../src/lang/expr.js';
@@ -279,6 +280,13 @@ async function claims() {
     claim('LANGAGE.md : fonctions du gabarit', ticks(grab(s, /\. Fonctions : (.*)$/m) || '').map(fnName), FUNCTION_NAMES); }
   claim('LANGAGE.md : jetons de couleur = ceux du thème', ticks(lineWith(L, /^Jetons de couleur : /)), THEME_KEYS.filter(k => k.startsWith('color.')).map(k => k.slice(6)));
   { const t = rows(L, /^\| Comportement \| Attributs \|/); claim('LANGAGE.md : comportements déclarés', t && t.map(r => ticks(r[0])[0]), BEHAVIOR_NAMES); }
+  // Vocabulaire : clés d'un mot, mots natifs (components/vocabulaire.yaml), et natifs qui les emploient.
+  { const nativeWords = [...compileVocabulaire(await read('components/vocabulaire.yaml'), { scope: 'natif', lint: false }).own.keys()];
+    const t = rows(L, /^\| Dans la définition d'un mot \| Signifie \|/); claim('LANGAGE.md : clés de la définition d\'un mot = WORD_KEYS', t && t.map(r => ticks(r[0])[0]), WORD_KEYS);
+    const l = lineWith(L, /Mots natifs : /) || ''; claim('LANGAGE.md : mots natifs = components/vocabulaire.yaml', ticks(grab(l, /Mots natifs : ([^;]*);/) || ''), nativeWords);
+    const users = []; for (const n of catalogNames) { const m = await read(`components/${n}/manifest.yaml`); if (nativeWords.some(w => new RegExp('^\\s*- ' + w + '(:|,|$)', 'm').test(m))) users.push(n); }
+    claim('LANGAGE.md : natifs écrits avec les mots natifs', ticks(grab(l, /; les natifs (.*?) sont écrits avec eux/) || ''), users);
+    claim('CLAUDE.md : mots natifs cités', words(grab(C, /Mots natifs : ([^.]*)\./) || ''), nativeWords); }
   { const l = lineWith(L, /^Composants natifs écrits sans code de la cible/); const [a, b] = l ? l.split('Composants natifs écrits pour la cible') : [null, null];
     claim('LANGAGE.md § 8 : natifs écrits sans code de la cible', a && ticks(a), catalogNames.filter(n => !targetNatives.includes(n)));
     claim('LANGAGE.md § 8 : natifs écrits pour la cible (template.php)', b && ticks(b.split('. Leur contrat')[0]), targetNatives); }

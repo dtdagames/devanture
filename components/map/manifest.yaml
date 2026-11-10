@@ -1,15 +1,21 @@
 name: map
 order: 94
 description: "Carte et accès : adresse, boutons d'itinéraire, et carte OpenStreetMap chargée au clic (aucun appel tiers avant l'accord du visiteur) si lat et lon sont fournis."
-props:
-  type: object
-  properties:
-    title: { type: string, description: défaut « Nous trouver » }
-    address: { type: string, description: défaut l'adresse du site }
-    lat: { type: number, description: latitude (ex. 45.7772) }
-    lon: { type: number, description: longitude (ex. 4.8319) }
-    zoom: { type: integer, minimum: 10, maximum: 19, description: défaut 16 }
-    access: { type: string, description: "indications d'accès (métro, parking, étage), paragraphes séparés par une ligne vide" }
+données:
+  title: texte, facultatif — défaut « Nous trouver »
+  address: texte, facultatif — défaut l'adresse du site
+  lat: nombre, facultatif — latitude (ex. 45.7772)
+  lon: nombre, facultatif — longitude (ex. 4.8319)
+  zoom: nombre entier, facultatif, de 10 à 19 — défaut 16
+  access: texte, facultatif — indications d'accès (métro, parking, étage), paragraphes séparés par une ligne vide
+forme:
+  section, conteneur « map-inner »:
+    - bloc « map-info »:
+        - grand titre: "{{ title | default('Nous trouver') }}"
+        - adresse: address
+        - paragraphes « muted »: access
+        - itinéraire: address, lat, lon, zoom
+    - carte à la demande: lat, lon, zoom
 example: |
   - map:
       title: Nous trouver

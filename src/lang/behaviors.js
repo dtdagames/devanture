@@ -51,6 +51,14 @@ function apply(v){btns.forEach(function(b){b.setAttribute('aria-pressed',String(
 btns.forEach(function(b){b.addEventListener('click',function(){apply(b.getAttribute('data-sl-filter'));});});if(btns.length)apply(btns[0].getAttribute('data-sl-filter'));});`,
     css: '[data-sl-filter][aria-pressed=true]{background:var(--color-primary);color:var(--color-primary-fg);border-color:var(--color-primary)}',
   },
+  map: {
+    description: 'carte à la demande : un bouton charge la carte OpenStreetMap d\'un point (aucun appel à un tiers avant le clic)',
+    usage: '<div data-sl-map="45.7772,4.8319,16"><button type="button">Afficher la carte</button></div>',
+    attrs: ['data-sl-map'],
+    js: `document.addEventListener('click',function(e){var b=e.target.closest('[data-sl-map] button');if(!b)return;var box=b.closest('[data-sl-map]');var v=box.getAttribute('data-sl-map').split(',').map(Number);var la=v[0],lo=v[1],z=v[2]||16;if(!isFinite(la)||!isFinite(lo)||Math.abs(la)>90||Math.abs(lo)>180)return;
+var d=0.004*Math.pow(2,16-Math.min(19,Math.max(3,z)));var r=function(n){return Math.round(n*1e5)/1e5;};var f=document.createElement('iframe');f.src='https://www.openstreetmap.org/export/embed.html?bbox='+r(lo-d)+','+r(la-d*0.6)+','+r(lo+d)+','+r(la+d*0.6)+'&layer=mapnik&marker='+la+','+lo;f.title='Carte OpenStreetMap';f.loading='lazy';f.referrerPolicy='no-referrer';box.innerHTML='';box.appendChild(f);});`,
+    css: '[data-sl-map] iframe{width:100%;height:320px;border:0;display:block}',
+  },
   copy: {
     description: 'copier : un bouton copie un texte (code promo, adresse, IBAN) dans le presse-papiers',
     usage: '<button type="button" data-sl-copy="{{ p.code }}">Copier le code</button>',

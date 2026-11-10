@@ -21,6 +21,7 @@ const TYPES = [
   ['liste de textes', () => ({ type: 'array', items: { type: 'string' } })],
   ['liste de liens', () => ({ type: 'array', items: { $ref: '#/$defs/link' } })],
   ['liste d\'images', () => ({ type: 'array', items: { type: 'string', format: 'asset' } })],
+  ['groupe libre', () => ({ type: 'object', _free: true })],
   ['texte long', () => ({ type: 'string' })],
   ['texte', () => ({ type: 'string' })],
   ['nombre', () => ({ type: 'number' })],
@@ -123,7 +124,8 @@ export function compileDonnees(block, path = 'données') {
         else if (s.type === 'object') s = { ...s, ...obj };
         else errors.push({ path: fp, message: `un champ avec des champs en dessous est une liste ou un groupe, pas « ${spec} »`, ref });
       } else if (s.type === 'array' && !s.items) errors.push({ path: fp, message: 'une liste décrit ses éléments : « nom (liste): » avec leurs champs en dessous, ou « liste de textes »', ref });
-      else if (s.type === 'object' && !s.properties) errors.push({ path: fp, message: 'un groupe décrit ses champs en dessous : « nom (groupe): »', ref });
+      else if (s.type === 'object' && !s.properties && !s._free) errors.push({ path: fp, message: 'un groupe décrit ses champs en dessous : « nom (groupe): » ; « groupe libre » pour des clés au choix de la page', ref });
+      if (s._free) { if (children) errors.push({ path: fp, message: 'un groupe libre ne décrit pas ses champs (clés au choix de la page) ; pour des champs fixes : « nom (groupe): »', ref }); delete s._free; }
       // Ordre des clés stable : type, contraintes, description, puis le reste.
       properties[name] = s;
       if (r.required) required.push(name);

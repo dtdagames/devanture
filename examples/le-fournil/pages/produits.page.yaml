@@ -59,6 +59,7 @@ sections:
           category: Pains
           image: tradition.svg
           note: Trois fournées dans la journée
+          baked: "06:30"
           detail: Médaille d'argent départementale 2024.
         - name: Croissant
           category: Viennoiseries

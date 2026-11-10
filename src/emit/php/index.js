@@ -66,6 +66,13 @@ export async function emit(project, catalogBase, out) {
         const meta = props.meta_field || firstOf(['date']) || null;
         props._fields = { title, image: props.image_field || firstOf(['asset']), text: props.text_field || firstOf(['text'], title) || firstOf(['string'], title), meta, meta_is_date: !!(meta && spec.fields[meta]?.type === 'date') };
         props._items = items;
+        const f = props._fields, route0 = project.pages.find(pg => pg.data?.source === props.source && typeof pg.data.route === 'string' && pg.data.route.includes('[id]'))?.data.route || null;
+        // Vue normalisée, lue par la forme du composant (manifeste › calculé) : mêmes noms quelle que soit la collection.
+        props._elements = items.map(it => ({
+          title: it[f.title] ?? '', image: (f.image && it[f.image]) || null, text: (f.text && it[f.text]) || null,
+          meta: (!f.meta_is_date && f.meta && it[f.meta]) || null, meta_date: (f.meta_is_date && it[f.meta]) || null,
+          url: route0 ? route0.replace('[id]', it.id) : null,
+        }));
         props._route = project.pages.find(pg => pg.data?.source === props.source && typeof pg.data.route === 'string' && pg.data.route.includes('[id]'))?.data.route || null;
       }
       // Formulaire déclaré par un composant (effects.form) : configuration fixée ici, jamais lue depuis la requête.
