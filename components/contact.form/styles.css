@@ -1,4 +1,0 @@
-.contact-grid{display:grid;gap:32px;grid-template-columns:minmax(0,2fr) minmax(240px,1fr)}
-.contact-solo{grid-template-columns:minmax(0,1fr);max-width:720px;margin:0 auto}
-.contact-info p{margin-bottom:16px}
-@media (max-width:760px){.contact-grid{grid-template-columns:1fr}}

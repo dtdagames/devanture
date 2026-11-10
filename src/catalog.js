@@ -8,6 +8,7 @@ import { compileApparence, wantedParts } from './lang/apparence.js';
 import { compileFonctionnement } from './lang/fonctionnement.js';
 import { parseWithLines } from './lang/lines.js';
 import { compileVocabulaire } from './lang/vocabulaire.js';
+import { compileLit, sourceSchema } from './lang/sources.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const COMPONENTS_DIR = path.join(ROOT, 'components');
@@ -79,13 +80,28 @@ export function buildComponent({ name, shortName = null, pkg = null, dir, manife
   lintManifest(name, manifest.props, errors);
   // Fonctionnement (français contrôlé) : compilé vers les effets déclarés, avant la forme qui en lit les champs.
   const generated = {}, produced = {};
+  let failedReads = [];
   let wordsCss = [];
   if (manifest.fonctionnement !== undefined) {
     if (manifest.effects !== undefined) errors.push('effects et fonctionnement à la fois : gardez fonctionnement (ou effects, en format machine), pas les deux', at('effects'));
-    const r = compileFonctionnement(manifest.fonctionnement);
-    for (const e of r.errors) errors.push(`${e.path} : ${e.message}`, e.ref, at('fonctionnement'));
-    if (r.effects) manifest.effects = r.effects; else delete manifest.effects;
-    generated.effects = r.errors.length ? 'invalid' : true;
+    // « lit: » : ce que le composant lit à la visite (sources de la cible) ; le reste du bloc décrit ce qu'il fait d'une saisie.
+    const fb = manifest.fonctionnement, isObj = fb && typeof fb === 'object' && !Array.isArray(fb);
+    const litKey = isObj ? Object.keys(fb).find(k => k.trim().toLowerCase() === 'lit') : undefined;
+    if (litKey !== undefined) {
+      const r = compileLit(fb[litKey], { props: manifest.props, component: name });
+      for (const e of r.errors) errors.push(`${e.path} : ${e.message}`, e.ref || { in: fb, at: litKey }, at('fonctionnement'));
+      if (r.sources.length) manifest.sources = r.sources;
+      failedReads = r.failed;
+      generated.sources = r.errors.length ? 'invalid' : true;
+    }
+    if (litKey === undefined || Object.keys(fb).length > 1) {
+      const rest = litKey === undefined ? fb : Object.fromEntries(Object.entries(fb).filter(([k]) => k !== litKey));
+      const r = compileFonctionnement(rest);
+      // Les références gardent l'objet d'origine quand la clé y est : la ligne du manifeste reste retrouvable.
+      for (const e of r.errors) errors.push(`${e.path} : ${e.message}`, e.ref && e.ref.in === rest ? { in: fb, at: e.ref.at } : e.ref, at('fonctionnement'));
+      if (r.effects) manifest.effects = r.effects; else delete manifest.effects;
+      generated.effects = r.errors.length ? 'invalid' : true;
+    }
   }
   // Forme et apparence (français contrôlé) : compilées vers le gabarit neutre et la feuille encadrée ; le reste de la chaîne est inchangé.
   if (manifest.forme !== undefined) {
@@ -98,7 +114,12 @@ export function buildComponent({ name, shortName = null, pkg = null, dir, manife
       for (const e of r.errors) errors.push(`${e.path} : ${e.message}`, e.ref, at('calculé'));
       computed = new Map(Object.entries(r.schema.properties).map(([k, schema]) => [k, { expr: `p._${k}`, required: (r.schema.required || []).includes(k), schema, simple: true }]));
     }
+    // Lectures à la visite : un nom de plus dans la forme, lu comme une donnée ; sa valeur vient de la cible (p._nom).
+    if (manifest.sources?.length) { computed ||= new Map(); for (const src of manifest.sources) computed.set(src.key, { expr: `p._${src.key}`, required: false, schema: sourceSchema(src.source), simple: true }); }
+    // Lecture en erreur (dite à sa ligne) : son nom existe pour la forme, sans valeur ; ce qui en dépend n'est pas jugé.
+    if (failedReads.length) { computed ||= new Map(); for (const k of failedReads) computed.set(k, { expr: 'null', required: false, schema: null, absent: true }); }
     const r = compileForme(manifest.forme, { name, props: manifest.props, want: wantedParts(manifest.apparence), effects: manifest.effects || null, words, computed });
+    if (failedReads.length) r.incomplete = true;
     for (const e of r.errors) errors.push(`${e.path} : ${e.message}`, e.ref, at('forme'));
     files = { ...files, 'template.html': r.template };
     if (r.behaviors.size) manifest.behaviors = [...new Set([...(Array.isArray(manifest.behaviors) ? manifest.behaviors : []), ...r.behaviors])];

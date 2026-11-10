@@ -31,6 +31,7 @@ import { BEHAVIOR_NAMES } from '../src/lang/behaviors.js';
 import { ICON_NAMES, TYPE_WORDS } from '../src/lang/donnees.js';
 import { PRIMITIVES } from '../src/lang/forme.js';
 import { WORD_KEYS, compileVocabulaire } from '../src/lang/vocabulaire.js';
+import { SOURCES, PUBLIC_SOURCE_NAMES } from '../src/lang/sources.js';
 import { INTENT_NAMES } from '../src/lang/apparence.js';
 import { FIELD_TYPE_WORDS, FORM_SETTINGS, RESERVED_STORES } from '../src/lang/fonctionnement.js';
 import { FILTERS, FUNCTION_NAMES, SAFE_FUNCTIONS } from '../src/lang/expr.js';
@@ -280,6 +281,12 @@ async function claims() {
     claim('LANGAGE.md : fonctions du gabarit', ticks(grab(s, /\. Fonctions : (.*)$/m) || '').map(fnName), FUNCTION_NAMES); }
   claim('LANGAGE.md : jetons de couleur = ceux du thème', ticks(lineWith(L, /^Jetons de couleur : /)), THEME_KEYS.filter(k => k.startsWith('color.')).map(k => k.slice(6)));
   { const t = rows(L, /^\| Comportement \| Attributs \|/); claim('LANGAGE.md : comportements déclarés', t && t.map(r => ticks(r[0])[0]), BEHAVIOR_NAMES); }
+  // Lectures à la visite : sources et paramètres de la table = ceux du compilateur ; sources citées par CLAUDE.md.
+  { const t = rows(L, /^\| Source \| Paramètres \| Ce qu'elle rend \|/);
+    claim('LANGAGE.md : sources lues à la visite = SOURCES', t && t.map(r => ticks(r[0])[0]), PUBLIC_SOURCE_NAMES);
+    claim('LANGAGE.md : paramètres des sources', t && t.map(r => `${ticks(r[0])[0]} : ${ticks(r[1]).join(', ') || 'aucun'}`), PUBLIC_SOURCE_NAMES.map(n => `${n} : ${Object.keys(SOURCES[n].params).join(', ') || 'aucun'}`));
+    const c = grab(C, /Sources : (.*?)\. Valeur d'un paramètre/) || '';
+    claim('CLAUDE.md : sources et paramètres cités', c.split(/,\s*(?![^()]*\))/).map(x => x.trim()).filter(Boolean).map(x => { const m = /^(.*?)\s*\((.*)\)$/.exec(x); return m ? `${m[1]} : ${m[2]}` : `${x} : aucun`; }), PUBLIC_SOURCE_NAMES.map(n => `${n} : ${Object.keys(SOURCES[n].params).join(', ') || 'aucun'}`)); }
   // Vocabulaire : clés d'un mot, mots natifs (components/vocabulaire.yaml), et natifs qui les emploient.
   { const nativeWords = [...compileVocabulaire(await read('components/vocabulaire.yaml'), { scope: 'natif', lint: false }).own.keys()];
     const t = rows(L, /^\| Dans la définition d'un mot \| Signifie \|/); claim('LANGAGE.md : clés de la définition d\'un mot = WORD_KEYS', t && t.map(r => ticks(r[0])[0]), WORD_KEYS);

@@ -1,11 +1,16 @@
 name: product.hero
 order: 111
 description: "Fiche produit (page dynamique /produit/[id], source: products) : image, nom, prix, description, stock et ajout au panier avec quantité."
-props:
-  type: object
-  properties:
-    back: { $ref: "#/$defs/link", description: lien de retour (ex. vers la boutique) }
-    show_stock: { type: boolean, description: afficher le stock restant (défaut true) }
+données:
+  back: lien, facultatif — lien de retour (ex. vers la boutique)
+  show_stock: oui ou non, facultatif, par défaut oui — afficher le stock restant (défaut true)
+# Ce que le composant lit à chaque visite : le produit de la page, son prix et son stock du moment.
+fonctionnement:
+  lit:
+    produit: produit de la page
+forme:
+  section « product-hero », conteneur « product-hero-inner », seulement si produit:
+    - fiche de produit: produit, back, show_stock
 example: |
   - product.hero:
       back: { label: Retour à la boutique, to: /boutique }

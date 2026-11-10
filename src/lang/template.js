@@ -34,7 +34,7 @@ export function lex(src) {
  * opts : { name, props (schéma JSON des props du manifeste), effects, file }.
  * Renvoie { php, errors: [{ message, line }] } ; php est null si une erreur bloque.
  */
-export function compileTemplate(src, { name = 'composant', props = null, effects = null } = {}) {
+export function compileTemplate(src, { name = 'composant', props = null, effects = null, sources = null } = {}) {
   const errors = [];
   const fail = (message, line) => { errors.push({ message, line }); };
   if (/<\?(php|=)?/i.test(src)) fail('PHP interdit dans un gabarit : seul le vocabulaire {{ }} / {% %} est accepté.', (src.split(/<\?/)[0].match(/\n/g) || []).length + 1);
@@ -145,8 +145,18 @@ export function compileTemplate(src, { name = 'composant', props = null, effects
   }
   for (const open of stack) fail(`balise « ${open.kind} » ouverte ligne ${open.line} jamais fermée.`, open.line);
   if (effects?.form && !hasForm) fail('Un formulaire est déclaré (fonctionnement ou effects.form) mais rien ne l\'affiche : ajoutez « - formulaire » à la forme, ou {% form %} … {% endform %} au gabarit.', 1);
+  // Lectures à la visite (fonctionnement › lit) : chaque source est demandée à la cible avant le rendu et rangée sous p._nom.
+  let reads = '';
+  for (const so of sources || []) {
+    const args = [];
+    for (const [k, e] of Object.entries(so.args || {})) { try { args.push(`'${esc(k)}' => ${toPhp(parse(e), { p: '$p' }).php}`); } catch (er) { fail(`lecture « ${so.key} », paramètre ${k} : ${er.message}.`, 1); } }
+    reads += ` $p['_${esc(so.key)}'] = sl_source($p, '${esc(so.key)}', '${esc(so.id)}', [${args.join(', ')}]);`;
+  }
+  // Valeurs par défaut déclarées dans les données (« par défaut oui », « par défaut 3 ») : posées quand la page ne dit rien.
+  const defs = Object.entries(props?.properties || {}).filter(([, v]) => v && ['string', 'number', 'boolean'].includes(typeof v.default));
+  if (defs.length) reads = ` $p += [${defs.map(([k, v]) => `'${esc(k)}' => ${typeof v.default === 'string' ? "'" + v.default.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'" : String(v.default)}`).join(', ')}];` + reads;
   if (errors.length) return { php: null, errors };
-  const pre = `<?php /* ${name} — compilé depuis template.html par sitec */ global $site, $page, $SL_ITEM, $product, $order, $SHOP; $cart = null;${effects?.form ? ` $form = sl_form_state('${esc(name)}');` : ''} ?>\n`;
+  const pre = `<?php /* ${name} — compilé depuis template.html par sitec */ global $site, $page, $SL_ITEM, $product, $order, $SHOP; $cart = null;${effects?.form ? ` $form = sl_form_state('${esc(name)}');` : ''}${reads} ?>\n`;
   return { php: pre + php.join(''), errors: [] };
 }
 function esc(s) { return String(s).replace(/[^a-zA-Z0-9_.-]/g, ''); }

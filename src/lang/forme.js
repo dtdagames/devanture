@@ -600,7 +600,7 @@ export function compileForme(forme, { name, props, want: want0 = new Set(), effe
 
   // Racine : liste d'éléments, ou « section [« classe »][, variante X par défaut V][, conteneur « classe »] » puis la liste.
   // « bandeau » : une section sans les marges d'une section ordinaire (ouverture de page) ; mêmes options.
-  let variant = '', inner = '', body = '', bandeau = false, bgClass = '', bgStyle = '';
+  let variant = '', inner = '', body = '', bandeau = false, bgClass = '', bgStyle = '', onlyIf = null, anchor = '';
   const rootKey = forme && typeof forme === 'object' && !Array.isArray(forme) && Object.keys(forme).length === 1 ? Object.keys(forme)[0] : null;
   const rootM = rootKey ? /^(section|bandeau)(?![a-zà-ÿ-])\s*/i.exec(rootKey) : null;
   if (Array.isArray(forme)) body = nodes(forme, 'forme');
@@ -624,11 +624,18 @@ export function compileForme(forme, { name, props, want: want0 = new Set(), effe
         let cl = ' ' + mm[1];
         if (mm[2]) { const r = resolve(mm[3], 'forme'); if (!r) continue; const neg = /^sans$/i.test(mm[2]); if (r.absent) { if (!neg) continue; } else cl = `{% if ${neg ? 'not ' : ''}${r.expr} %}${cl}{% endif %}`; }
         inner += cl; parts.set(mm[1], '.' + mm[1]); if (!parts.has('conteneur')) parts.set('conteneur', '.' + mm[1]);
-      } else fail('forme', `option de ${bandeau ? 'bandeau' : 'section'} inconnue « ${o} » (variante X par défaut V, conteneur « classe » [si X | sans X], image de fond X)`);
+      } else if ((mm = /^ancre\s+«\s*([a-z][a-z0-9-]*)\s*»$/i.exec(o))) {
+        // Une ancre fixe sur la section (« /contact#contact ») ; l'ancre choisie par la page (id:) reste posée juste avant.
+        anchor = ` id="${mm[1]}"`;
+      } else if ((mm = /^seulement si\s+([a-z_][a-z0-9_.]*)$/i.exec(o))) {
+        // La section entière dépend d'une donnée ou d'une lecture : sans elle (liste vide, pas de commande), rien n'est émis.
+        const r = resolve(mm[1], 'forme'); if (r) onlyIf = r.absent ? 'false' : r.expr;
+      } else fail('forme', `option de ${bandeau ? 'bandeau' : 'section'} inconnue « ${o} » (variante X par défaut V, conteneur « classe » [si X | sans X], image de fond X, ancre « nom », seulement si X)`);
     }
     body = nodes(forme[key], 'forme');
   } else fail('forme', 'attendu : une liste d\'éléments, ou « section, options: » (ou « bandeau « classe », options: ») puis la liste');
   parts.set('section', '.' + secCls);
-  const template = `<section class="${bandeau ? '' : 'section '}${secCls}${bgClass}${variant}"${bgStyle}>\n  <div class="container${inner}">\n${body}\n  </div>\n</section>\n`;
+  const sectionHtml = `<section class="${bandeau ? '' : 'section '}${secCls}${bgClass}${variant}"${anchor}${bgStyle}>\n  <div class="container${inner}">\n${body}\n  </div>\n</section>\n`;
+  const template = onlyIf ? `{% if ${onlyIf} %}${sectionHtml}{% endif %}\n` : sectionHtml;
   return { template, behaviors, parts, errors, sectionClass: secCls, css: [...baseCss].join('\n') + (baseCss.size ? '\n' : ''), wordsCss, usedWords, incomplete };
 }

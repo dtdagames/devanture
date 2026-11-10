@@ -229,8 +229,10 @@ try {
   ok('component show --php : le PHP exécuté par le serveur', r.code === 0 && /== PHP compilé/.test(r.out) && /<\?php \/\* comptoir — compilé depuis template\.html par sitec \*\//.test(r.out));
   r = run('component', 'show', lf, 'team');
   ok('component show : natif écrit dans le langage (portrait : photo ronde ou initiale)', r.code === 0 && /composant natif/.test(r.out) && /\{% if it1\.photo %\}<div class="team-avatar">/.test(r.out) && /team-avatar-initiale" aria-hidden="true">\{\{ it1\.name \| trim \| first \| upper \}\}/.test(r.out), r.out.slice(0, 200));
+  r = run('component', 'show', lf, 'custom');
+  ok('component show : la porte de sortie custom reste au format php, rien de produit pour la structure', r.code === 0 && /format php, composant natif/.test(r.out) && /le fichier est la source/.test(r.out));
   r = run('component', 'show', lf, 'products.grid');
-  ok('component show : natif à traitement serveur (format php), rien de produit pour la structure', r.code === 0 && /format php, composant natif/.test(r.out) && /le fichier est la source/.test(r.out));
+  ok('component show : un natif de boutique montre ce qu\'il lit à la visite et ce que la cible reçoit', r.code === 0 && /lectures à la visite/.test(r.out) && /produits ← produits de la boutique \(category: p\.filter\.category, featured: p\.filter\.featured, sort: p\.sort, limit: p\.limit\)/.test(r.out) && /sl_source\(\$p, 'produits', 'products'/.test(r.out) && /n'est pas servie depuis le cache statique/.test(r.out), r.out.slice(0, 300));
   r = run('component', 'show', path.join(ROOT, 'examples', 'garnier-associes'), 'vitrine.encart');
   ok('component show : composant au format html, rien de produit pour la structure', r.code === 0 && /format html, paquet/.test(r.out) && /le fichier est la source/.test(r.out), r.out.slice(0, 200));
   r = run('component', 'show', lf, 'inconnu');
@@ -437,7 +439,62 @@ try {
     const has = async (n, f) => fs.access(path.join(ROOT, 'components', n, f)).then(() => true, () => false);
     const html = [], php = [];
     for (const n of natives) { if (await has(n, 'template.html')) html.push(n); if (await has(n, 'template.php')) php.push(n); }
-    ok('catalogue natif : plus aucun gabarit HTML ; restent en PHP les dix composants à traitement serveur', html.length === 0 && php.sort().join(' ') === 'cart.page checkout.page contact.form custom hours order.confirmation product.hero products.grid products.related recent', JSON.stringify({ html, php }));
+    ok('catalogue natif : plus aucun gabarit HTML ; seul custom (la porte de sortie) reste en PHP', html.length === 0 && php.join(' ') === 'custom', JSON.stringify({ html, php }));
+
+    // --- lectures à la visite : fonctionnement › lit, sources de la cible, cas de test « à la visite »
+    const sav = await copy('examples/savonnerie', 'sav');
+    const sm = path.join(sav, 'components', 'selection', 'manifest.yaml'), sm0 = await fs.readFile(sm, 'utf8');
+    const withSel = async (from, to) => { if (!sm0.includes(from)) throw new Error('ancre absente de selection : ' + from); await fs.writeFile(sm, sm0.replace(from, to)); const x = chk(sav); await fs.writeFile(sm, sm0); return x; };
+    v = chk(sav);
+    ok('lit : un composant du site qui lit la boutique est valide', v.code === 0 && v.errs.length === 0, v.out.slice(0, 400));
+    r = run('catalog', sav);
+    ok('lit : catalogue liste les sources et leur service', /^produits de la boutique +.*\[boutique\]/m.test(r.out) && /^horaires du moment +.*\[horaires\]/m.test(r.out) && !/saisie du contact/.test(r.out), r.out.slice(-500));
+    r = run('explain', 'panier du visiteur');
+    ok('lit : explain d\'une source montre son emploi et ce qu\'elle rend', /^# panier du visiteur \(source : service « boutique » de la cible\)/m.test(r.out) && /nom: panier du visiteur/.test(r.out) && /^ {2}lines: liste$/m.test(r.out) && /^ {4}qty: nombre$/m.test(r.out) && /checkout: lien, facultatif/.test(r.out) && /à la visite/.test(r.out), r.out.slice(0, 300));
+    r = run('explain', 'produits de la boutique');
+    ok('lit : explain liste les paramètres d\'une source', /Paramètres .* : catégorie, vedettes, tri, limite\./.test(r.out) && /Elle rend une liste ; chaque élément :/.test(r.out), r.out.slice(0, 400));
+    r = run('component', 'show', sav, 'selection', '--php');
+    ok('lit : la lecture devient un appel à la cible avant le rendu, valeurs par défaut posées', r.out.includes("$p += ['limit' => 3]; $p['_produits'] = sl_source($p, 'produits', 'products', ['category' => sl_get($p, 'category'), 'limit' => sl_get($p, 'limit')]);") && r.out.includes('{% if p._produits %}<section class="section selection">'), r.out.slice(-600));
+    ok('lit : le mot « ajout au panier » pose le formulaire d\'action et son jeton', r.out.includes('<form method="post" action="/_cart" class="add-to-cart" data-category="{{ it1.category }}">') && r.out.includes('{{ csrf() }}<input type="hidden" name="action" value="add">') && r.out.includes('sl_fn_csrf()'), '');
+    r = run('test', sav);
+    s = lines(r.out).find(x => 'cases' in x);
+    ok('lit : cas de test avec « à la visite », rendu sans boutique ni stock réels', r.code === 0 && s?.failed === 0 && s.cases === 2, r.out.slice(-300));
+    const vide = await fs.readFile(path.join(sav, 'components', 'selection', 'fixtures', 'vide.html'), 'utf8');
+    const deux = await fs.readFile(path.join(sav, 'components', 'selection', 'fixtures', 'deux-produits.html'), 'utf8');
+    ok('lit : « section, seulement si » : rien quand la lecture est vide ; « Épuisé » sans bouton quand le stock est nul', vide.trim() === '' && (deux.match(/<form method="post" action="\/_cart"/g) || []).length === 1 && /<p class="muted">Épuisé<\/p>/.test(deux) && /6,50 €/.test(deux), deux.slice(0, 300));
+    const fx = path.join(sav, 'components', 'selection', 'fixtures', 'deux-produits.yaml'), fx0 = await fs.readFile(fx, 'utf8');
+    await fs.writeFile(fx, fx0.replace('price_text: "6,50 €", ', ''));
+    r = run('test', sav);
+    ok('lit : données de visite contrôlées contre ce que la source annonce', r.code === 1 && /à la visite » › produits \(produits de la boutique\) : .*price_text/.test(r.out), r.out.slice(0, 400));
+    await fs.writeFile(fx, fx0.replace('  produits:', '  articles:'));
+    r = run('test', sav);
+    ok('lit : donnée de visite qui n\'est pas une lecture du composant', r.code === 1 && /articles n'est pas une lecture du composant \(produits\)/.test(r.out), r.out.slice(0, 400));
+    await fs.writeFile(fx, fx0);
+    v = await withSel('produits: produits de la boutique,', 'produits: produits de la boutik,');
+    ok('lit : source mal écrite → suggestion, à la ligne du manifeste', call(v, /source inconnue « produits de la boutik » ; vouliez-vous dire « produits de la boutique » \?/, 10) && once(v), v.out.slice(0, 400));
+    v = await withSel('catégorie category, limite limit', 'categorie category, limites limit');
+    ok('lit : paramètre inconnu → suggestion (les accents ne comptent pas)', call(v, /paramètre inconnu « limites » pour « produits de la boutique » ; vouliez-vous dire « limite » \?/, 10) && once(v), v.out.slice(0, 400));
+    v = await withSel('catégorie category, limite limit', 'catégorie categorie, limite limit');
+    ok('lit : valeur de paramètre qui n\'est pas une donnée du composant', call(v, /paramètre « catégorie » : « categorie » : « categorie » n'est pas une donnée du composant \(connues : title, category, limit\)/, 10), v.out.slice(0, 400));
+    v = await withSel('    produits: produits de la boutique', '    title: produits de la boutique');
+    ok('lit : une lecture ne prend pas le nom d\'une donnée', call(v, /« title » est déjà une donnée du composant/, 10), v.out.slice(0, 400));
+    v = await withSel('    produits: produits de la boutique, catégorie category, limite limit', '    produits: produits de la boutique, catégorie category, limite limit\n    saisie: saisie du contact');
+    ok('lit : source réservée à un composant natif → la voie normale est dite', call(v, /« saisie du contact » est réservée au composant contact\.form ; pour un formulaire à vous, déclarez « fonctionnement: formulaire: »/, 11), v.out.slice(0, 400));
+    v = await withSel('            - texte discret: stock_text', '            - texte discret: stock_texte');
+    ok('lit : champ inconnu d\'un élément lu → erreur de la forme, avec les champs que la source rend', call(v, /« stock_texte » n'est pas une donnée.*vouliez-vous dire « stock_text »/, 19), v.out.slice(0, 500));
+    v = await withSel('  section, seulement si produits:', '  section, seulement si produit:');
+    ok('lit : « seulement si » sur un nom inconnu', call(v, /« produit » n'est pas une donnée/), v.out.slice(0, 400));
+    r = run('build', sav, '--out', path.join(tmp, 'sav-dist'));
+    const idx = await fs.readFile(path.join(tmp, 'sav-dist', 'index.php'), 'utf8').catch(() => '');
+    const atelier = /'\/atelier' => (?:array \(|\[)([\s\S]*?)\n {2}\S/.exec(idx)?.[1] || '';
+    ok('lit : la page qui contient le composant n\'est plus statique et porte un jeton', r.code === 0 && atelier !== '' && !/'static' =>/.test(atelier) && /'csrf' => true/.test(atelier), atelier.slice(0, 400) || idx.slice(0, 200));
+    const gp2 = path.join(tmp, 'gen-lit.json');
+    r = run('component', 'new', sav, 'vitrine-du-jour', '--describe', 'Les trois derniers produits.', '--export', gp2);
+    const gj2 = JSON.parse(await fs.readFile(gp2, 'utf8').catch(() => '{}'));
+    ok('lit : le guide du générateur décrit les sources et leurs champs, sans la source réservée', /fonctionnement › lit/.test(gj2.system || '') && /- produits de la boutique, catégorie <donnée>, vedettes <donnée>, tri <donnée>, limite <donnée> : /.test(gj2.system) && /à la visite: \{ nom: … \}/.test(gj2.system) && !/saisie du contact/.test(gj2.system), (gj2.system || '').slice(0, 200));
+    r = run('schema', sav);
+    const ms2 = JSON.parse(await fs.readFile(path.join(sav, '.devanture', 'schema', 'manifest.schema.json'), 'utf8').catch(() => 'null'));
+    ok('lit : le schéma d\'éditeur propose « lit » et ses sources', /`panier du visiteur`/.test(ms2?.properties?.fonctionnement?.properties?.lit?.markdownDescription || ''), '');
 
     // éditeur et générateur : les mots sont connus
     r = run('schema', voc);

@@ -9,6 +9,32 @@ import path from 'node:path';
 import YAML from 'yaml';
 import Ajv from 'ajv';
 import { RENDER_PHP, FORMS_PHP, phpValue } from './emit/php/php.js';
+import { sourceSchema } from './lang/sources.js';
+import { normalizeContactFields } from './forms.js';
+
+/** Clé d'un cas de test qui tient lieu de ce que la cible fournirait à la visite : { nom de lecture: valeur }. */
+export const VISIT_KEY = 'à la visite';
+/** Sépare les props d'un cas de ses données de visite, et vérifie celles-ci contre la forme que la source annonce. */
+function splitVisit(c, props, ajv) {
+  if (!props || typeof props !== 'object' || Array.isArray(props) || !(VISIT_KEY in props)) return { props, visit: null, error: null };
+  const { [VISIT_KEY]: visit, ...rest } = props;
+  if (!visit || typeof visit !== 'object' || Array.isArray(visit)) return { props: rest, visit: null, error: `« ${VISIT_KEY} » attend { nom de lecture: valeur }` };
+  const sources = c.manifest.sources || [];
+  for (const [k, v] of Object.entries(visit)) {
+    const src = sources.find(x => x.key === k);
+    if (!src) return { props: rest, visit: null, error: `« ${VISIT_KEY} » : ${k} n'est pas une lecture du composant (${sources.map(x => x.key).join(', ') || 'il ne lit rien'})` };
+    const check = ajv.compile({ $defs: c.manifest.props?.$defs || {}, ...sourceSchema(src.source) });
+    if (!check(v)) return { props: rest, visit: null, error: `« ${VISIT_KEY} » › ${k} (${src.source}) : ${check.errors.map(e => `${e.instancePath || '/'} ${e.message}${e.params?.additionalProperty ? ' : ' + e.params.additionalProperty : ''}`).join(' ; ')}` };
+  }
+  return { props: rest, visit, error: null };
+}
+/** Props telles que la cible les reçoit : données de visite sous _nom, champs du formulaire de contact normalisés. */
+function renderProps(k) {
+  let p = { ...(k.props || {}) };
+  if (k.component === 'contact.form') { try { const n = normalizeContactFields(p, { file: '', path: '' }); p.fields = n.fields; delete p.required; } catch { /* rendu tel quel */ } }
+  for (const [key, v] of Object.entries(k.visit || {})) p['_' + key] = v;
+  return p;
+}
 
 const WINGET_PHP = 'C:/Users/sergi/AppData/Local/Microsoft/WinGet/Packages/PHP.PHP.8.3_Microsoft.Winget.Source_8wekyb3d8bbwe/php.exe';
 export function findPhp() {
@@ -54,9 +80,10 @@ export async function renderCases(project, components, cases, php = findPhp()) {
     await fs.writeFile(path.join(tmp, 'lib', 'forms.php'), FORMS_PHP);
     await fs.writeFile(path.join(tmp, 'lib', 'images.php'), '<?php return [];');
     for (const c of components) await fs.writeFile(path.join(tmp, 'components', c.name + '.php'), c.compiled?.php || c.files['template.php'] || '');
-    await fs.writeFile(path.join(tmp, 'cases.json'), JSON.stringify(cases.map(k => ({ component: k.component, props: k.props }))));
+    await fs.writeFile(path.join(tmp, 'cases.json'), JSON.stringify(cases.map(k => ({ component: k.component, props: renderProps(k) }))));
     await fs.writeFile(path.join(tmp, 'run.php'), `<?php
 declare(strict_types=1);
+define('SL_FIXTURES', true); // les données « à la visite » d'un cas remplacent la lecture de la source
 ob_start();
 ini_set('session.save_path', sys_get_temp_dir()); ini_set('session.use_cookies', '0'); @session_start(); $_SESSION['csrf'] = str_repeat('0', 32);
 require __DIR__ . '/lib/render.php'; require __DIR__ . '/lib/forms.php';
@@ -83,7 +110,12 @@ export async function validCasesOf(c) {
   const ajv = new Ajv({ allErrors: true, strict: false });
   for (const f of ['route', 'asset', 'file', 'email', 'uri']) ajv.addFormat(f, () => true);
   const v = ajv.compile(c.manifest.props);
-  return (await casesOf(c)).map(k => k.error ? { ...k, invalid: k.error } : (v(k.props) ? k : { ...k, invalid: v.errors.map(e => `${e.instancePath || '/'} ${e.message}`).join(' ; ') }));
+  return (await casesOf(c)).map(k => {
+    if (k.error) return { ...k, invalid: k.error };
+    const sp = splitVisit(c, k.props, ajv); k = { ...k, props: sp.props, visit: sp.visit };
+    if (sp.error) return { ...k, invalid: sp.error };
+    return v(k.props) ? k : { ...k, invalid: v.errors.map(e => `${e.instancePath || '/'} ${e.message}`).join(' ; ') };
+  });
 }
 
 export async function testComponents(project, { update = false, catalog = false, only = null } = {}) {
@@ -96,8 +128,10 @@ export async function testComponents(project, { update = false, catalog = false,
   const ajv = new Ajv({ allErrors: true, strict: false });
   for (const f of ['route', 'asset', 'file', 'email', 'uri']) ajv.addFormat(f, () => true);
   const cases = [];
-  for (const c of targets) for (const k of await casesOf(c)) {
+  for (const c of targets) for (let k of await casesOf(c)) {
     if (k.error) { results.push({ component: c.name, name: k.name, status: 'invalid', detail: k.error }); continue; }
+    const sp = splitVisit(c, k.props, ajv); k = { ...k, props: sp.props, visit: sp.visit };
+    if (sp.error) { results.push({ component: c.name, name: k.name, status: 'invalid', detail: sp.error }); continue; }
     const v = ajv.compile(c.manifest.props);
     if (!v(k.props)) { results.push({ component: c.name, name: k.name, status: 'invalid', detail: v.errors.map(e => `${e.instancePath || '/'} ${e.message}${e.params?.additionalProperty ? ' : ' + e.params.additionalProperty : ''}`).join(' ; ') }); continue; }
     cases.push(k);

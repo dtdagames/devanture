@@ -303,7 +303,7 @@ export function validateProject(project, catalog) {
   // Gabarits neutres (template.html) : compilés dès la vérification, erreurs avec numéro de ligne.
   for (const c of cat.list()) {
     if (c.files['template.html'] === undefined || c.compiled) continue;
-    const r = compileTemplate(c.files['template.html'], { name: c.name, props: c.manifest.props, effects: c.manifest.effects || null });
+    const r = compileTemplate(c.files['template.html'], { name: c.name, props: c.manifest.props, effects: c.manifest.effects || null, sources: c.manifest.sources || null });
     c.compiled = r;
     // Gabarit produit par la forme : l'erreur renvoie au manifeste, seul fichier que l'auteur a écrit.
     if (c.manifest._generated?.template) { for (const e of r.errors) errors.push(err('E_COMPONENT', { file: c.dir + '/manifest.yaml', path: c.produced?.formeLine ? `ligne ${c.produced.formeLine}` : 'forme', message: `Composant ${c.name} : forme : ${e.message}`, hint: `Ce que la forme produit : sitec component show <dossier> ${c.name}.` })); continue; }

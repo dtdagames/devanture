@@ -1,14 +1,4 @@
-.product-card{display:flex;flex-direction:column;gap:8px;padding:0;overflow:hidden}
-.product-card .product-img img{width:100%;aspect-ratio:4/3;object-fit:cover}
-.product-card h3{margin:14px 18px 0;font-size:1.05rem}
-.product-card h3 a{color:inherit;text-decoration:none}
-.product-card .product-desc{margin:0 18px;font-size:.92rem;flex:1}
-.product-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:0 18px 16px}
-.product-price{font-family:var(--font-heading);font-weight:700;color:var(--color-primary);font-size:1.1rem}
-.add-to-cart{margin:0}
-.add-to-cart .btn{padding:8px 14px;font-size:.92rem}
 .products-cta{text-align:center;margin-top:24px}
 .cart-link{position:relative;white-space:nowrap}
 .cart-count{display:inline-block;min-width:20px;padding:0 6px;border-radius:999px;background:var(--color-primary);color:var(--color-primary-fg);font-size:.78rem;text-align:center;margin-left:4px}
 .cart-flash{background:var(--color-surface);border-bottom:1px solid var(--color-border);padding:10px 0;font-size:.95rem}
-.badge-low{background:#f3d9c2;color:#7a3a10}

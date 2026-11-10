@@ -14,6 +14,7 @@ import { TEMPLATE_VOCABULARY } from './lang/template.js';
 import { BEHAVIORS } from './lang/behaviors.js';
 import { cssPrefixes } from './lang/css-lint.js';
 import { wordUsage } from './lang/vocabulaire.js';
+import { SOURCES, PUBLIC_SOURCE_NAMES, sourceUsage, sourceFields } from './lang/sources.js';
 
 export const DEFAULT_MODEL = 'claude-opus-5-5';
 
@@ -140,7 +141,12 @@ ${Object.entries(PRIMITIVE_HELP).map(([k, v]) => `- ${k} : ${v}`).join('\n')}
 Intentions : ${INTENT_NAMES.join(', ')}.
 Rien d'autre : pas de couleur, de taille ni de police libre. N'ajoute une apparence que si la mise en page de base ne suffit pas.
 
-# fonctionnement (seulement si le composant recueille une saisie)
+# fonctionnement › lit (seulement si le composant montre un état qui change d'une visite à l'autre : boutique, horaires, mémoire du visiteur)
+« lit: » puis une ligne par lecture, « nom: source, paramètre donnée ». Le nom s'emploie dans la forme comme une donnée ; « section, seulement si nom: » n'affiche la section que si la lecture rend quelque chose.
+${PUBLIC_SOURCE_NAMES.map(n => { const g = sourceFields(n); return `- ${sourceUsage(n)} : ${SOURCES[n].description} ; rend ${g.list ? 'une liste, chaque élément' : 'un groupe'} { ${g.fields.map(x => x.name).join(', ')} }`; }).join('\n')}
+N'invente ni source ni champ. Quand le composant lit quelque chose, chaque cas de test fournit la valeur lue : clé « à la visite: { nom: … } » à côté des props.
+
+# fonctionnement › formulaire (seulement si le composant recueille une saisie)
 « formulaire: » puis ses réglages : ${FORM_SETTINGS.join(', ')}.
 - enregistre dans : le registre où ranger les envois (minuscules, chiffres, _ ; ex. devis, reservations). prévient par e-mail : oui, non ou une adresse. confirmation : la phrase affichée après l'envoi.
 - champs : un champ par ligne, « nom: type, précisions — Libellé (ex. exemple affiché dans le champ) ». Noms en minuscules sans accent.

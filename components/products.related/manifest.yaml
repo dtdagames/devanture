@@ -1,11 +1,18 @@
 name: products.related
 order: 112
 description: "Produits de la même catégorie que le produit affiché (page dynamique source: products)."
-props:
-  type: object
-  properties:
-    title: { type: string, description: défaut « Vous aimerez aussi » }
-    limit: { type: integer, minimum: 1, description: défaut 3 }
+données:
+  title: texte, facultatif — défaut « Vous aimerez aussi »
+  limit: nombre entier, facultatif, au moins 1 — défaut 3
+# Ce que le composant lit à chaque visite : les autres produits de la catégorie du produit de la page, avec leur stock.
+fonctionnement:
+  lit:
+    voisins: produits voisins, limite limit
+forme:
+  section « products », seulement si voisins:
+    - en-tête: '{{ title | default("Vous aimerez aussi") }}'
+    - grille « products-grid » de voisins, 3 colonnes:
+        - aperçu de produit: valeur
 example: |
   - products.related: { title: Dans la même gamme, limit: 3 }
 intents: [similaires, autres produits]

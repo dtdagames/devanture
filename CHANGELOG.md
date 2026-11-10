@@ -1,6 +1,21 @@
 # Journal des versions
 
-Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.10.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.11.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+
+## v0.11.0 — 2026-11-10 — lire un état à la visite : la boutique, les horaires et le contact sans PHP
+
+- **Lectures à la visite** : `fonctionnement: lit:` déclare ce qu'un composant demande à la cible à chaque visite, une ligne par lecture, « produits: produits de la boutique, catégorie category, limite limit ». Le nom se lit dans la forme comme une donnée typée (`- grille de produits:`, `- si in_stock:`, `- texte: panier.total_text`). Sources : produits de la boutique, produit de la page, produits voisins, panier du visiteur, saisie de la commande, commande de la page, horaires du moment, consultations récentes. `section, seulement si x:` n'émet la section que si la lecture rend quelque chose.
+- **Actions** : les formulaires d'action de la cible (ajout au panier, quantité, retrait, commande) sont posés par des mots natifs (`ajout au panier`, `tableau du panier`, `formulaire de commande`), avec la fonction de gabarit `csrf()` ; `event(nom, clé, valeur…)` marque un événement de mesure.
+- **Plus aucun composant natif en PHP**, hormis `custom`, la porte de sortie : `hours`, `recent`, `contact.form`, `products.grid`, `product.hero`, `products.related`, `cart.page`, `checkout.page`, `order.confirmation` sont écrits dans le langage (props identiques à la v0.10.0, à quatre valeurs par défaut près, cinq d'entre eux passant du schéma JSON au bloc `données` ; 36 pages des exemples identiques à trois changements de balisage voulus près ; parcours d'achat, stock, webhook et formulaires vérifiés par les bancs existants). Dix-huit mots natifs de plus.
+- **Un composant de site lit la boutique** : `examples/savonnerie/components/selection`, écrit par l'auteur du site sans PHP ni `custom` ; avant cette version, c'était impossible.
+- **Tests** : un cas de test fournit ce qui serait lu, sous la clé `à la visite:`, vérifié contre ce que la source annonce ; `sitec test --catalog` rend maintenant les 23 composants natifs.
+- **Outils** : `sitec catalog` liste les sources, `sitec explain "<source>"` donne ses paramètres et ses champs, `sitec component show` montre l'appel produit pour chaque lecture ; schémas d'éditeur et guide du générateur à jour. Une lecture mal écrite est dite une fois, à sa ligne.
+- **Langage** : `par défaut X` dans les données est maintenant posé avant le rendu (`show_stock: oui ou non, par défaut oui`) ; options de section `seulement si x` et `ancre « nom »`.
+- **Cible** : `docs/CIBLES.md` décrit le contrat des sources (`sl_source`, `sl_src_<id>`). Une page qui contient un composant qui lit n'est jamais servie depuis le cache statique.
+- **Changements de balisage** : `products.related` perd la classe `related` sur sa section ; la marque d'événement (`data-sl-event`) passe à l'intérieur du conteneur ; le lien sous la confirmation de commande est dans un `div.order-cta` ; « Plus que N disponibles » du panier porte la classe `cart-low` au lieu d'un style en ligne.
+- **Mesure** (`scripts/measure-vocabulaire.mjs état`) : pour les neuf natifs, 10 385 tokens avant, 9 480 après (9 % de moins), vocabulaire compris ; le volume écrit ne baisse donc presque pas. Ce qui change : 308 lignes de gabarit PHP deviennent 153 lignes de gabarit neutre dans dix-huit mots vérifiés et réutilisables, et la logique (filtres, totaux, état des horaires) est passée dans 133 lignes de fonctions de source de la cible, écrites une fois.
+- Limites dites : une source est un service de la cible ; le langage ne permet pas de définir un état nouveau sur le serveur (réservation, compteur de places, liste d'attente), pour lequel `custom` reste la seule voie. Les libellés rendus par les sources sont en français, dans la cible. `contact.form` garde un `module.js` (champs conditionnels).
+- Bancs : 164 contrôles d'outillage (dont 21 pour les lectures), 225 contrôles de documentation (27 blocs compilés).
 
 ## v0.10.0 — 2026-11-10 — un vocabulaire ouvert : des mots nouveaux sans toucher au compilateur
 

@@ -193,8 +193,8 @@ function cmp(a, b) { if (typeof a === 'number' || typeof b === 'number') return 
 // ---------------------------------------------------------------------------------------------------------------------------
 // Traduction en PHP : même sémantique via les aides sl_get / sl_truthy / sl_f_* / sl_str du runtime.
 
-export const SAFE_FUNCTIONS = new Set(['link', 'img', 'icon', 'paragraphs', 'markup', 'field', 'lines']);
-const PHP_FUNCTIONS = { lines: 'sl_fn_lines', link: 'sl_fn_link', img: 'sl_fn_img', img_src: 'img_src', asset: 'asset', url: 'url', icon: 'sl_icon', paragraphs: 'paragraphs', markup: 'sl_fn_markup', money: 'sl_f_money', field: 'sl_fn_field' };
+export const SAFE_FUNCTIONS = new Set(['link', 'img', 'icon', 'paragraphs', 'markup', 'field', 'lines', 'csrf', 'event']);
+const PHP_FUNCTIONS = { lines: 'sl_fn_lines', link: 'sl_fn_link', img: 'sl_fn_img', img_src: 'img_src', asset: 'asset', url: 'url', icon: 'sl_icon', paragraphs: 'paragraphs', markup: 'sl_fn_markup', money: 'sl_f_money', field: 'sl_fn_field', csrf: 'sl_fn_csrf', event: 'sl_fn_event' };
 export const FUNCTION_NAMES = Object.keys(PHP_FUNCTIONS);
 
 /**

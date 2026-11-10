@@ -6,6 +6,7 @@ import path from 'node:path';
 import YAML from 'yaml';
 import { parseWithLines } from './lang/lines.js';
 import { compileTemplate } from './lang/template.js';
+import { SOURCES, sourceSchema } from './lang/sources.js';
 
 const COMMON_PROPS = new Set(['id', 'keywords', 'variants']);
 const flow = v => YAML.stringify(v, { collectionStyle: 'flow', lineWidth: 0 }).trim();
@@ -37,11 +38,18 @@ export async function describeComponent(entry, { php = false } = {}) {
   if (value['données'] !== undefined) blocks.push({ key: 'données', target: 'schéma JSON des props (validation des pages, complétion de l\'éditeur, site.json)', source: blockSource(lines, starts, 'données'), output: propsOut, notes: ['id, keywords et variants s\'ajoutent à toute section'] });
   else if (value.props !== undefined) blocks.push({ key: 'props', target: 'schéma JSON écrit à la main, repris tel quel', source: blockSource(lines, starts, 'props'), output: null, notes: [] });
   if (value.fonctionnement !== undefined) {
-    const f = m.effects?.form;
+    const f = m.effects?.form, reads = m.sources || [];
+    // Lectures à la visite : ce que le composant demande à la cible, et la forme de ce qu'elle rend.
+    const readsOut = reads.map(r => {
+      const def = SOURCES[r.source], sch = sourceSchema(r.source), it = sch.type === 'array' ? sch.items : sch;
+      const args = Object.entries(r.args).map(([k, e]) => `${k}: ${e}`).join(', ');
+      return `${r.key} ← ${r.source}${args ? ` (${args})` : ''} : ${sch.type === 'array' ? 'une liste, chaque élément' : 'un groupe'} { ${Object.keys(it.properties).join(', ')} }\n  service de la cible : ${def.service} ; appel produit : sl_source($p, '${r.key}', '${r.id}', […]) avant le rendu`;
+    }).join('\n');
+    const onlyReads = reads.length && !f && !('formulaire' in (value.fonctionnement || {}));
     blocks.push({
-      key: 'fonctionnement', target: 'effets déclarés (validation, CSRF, pot de miel, enregistrement, e-mail fournis par le compilateur)', source: blockSource(lines, starts, 'fonctionnement'),
-      output: f ? [`store: ${f.store}`, `notify: ${!!f.notify}`, ...(f.to ? [`to: ${f.to}`] : []), ...(f.success ? [`success: ${flow(f.success)}`] : []), 'fields:', ...(f.fields || []).map(x => '  - ' + flow(x))].join('\n') : '(aucun effet : le bloc contient des erreurs, voir sitec check)',
-      notes: f ? [`réponses enregistrées dans la collection d'exploitation « ${f.store} » (back-office, onglet Formulaires)`] : [],
+      key: 'fonctionnement', target: onlyReads ? 'lectures à la visite : sources demandées à la cible avant le rendu, lues par la forme comme des données' : reads.length ? 'lectures à la visite et effets déclarés (validation, CSRF, pot de miel, enregistrement, e-mail fournis par le compilateur)' : 'effets déclarés (validation, CSRF, pot de miel, enregistrement, e-mail fournis par le compilateur)', source: blockSource(lines, starts, 'fonctionnement'),
+      output: onlyReads ? readsOut : (reads.length ? readsOut + '\n' : '') + (f ? [`store: ${f.store}`, `notify: ${!!f.notify}`, ...(f.to ? [`to: ${f.to}`] : []), ...(f.success ? [`success: ${flow(f.success)}`] : []), 'fields:', ...(f.fields || []).map(x => '  - ' + flow(x))].join('\n') : '(aucun effet : le bloc contient des erreurs, voir sitec check)'),
+      notes: [...(reads.length ? ['une page qui contient ce composant n\'est pas servie depuis le cache statique : ce qu\'il lit change d\'une visite à l\'autre'] : []), ...(f ? [`réponses enregistrées dans la collection d'exploitation « ${f.store} » (back-office, onglet Formulaires)`] : [])],
     });
   } else if (value.effects !== undefined) blocks.push({ key: 'effects', target: 'effets en format machine, repris tels quels', source: blockSource(lines, starts, 'effects'), output: null, notes: [] });
   if (value['calculé'] !== undefined) blocks.push({ key: 'calculé', target: 'données que le compilateur fournit à la section (lues par la forme comme les autres)', source: blockSource(lines, starts, 'calculé'), output: null, notes: [] });
@@ -60,7 +68,7 @@ export async function describeComponent(entry, { php = false } = {}) {
   if (value.apparence !== undefined) blocks.push({ key: 'apparence', target: 'feuille de style encadrée (sélecteurs préfixés, jetons du thème)', source: blockSource(lines, starts, 'apparence'), output: (made.apparenceCss ?? '').trim() || '(aucune règle)', notes: [] });
   let compiled = null;
   if (php && entry.files['template.html'] !== undefined) {
-    const r = entry.compiled || compileTemplate(entry.files['template.html'], { name: entry.name, props: m.props, effects: m.effects || null });
+    const r = entry.compiled || compileTemplate(entry.files['template.html'], { name: entry.name, props: m.props, effects: m.effects || null, sources: m.sources || null });
     compiled = r.php ?? `(gabarit en erreur : ${r.errors.map(e => `ligne ${e.line} : ${e.message}`).join(' ; ')})`;
   }
   return { name: entry.name, file, format: value.forme !== undefined ? 'langage' : entry.files['template.html'] === undefined && entry.files['template.php'] !== undefined ? 'php' : 'html', native: !entry.project, package: entry.package || null, blocks, php: compiled };

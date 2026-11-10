@@ -102,3 +102,446 @@ mots:
       .col-meta{margin:0;font-size:.85rem;text-transform:uppercase;letter-spacing:.04em}
       .col-text{margin:0;font-size:.92rem;flex:1}
       .col-more{align-self:flex-start;font-weight:600;text-decoration:none;margin-top:4px}
+
+  # --- horaires : ce que la source « horaires du moment » fournit, mis en forme
+  état d'ouverture:
+    description: "L'état du moment, « Ouvert actuellement · ferme à 18 h » ou « Fermé actuellement · ouvre demain à 8 h », en pastille."
+    données:
+      texte: texte
+      ouvert: oui ou non, facultatif
+    gabarit: |
+      <div class="hours-status {% if ouvert %}is-open{% else %}is-closed{% endif %}" role="status">{{ texte }}</div>
+    feuille: |
+      .hours-status{display:inline-block;padding:6px 14px;border-radius:999px;font-weight:600;margin:0 auto 18px;display:table}
+      .hours-status.is-open{background:#e7f5ec;color:#1e6b3a}
+      .hours-status.is-closed{background:var(--color-surface);color:var(--color-muted);border:1px solid var(--color-border)}
+
+  tableau des horaires:
+    description: Les jours et leurs plages d'ouverture, en tableau ; le jour de la visite est mis en avant.
+    données:
+      jours (liste):
+        name: texte
+        slots_text: texte, facultatif
+        today: oui ou non, facultatif
+    gabarit: |
+      <table class="hours-table">
+        <tbody>
+        {% for j in jours %}
+          <tr{% if j.today %} class="is-today"{% endif %}>
+            <th scope="row">{{ j.name }}</th>
+            <td>{% if j.slots_text %}{{ j.slots_text }}{% else %}<span class="muted">Fermé</span>{% endif %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    feuille: |
+      .hours-table{width:100%;border-collapse:collapse}
+      .hours-table th,.hours-table td{padding:10px 12px;border-bottom:1px solid var(--color-border);text-align:left}
+      .hours-table th{width:40%;font-weight:600}
+      .hours-table tr.is-today th,.hours-table tr.is-today td{background:var(--color-surface);color:var(--color-primary)}
+
+  # --- mémoire du visiteur
+  consultation récente:
+    description: "Un élément déjà consulté par le visiteur (produit ou section), à placer dans une liste : vignette, titre, précision."
+    données:
+      titre: texte
+      url: texte
+      precision: texte, facultatif — prix du produit, ou page de la section
+      image: image, facultatif
+      produit: oui ou non, facultatif
+    gabarit: |
+      <li class="recent-item{% if produit %} is-product{% endif %}">
+        <a href="{{ url }}">
+          {% if image %}{{ img(image, '', '80px') }}{% endif %}
+          <span class="recent-title">{{ titre }}</span>
+          <span class="muted recent-meta">{{ precision }}</span>
+        </a>
+      </li>
+    feuille: |
+      .recent-item a{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--color-border);border-radius:var(--radius);background:var(--color-surface);text-decoration:none;color:var(--color-fg)}
+      .recent-item img{width:48px;height:48px;object-fit:cover;border-radius:6px}
+      .recent-title{font-weight:600;display:block}
+      .recent-meta{font-size:.85rem;display:block}
+
+  # --- boutique : ce que les sources de la boutique fournissent, mis en forme ; les actions passent par /_cart (docs/CIBLES.md)
+  événement d'achat:
+    description: Marque invisible qui compte un achat dans les mesures du site (événement purchase).
+    données:
+      total: nombre
+    gabarit: |
+      {{ event('purchase', 'total', total) }}
+
+  événement de vue de produit:
+    description: Marque invisible qui compte la vue d'un produit dans les mesures du site (événement product_view).
+    données:
+      id: texte
+      categorie: texte, facultatif
+    gabarit: |
+      {{ event('product_view', 'product', id, 'category', categorie | default('')) }}
+
+  événement de début de commande:
+    description: Marque invisible qui compte l'arrivée sur la page de commande (événement checkout_start).
+    gabarit: |
+      {{ event('checkout_start') }}
+
+  aperçu de produit:
+    description: "Carte courte d'un produit : photo, nom, prix et bouton « Voir », tous liés à sa page."
+    données:
+      produit (groupe):
+        name: texte
+        price_text: texte
+        url: texte, facultatif
+        image: image, facultatif
+    gabarit: |
+      <article class="card product-card">
+        {% if produit.image %}<a href="{{ produit.url }}" class="product-img">{{ img(produit.image, produit.name, '(max-width: 700px) 50vw, 25vw') }}</a>{% endif %}
+        <h3><a href="{{ produit.url }}">{{ produit.name }}</a></h3>
+        <div class="product-foot"><span class="product-price">{{ produit.price_text }}</span><a class="btn btn-outline" href="{{ produit.url }}">Voir</a></div>
+      </article>
+    feuille: |
+      .product-card{display:flex;flex-direction:column;gap:8px;padding:0;overflow:hidden}
+      .product-card .product-img img{width:100%;aspect-ratio:4/3;object-fit:cover}
+      .product-card h3{margin:14px 18px 0;font-size:1.05rem}
+      .product-card h3 a{color:inherit;text-decoration:none}
+      .product-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:0 18px 16px}
+      .product-price{font-family:var(--font-heading);font-weight:700;color:var(--color-primary);font-size:1.1rem}
+
+  reçu de commande:
+    description: "Le reçu d'une commande : numéro, date, statut, lignes, totaux, où en est le paiement, adresse de livraison."
+    données:
+      commande (groupe):
+        id: texte
+        date_text: texte
+        status_text: texte
+        lines (liste):
+          qty: nombre
+          name: texte
+          total_text: texte
+        subtotal_text: texte
+        shipping_text: texte
+        total_text: texte
+        note: texte, facultatif
+        address: texte
+        email: texte
+    gabarit: |
+      <div class="order-box">
+        <p>Commande <strong>n° {{ commande.id }}</strong> du {{ commande.date_text }} · <span class="order-status">{{ commande.status_text }}</span></p>
+        <ul class="order-lines">{% for l in commande.lines %}<li><span>{{ l.qty }} × {{ l.name }}</span><span>{{ l.total_text }}</span></li>{% endfor %}</ul>
+        <div>Sous-total : {{ commande.subtotal_text }} · Livraison : {{ commande.shipping_text }}</div>
+        <p><strong>Total : {{ commande.total_text }}</strong></p>
+        {% if commande.note %}<p class="muted">{{ commande.note }}</p>{% endif %}
+        <p class="muted">Livraison à : {{ lines(commande.address) }}<br>Confirmation envoyée à {{ commande.email }}.</p>
+      </div>
+    feuille: |
+      .order-box{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius);padding:24px;max-width:720px}
+      .order-lines{list-style:none;margin:12px 0;padding:0}
+      .order-lines li{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--color-border)}
+      .order-status{display:inline-block;padding:4px 12px;border-radius:999px;background:var(--color-accent);color:#1b1f24;font-size:.85rem;font-weight:600}
+
+  carte de produit:
+    description: "Carte d'un produit dans une grille : photo, nom, mention ou stock bas, résumé, prix, et le bouton qui l'ajoute au panier (ou « Épuisé »)."
+    données:
+      produit (groupe):
+        id: texte
+        name: texte
+        price_text: texte
+        url: texte, facultatif
+        image: image, facultatif
+        summary: texte, facultatif
+        badge: texte, facultatif
+        unit: texte, facultatif
+        category: texte, facultatif
+        stock: nombre, facultatif
+        low_stock: oui ou non, facultatif
+        in_stock: oui ou non, facultatif
+      ajout: oui ou non, facultatif — avec le bouton « Ajouter »
+    gabarit: |
+      <article class="card product-card">
+        {% if produit.image %}<a href="{{ produit.url | default('#') }}" class="product-img">{{ img(produit.image, produit.name, '(max-width: 700px) 50vw, 25vw') }}</a>{% endif %}
+        <h3>{% if produit.url %}<a href="{{ produit.url }}">{{ produit.name }}</a>{% else %}{{ produit.name }}{% endif %}{% if produit.badge %} <span class="badge">{{ produit.badge }}</span>{% elif produit.low_stock %} <span class="badge badge-low">Plus que {{ produit.stock | int }}</span>{% endif %}</h3>
+        {% if produit.summary %}<p class="muted product-desc">{{ produit.summary }}</p>{% endif %}
+        <div class="product-foot">
+          <span class="product-price">{{ produit.price_text }}{% if produit.unit %} <span class="muted">/ {{ produit.unit }}</span>{% endif %}</span>
+          {% if ajout and produit.in_stock %}
+          <form method="post" action="/_cart" class="add-to-cart" data-category="{{ produit.category }}">
+            {{ csrf() }}<input type="hidden" name="action" value="add"><input type="hidden" name="id" value="{{ produit.id }}">
+            <button class="btn" type="submit">Ajouter</button>
+          </form>
+          {% elif ajout %}<span class="muted product-soldout">Épuisé</span>{% endif %}
+        </div>
+      </article>
+    feuille: |
+      .product-card{display:flex;flex-direction:column;gap:8px;padding:0;overflow:hidden}
+      .product-card .product-img img{width:100%;aspect-ratio:4/3;object-fit:cover}
+      .product-card h3{margin:14px 18px 0;font-size:1.05rem}
+      .product-card h3 a{color:inherit;text-decoration:none}
+      .product-card .product-desc{margin:0 18px;font-size:.92rem;flex:1}
+      .product-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:0 18px 16px}
+      .product-price{font-family:var(--font-heading);font-weight:700;color:var(--color-primary);font-size:1.1rem}
+      .add-to-cart{margin:0}
+      .add-to-cart .btn{padding:8px 14px;font-size:.92rem}
+      .badge-low{background:#f3d9c2;color:#7a3a10}
+
+  ajout au panier:
+    description: "Le bouton qui ajoute un produit au panier du visiteur (action « add » de /_cart) ; sans quantité, il en ajoute un."
+    données:
+      id: texte
+      categorie: texte, facultatif — sert aux mesures (événement add_to_cart)
+      libelle: texte, facultatif — texte du bouton (Ajouter)
+    gabarit: |
+      <form method="post" action="/_cart" class="add-to-cart" data-category="{{ categorie }}">
+        {{ csrf() }}<input type="hidden" name="action" value="add"><input type="hidden" name="id" value="{{ id }}">
+        <button class="btn" type="submit">{{ libelle | default('Ajouter') }}</button>
+      </form>
+    feuille: |
+      .add-to-cart{margin:0}
+      .add-to-cart .btn{padding:8px 14px;font-size:.92rem}
+
+  fiche de produit:
+    description: "La fiche d'un produit : photo, nom, catégorie, prix, description, quantité et ajout au panier, stock restant ou « Épuisé »."
+    données:
+      produit (groupe):
+        id: texte
+        name: texte
+        price_text: texte
+        max_qty: nombre
+        image: image, facultatif
+        badge: texte, facultatif
+        category: texte, facultatif
+        unit: texte, facultatif
+        description: texte, facultatif
+        in_stock: oui ou non, facultatif
+        low_stock: oui ou non, facultatif
+        stock_text: texte, facultatif
+      retour: lien, facultatif — lien de retour, au-dessus du nom
+      stock_visible: oui ou non, facultatif — afficher le stock restant
+    gabarit: |
+      {% if produit.image %}<div class="product-hero-media">{{ img(produit.image, produit.name, '(max-width: 700px) 100vw, 50vw', true) }}</div>{% endif %}
+      <div class="product-hero-body">
+        {{ event('product_view', 'product', produit.id, 'category', produit.category | default('')) }}
+        {% if retour %}{{ link(retour, 'product-back') }}{% endif %}
+        <h1>{{ produit.name }}{% if produit.badge %} <span class="badge">{{ produit.badge }}</span>{% endif %}</h1>
+        {% if produit.category %}<div class="muted product-cat">{{ produit.category | capitalize }}</div>{% endif %}
+        <div class="product-hero-price">{{ produit.price_text }}{% if produit.unit %} <span class="muted">/ {{ produit.unit }}</span>{% endif %}</div>
+        {% if produit.description %}<div class="product-hero-desc">{{ paragraphs(produit.description) }}</div>{% endif %}
+        {% if produit.in_stock %}
+        <form method="post" action="/_cart" class="add-to-cart product-add" data-category="{{ produit.category }}">
+          {{ csrf() }}<input type="hidden" name="action" value="add"><input type="hidden" name="id" value="{{ produit.id }}">
+          <label>Quantité <input type="number" name="qty" value="1" min="1" max="{{ produit.max_qty }}"></label>
+          <button class="btn" type="submit">Ajouter au panier</button>
+        </form>
+        {% if stock_visible and produit.stock_text %}<p class="product-stock{% if produit.low_stock %} product-stock-low{% else %} muted{% endif %}">{{ produit.stock_text }}</p>{% endif %}
+        {% else %}<p class="product-stock"><strong>Épuisé</strong> · revenez bientôt ou contactez-nous.</p>{% endif %}
+      </div>
+    feuille: |
+      .product-hero-media img{width:100%;border-radius:var(--radius);aspect-ratio:4/3;object-fit:cover}
+      .product-back{display:inline-block;margin-bottom:12px;text-decoration:none;font-size:.95rem}
+      .product-hero-price{font-family:var(--font-heading);font-size:1.8rem;font-weight:700;color:var(--color-primary);margin:8px 0 16px}
+      .product-add{display:flex;gap:14px;align-items:end;flex-wrap:wrap;margin-top:12px}
+      .product-add label{display:flex;flex-direction:column;gap:4px;font-size:.9rem}
+      .product-add input{width:90px;padding:9px 10px;border:1px solid var(--color-border);border-radius:6px;font:inherit;background:var(--color-bg);color:var(--color-fg)}
+      .product-stock{margin-top:10px;font-size:.95rem}
+      .product-stock-low{color:#b2541a;font-weight:600}
+
+  tableau du panier:
+    description: "Les lignes du panier en tableau : article, prix, quantité modifiable (action « set » de /_cart), total, retrait (action « remove »)."
+    données:
+      lignes (liste):
+        id: texte
+        name: texte
+        price_text: texte
+        qty: nombre
+        total_text: texte
+        max_qty: nombre
+        image: image, facultatif
+        url: texte, facultatif
+        low_text: texte, facultatif
+    gabarit: |
+      <table class="cart-table">
+        <thead><tr><th>Article</th><th>Prix</th><th>Quantité</th><th>Total</th><th></th></tr></thead>
+        <tbody>
+        {% for l in lignes %}
+          <tr>
+            <td class="cart-item">{% if l.image %}{{ img(l.image, '', '64px') }}{% endif %}{% if l.url %}<a href="{{ l.url }}">{{ l.name }}</a>{% else %}{{ l.name }}{% endif %}</td>
+            <td>{{ l.price_text }}</td>
+            <td>
+              <form method="post" action="/_cart" class="cart-qty">{{ csrf() }}<input type="hidden" name="action" value="set"><input type="hidden" name="id" value="{{ l.id }}">
+                <input type="number" name="qty" value="{{ l.qty | int }}" min="0" max="{{ l.max_qty }}" aria-label="Quantité"><button class="btn btn-outline" type="submit">OK</button></form>
+              {% if l.low_text %}<div class="muted cart-low">{{ l.low_text }}</div>{% endif %}
+            </td>
+            <td><strong>{{ l.total_text }}</strong></td>
+            <td><form method="post" action="/_cart">{{ csrf() }}<input type="hidden" name="action" value="remove"><input type="hidden" name="id" value="{{ l.id }}"><button class="cart-remove" type="submit" aria-label="Retirer">×</button></form></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    feuille: |
+      .cart-table{width:100%;border-collapse:collapse;margin:16px 0}
+      .cart-table th,.cart-table td{padding:12px 8px;border-bottom:1px solid var(--color-border);text-align:left;vertical-align:middle}
+      .cart-item{display:flex;align-items:center;gap:12px}
+      .cart-item img{width:56px;height:56px;object-fit:cover;border-radius:6px}
+      .cart-qty{display:flex;gap:6px;margin:0}
+      .cart-qty input{width:64px;padding:6px 8px;border:1px solid var(--color-border);border-radius:6px;font:inherit;background:var(--color-bg);color:var(--color-fg)}
+      .cart-qty .btn{padding:6px 10px;font-size:.85rem}
+      .cart-low{font-size:.85rem}
+      .cart-remove{background:none;border:1px solid var(--color-border);border-radius:6px;width:32px;height:32px;cursor:pointer;color:var(--color-muted);font-size:1.1rem}
+      @media (max-width:760px){.cart-table thead{display:none}.cart-table td{display:block;border:0;padding:4px 0}.cart-table tr{display:block;border-bottom:1px solid var(--color-border);padding:10px 0}}
+
+  totaux du panier:
+    description: "Sous-total, livraison, seuil de livraison offerte s'il n'est pas atteint, et total."
+    données:
+      sous_total: texte
+      livraison: texte
+      total: texte
+      seuil: texte, facultatif — montant à partir duquel la livraison est offerte
+    gabarit: |
+      <div class="cart-totals">
+        <div><span>Sous-total</span><span>{{ sous_total }}</span></div>
+        <div><span>Livraison</span><span>{{ livraison }}</span></div>
+        {% if seuil %}<div class="muted"><span>Offerte dès {{ seuil }}</span><span></span></div>{% endif %}
+        <div class="cart-total"><span>Total</span><span>{{ total }}</span></div>
+      </div>
+    feuille: |
+      .cart-totals{max-width:360px;margin-left:auto}
+      .cart-totals > div{display:flex;justify-content:space-between;padding:6px 0}
+      .cart-total{border-top:2px solid var(--color-border);font-weight:700;font-size:1.15rem;margin-top:6px;padding-top:12px!important}
+
+  formulaire de commande:
+    description: "Le formulaire qui passe la commande : coordonnées et adresse, erreurs de saisie, mode de paiement, bouton de confirmation. La cible valide, réserve le stock et enregistre."
+    données:
+      saisie (groupe):
+        error: texte, facultatif
+        fields (liste):
+          name: texte
+          label: texte
+          type: texte
+          rows: nombre
+          long: oui ou non, facultatif
+          required: oui ou non, facultatif
+          value: texte, facultatif
+          error: texte, facultatif
+        payment_text: texte
+        submit_label: texte
+    gabarit: |
+      <form class="card contact-form checkout-form" method="post" action="" novalidate>
+        <input type="hidden" name="_form" value="checkout">{{ csrf() }}
+        <div class="hp"><label>Site web <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+        {% if saisie.error %}<div class="form-error" role="alert">{{ saisie.error }}</div>{% endif %}
+        {% for f in saisie.fields %}
+        <div class="field{% if f.error %} has-error{% endif %}">
+          <label for="c-{{ f.name }}">{{ f.label }}{% if f.required %} *{% endif %}</label>
+          {% if f.long %}<textarea id="c-{{ f.name }}" name="{{ f.name }}" rows="{{ f.rows }}"{% if f.required %} required{% endif %}>{{ f.value }}</textarea>
+          {% else %}<input id="c-{{ f.name }}" type="{{ f.type }}" name="{{ f.name }}" value="{{ f.value }}"{% if f.required %} required{% endif %}>{% endif %}
+          {% if f.error %}<div class="field-error">{{ f.error }}</div>{% endif %}
+        </div>
+        {% endfor %}
+        <p class="muted checkout-payment">{{ saisie.payment_text }}</p>
+        <button class="btn" type="submit">{{ saisie.submit_label }}</button>
+      </form>
+
+  récapitulatif du panier:
+    description: "Le panier en résumé, à côté du formulaire de commande : lignes, sous-total, livraison, total, lien pour le modifier."
+    données:
+      panier (groupe):
+        lines (liste):
+          qty: nombre
+          name: texte
+          total_text: texte
+        subtotal_text: texte
+        shipping_text: texte
+        total_text: texte
+        cart_url: texte, facultatif
+    gabarit: |
+      <aside class="checkout-summary">
+        <h2>Récapitulatif</h2>
+        <ul>{% for l in panier.lines %}<li><span>{{ l.qty | int }} × {{ l.name }}</span><span>{{ l.total_text }}</span></li>{% endfor %}</ul>
+        <div>Sous-total : {{ panier.subtotal_text }}</div>
+        <div>Livraison : {{ panier.shipping_text | lower }}</div>
+        <div><strong>Total : {{ panier.total_text }}</strong></div>
+        {% if panier.cart_url %}<p><a href="{{ panier.cart_url }}">Modifier le panier</a></p>{% endif %}
+      </aside>
+    feuille: |
+      .checkout-summary{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius);padding:20px}
+      .checkout-summary li{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--color-border)}
+      .checkout-summary ul{list-style:none;margin:0 0 12px;padding:0}
+
+  # --- contact
+  contact en colonnes:
+    description: "Deux colonnes, le formulaire et les coordonnées ; une seule, centrée, quand les coordonnées ne sont pas affichées."
+    données:
+      coordonnees: oui ou non, facultatif — les coordonnées du site sont affichées à côté
+    gabarit: |
+      <div class="contact-grid{% if not (coordonnees and site.contact) %} contact-solo{% endif %}">
+        {{ contenu }}
+      </div>
+    feuille: |
+      .contact-grid{display:grid;gap:32px;grid-template-columns:minmax(0,2fr) minmax(240px,1fr)}
+      .contact-solo{grid-template-columns:minmax(0,1fr);max-width:720px;margin:0 auto}
+      @media (max-width:760px){.contact-grid{grid-template-columns:1fr}}
+
+  formulaire de contact:
+    description: "Le formulaire de contact de la page : ses champs, ce que le visiteur a saisi, les erreurs, puis la confirmation. La cible valide, enregistre le message et prévient par e-mail."
+    données:
+      saisie (groupe):
+        sent: oui ou non, facultatif
+        error: texte, facultatif
+        csrf: texte
+        fields (liste):
+          name: texte
+          label: texte
+          type: texte
+          long: oui ou non, facultatif
+          choice: oui ou non, facultatif
+          numeric: oui ou non, facultatif
+          required: oui ou non, facultatif
+          value: texte, facultatif
+          error: texte, facultatif
+          placeholder: texte, facultatif
+          options (liste):
+            value: texte
+            selected: oui ou non, facultatif
+          when_field: texte, facultatif
+          when_values: texte, facultatif
+          hidden: oui ou non, facultatif
+      confirmation: texte, facultatif — phrase affichée après l'envoi
+    gabarit: |
+      {% if saisie.sent %}
+      <div class="card contact-success" role="status"><strong>✔ Message envoyé.</strong> {{ confirmation | default('Nous vous répondons rapidement.') }}</div>
+      {% else %}
+      <form class="card contact-form" method="post" action="" novalidate>
+        <input type="hidden" name="_form" value="contact">
+        <input type="hidden" name="_csrf" value="{{ saisie.csrf }}">
+        <div class="hp"><label>Site web <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+        {% if saisie.error %}<div class="form-error" role="alert">{{ saisie.error }}</div>{% endif %}
+        {% for f in saisie.fields %}
+        <div class="field{% if f.error %} has-error{% endif %}"{% if f.when_field %} data-when-field="{{ f.when_field }}" data-when-values="{{ f.when_values }}"{% if f.hidden %} hidden{% endif %}{% endif %}>
+          <label for="f-{{ f.name }}">{{ f.label }}{% if f.required %} *{% endif %}</label>
+          {% if f.long %}
+          <textarea id="f-{{ f.name }}" name="{{ f.name }}" rows="6"{% if f.required %} required{% endif %}{% if f.placeholder %} placeholder="{{ f.placeholder }}"{% endif %}>{{ f.value }}</textarea>
+          {% elif f.choice %}
+          <select id="f-{{ f.name }}" name="{{ f.name }}"{% if f.required %} required{% endif %}>
+            <option value="">{{ f.placeholder | default('Choisir…') }}</option>
+            {% for o in f.options %}<option value="{{ o.value }}"{% if o.selected %} selected{% endif %}>{{ o.value }}</option>{% endfor %}
+          </select>
+          {% else %}
+          <input id="f-{{ f.name }}" type="{{ f.type }}" name="{{ f.name }}" value="{{ f.value }}"{% if f.required %} required{% endif %}{% if f.placeholder %} placeholder="{{ f.placeholder }}"{% endif %}{% if f.numeric %} inputmode="numeric"{% endif %}>
+          {% endif %}
+          {% if f.error %}<div class="field-error">{{ f.error }}</div>{% endif %}
+        </div>
+        {% endfor %}
+        <button class="btn" type="submit">Envoyer</button>
+      </form>
+      {% endif %}
+
+  coordonnées du site:
+    description: "Adresse, téléphone et e-mail du site (site.contact), en colonne ; rien si le site n'en déclare pas."
+    gabarit: |
+      {% if site.contact %}
+      <aside class="contact-info">
+        {% if site.contact.address %}<p><strong>Adresse</strong><br>{{ lines(site.contact.address) }}</p>{% endif %}
+        {% if site.contact.phone %}<p><strong>Téléphone</strong><br><a href="tel:{{ site.contact.phone | replace(' ', '') }}">{{ site.contact.phone }}</a></p>{% endif %}
+        {% if site.contact.email %}<p><strong>E-mail</strong><br><a href="mailto:{{ site.contact.email }}">{{ site.contact.email }}</a></p>{% endif %}
+      </aside>
+      {% endif %}
+    feuille: |
+      .contact-info p{margin-bottom:16px}

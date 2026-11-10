@@ -22,6 +22,10 @@ sections:
         - { date: 1987, title: Ouverture de l'atelier, text: Jeanne Dubois s'installe dans une ancienne boulangerie de la rue des Lilas. }
         - { date: 2015, title: Camille reprend, text: Les cosmétiques solides rejoignent les savons. }
         - { date: 2024, title: Vente en ligne, text: La boutique s'ouvre à toute la France. }
+  - selection:
+      title: Sortis de l'atelier cette semaine
+      category: savons
+      limit: 3
   - map:
       title: Venir à l'atelier
       lat: 43.2965

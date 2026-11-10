@@ -9,7 +9,7 @@ props:
     intro: { type: string }
     note: { type: string, description: "mention sous le tableau (ex. Fermé les jours fériés)" }
     timezone: { type: string, description: fuseau pour le calcul de l'état (défaut Europe/Paris) }
-    show_status: { type: boolean, description: "afficher « Ouvert actuellement » / « Fermé » (défaut true)" }
+    show_status: { type: boolean, default: true, description: "afficher « Ouvert actuellement » / « Fermé » (défaut true)" }
     days:
       type: array
       minItems: 1
@@ -25,6 +25,17 @@ props:
             items: { type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d-([01]\\d|2[0-3]):[0-5]\\d$" }
             description: "plages HH:MM-HH:MM (ex. 06:30-19:30 ; deux plages pour une coupure)"
           closed: { type: boolean, description: "true = fermé ce jour (sans slots)" }
+# Ce que le composant lit à chaque visite : l'état du moment et les plages de chaque jour, calculés par la cible.
+fonctionnement:
+  lit:
+    horaires: horaires du moment, jours days, fuseau timezone
+forme:
+  section, conteneur « hours-inner »:
+    - en-tête: '{{ title | default("Horaires d''ouverture") }}, intro'
+    - si show_status:
+        - état d'ouverture: horaires.status_text, horaires.open
+    - tableau des horaires: horaires.days
+    - texte discret « hours-note »: note
 example: |
   - hours:
       title: Horaires d'ouverture

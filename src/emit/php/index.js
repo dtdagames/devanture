@@ -26,6 +26,9 @@ export async function emit(project, catalogBase, out) {
   const stores = new Set();
   // Statique d'abord : une page sans état (ni formulaire, ni panier, ni horaires calculés, ni bloc libre) peut être servie telle quelle à un visiteur sans cookie.
   const DYNAMIC = new Set(['contact.form', 'cart.page', 'checkout.page', 'order.confirmation', 'products.grid', 'product.hero', 'products.related', 'hours', 'recent', 'custom']);
+  // Composants écrits dans le langage : ce qu'ils lisent à la visite (fonctionnement › lit) dit ce que la page exige.
+  const reads = name => (catalog.get(name)?.manifest?.sources || []).map(x => x.id);
+  const posts = name => /csrf_token\(\)|sl_fn_csrf\(\)/.test(catalog.get(name)?.compiled?.php || '');
   const deviceSegments = JSON.stringify(project.segments || {}).includes('"device"');
   const staticRoutes = [];
 
@@ -94,14 +97,14 @@ export async function emit(project, catalogBase, out) {
       // Destinataire, champs et obligations fixés côté serveur, jamais lus depuis le POST.
       ...(contact ? { contact } : {}),
       ...(Object.keys(forms).length ? { forms } : {}),
-      ...(page.data.sections.some(s => 'checkout.page' in s) ? { checkout: true } : {}),
+      ...(page.data.sections.some(s => 'checkout.page' in s || reads(Object.keys(s)[0]).includes('checkout')) ? { checkout: true } : {}),
       // Jeton CSRF (donc session et cookie) seulement si la page contient un formulaire : contact, boutique ou composant à effects.form.
-      ...(page.data.sections.some(s => ['contact.form', 'products.grid', 'product.hero', 'products.related', 'cart.page', 'checkout.page'].includes(Object.keys(s)[0])) || Object.keys(forms).length ? { csrf: true } : {}),
+      ...(page.data.sections.some(s => ['contact.form', 'products.grid', 'product.hero', 'products.related', 'cart.page', 'checkout.page'].includes(Object.keys(s)[0]) || posts(Object.keys(s)[0])) || Object.keys(forms).length ? { csrf: true } : {}),
     };
     if (page.data.route.includes('[id]')) dynamic.push({ ...entry, pattern: '#^' + page.data.route.replace('[id]', '([a-z0-9A-Z\\-]+)') + '$#', source: page.data.source });
     else {
       const hasVariants = page.data.sections.some(sec => { const pr = sec[Object.keys(sec)[0]]; return pr.variants && Object.keys(pr.variants).length; }) || (page.data.variants && Object.keys(page.data.variants).length);
-      const isStatic = page.data.sections.every(sec => !DYNAMIC.has(Object.keys(sec)[0])) && !Object.keys(forms).length && !(hasVariants && deviceSegments) && !(page.data.variants && Object.keys(page.data.variants).length);
+      const isStatic = page.data.sections.every(sec => !DYNAMIC.has(Object.keys(sec)[0]) && !reads(Object.keys(sec)[0]).length && !posts(Object.keys(sec)[0])) && !Object.keys(forms).length && !(hasVariants && deviceSegments) && !(page.data.variants && Object.keys(page.data.variants).length);
       routes[page.data.route] = { ...entry, readable: '/lisible/' + page.id + '.html', readable_url: '/lisible' + (page.data.route === '/' ? '/' : page.data.route), ...(isStatic ? { static: 'cache/' + page.id + '.html' } : {}) };
       if (isStatic) staticRoutes.push({ route: page.data.route, file: 'cache/' + page.id + '.html' });
     }

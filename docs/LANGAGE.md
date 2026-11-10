@@ -249,7 +249,7 @@ Ce que le composant accepte, une ligne par champ : « nom: type, précisions —
 | `facultatif` | champ non obligatoire (tout champ est obligatoire sinon) |
 | `au moins N`, `au plus N`, `de A à B` | bornes (éléments d'une liste, longueur d'un texte, valeur d'un nombre) |
 | `un parmi a, b, c` | valeurs permises, toujours en dernier |
-| `par défaut X` | valeur par défaut |
+| `par défaut X` | valeur par défaut, posée avant le rendu quand la page ne dit rien (`show_stock: oui ou non, par défaut oui`) |
 | `— texte` | description, libre (entre guillemets simples si la ligne contient « : ») |
 
 ### Forme
@@ -280,7 +280,7 @@ La structure de la section, en primitives dont le balisage est fixe (classes mai
 
 Les primitives à comportement (défilement, onglets, accordéon, filtres, repli, image agrandissable, copier) posent elles-mêmes les attributs et déclarent le comportement : rien à écrire dans `behaviors`.
 
-En tête : `section, conteneur « nom », variante style par défaut primary:` puis la liste ; `section « classe »:` nomme la section autrement que le composant ; `bandeau, image de fond image:` ouvre une page (pas de marge de section, image en fond quand la donnée est présente). `conteneur « nom » si x` (ou `sans x`) ne pose la classe que dans ce cas. Un texte littéral peut porter des données et du balisage léger : `texte: "Réponse sous {{ delai }}. [Appeler]({{ lien_appel }})"` ; une valeur `"{{ … }}"` est une expression du langage, aux noms courts (`{{ title | default(label) }}`).
+En tête : `section, conteneur « nom », variante style par défaut primary:` puis la liste ; `section « classe »:` nomme la section autrement que le composant ; `bandeau, image de fond image:` ouvre une page (pas de marge de section, image en fond quand la donnée est présente). `conteneur « nom » si x` (ou `sans x`) ne pose la classe que dans ce cas ; `ancre « nom »` donne un identifiant fixe à la section ; `seulement si x` n'émet la section que si la donnée ou la lecture `x` rend quelque chose. Un texte littéral peut porter des données et du balisage léger : `texte: "Réponse sous {{ delai }}. [Appeler]({{ lien_appel }})"` ; une valeur `"{{ … }}"` est une expression du langage, aux noms courts (`{{ title | default(label) }}`).
 
 ### Apparence
 
@@ -405,15 +405,79 @@ Dans une forme, `- mot: a, b` passe les données dans l'ordre de la définition 
 
 La portée est fermée : un mot ne lit que ses données, plus `site` et `page` dans un fragment de gabarit ; il ne voit ni les données du composant qui l'emploie, ni les variables d'une liste en cours. Ce qu'il produit entre dans le gabarit du composant à la compilation : `sitec component show` montre le mot développé, et rien n'est résolu à l'exécution. La feuille d'un mot est émise une seule fois dans la feuille du site, et seulement si un composant utilisé l'emploie.
 
-Un mot de paquet s'écrit sans préfixe dans les composants du paquet et avec le préfixe depuis le site (`- vitrine.mention: note`). Mots natifs : `ligne de tarif`, `adresse`, `itinéraire`, `carte à la demande`, `carte de collection` ; les natifs `pricelist`, `map` et `collection.list` sont écrits avec eux. `sitec catalog <dossier>` liste les mots visibles avec leur origine, `sitec explain "<mot>" <dossier>` affiche la définition elle-même (forme ou fragment, apparence, feuille) et la ligne où elle se trouve.
+Un mot de paquet s'écrit sans préfixe dans les composants du paquet et avec le préfixe depuis le site (`- vitrine.mention: note`). Mots natifs : `ligne de tarif`, `adresse`, `itinéraire`, `carte à la demande`, `carte de collection`, `état d'ouverture`, `tableau des horaires`, `consultation récente`, `événement d'achat`, `événement de vue de produit`, `événement de début de commande`, `aperçu de produit`, `reçu de commande`, `carte de produit`, `ajout au panier`, `fiche de produit`, `tableau du panier`, `totaux du panier`, `formulaire de commande`, `récapitulatif du panier`, `contact en colonnes`, `formulaire de contact`, `coordonnées du site` ; les natifs `pricelist`, `map`, `collection.list`, `hours`, `recent`, `contact.form`, `products.grid`, `product.hero`, `products.related`, `cart.page`, `checkout.page`, `order.confirmation` sont écrits avec eux. `sitec catalog <dossier>` liste les mots visibles avec leur origine, `sitec explain "<mot>" <dossier>` affiche la définition elle-même (forme ou fragment, apparence, feuille) et la ligne où elle se trouve.
 
 Une erreur dans la définition d'un mot est rapportée une fois, à sa ligne dans `vocabulaire.yaml` (`E_WORD`) : nom d'une primitive, description manquante, donnée obligatoire après une facultative, donnée inconnue dans la forme, variable inconnue ou `<script>` dans un fragment, sélecteur hors du mot dans la feuille. Les composants qui emploient ce mot ne la répètent pas. Une erreur d'emploi (mot mal écrit, donnée en trop, éléments sous un mot qui n'en contient pas) est rapportée à la ligne du manifeste (`E_COMPONENT`), avec le mot le plus proche ou l'écriture attendue.
 
-Ce que le vocabulaire ne fait pas : un mot n'a pas de fonctionnement (pas de formulaire, pas d'effet serveur) et ne déclare pas de comportement navigateur nouveau ; il peut poser les attributs d'un comportement existant (`data-sl-map`, `data-sl-copy`…).
+Ce que le vocabulaire ne fait pas : un mot n'a pas de fonctionnement à lui (il ne lit rien à la visite et ne déclare pas de formulaire : c'est le composant qui lit, et qui lui passe ce qu'il a lu) et ne déclare pas de comportement navigateur nouveau ; il peut poser les attributs d'un comportement existant (`data-sl-map`, `data-sl-copy`…) et, dans un fragment, le formulaire d'une action de la cible (`ajout au panier` poste vers `/_cart` avec `{{ csrf() }}`).
 
 ### Fonctionnement
 
-Ce que le composant fait d'une saisie, une fois envoyée au serveur. Un seul fonctionnement en version 1 : le formulaire. Exemple complet, `components/demande-devis/manifest.yaml` :
+Ce que le composant fait au-delà de l'affichage. Deux fonctionnements : `lit`, ce qu'il lit à chaque visite, et `formulaire`, ce qu'il fait d'une saisie.
+
+#### Lire à la visite
+
+Certaines choses ne se savent qu'au moment de la visite : le stock qui reste, le panier du visiteur, si la boutique est ouverte en ce moment. Le composant les demande à la cible par une **source**, une ligne par lecture, « nom: source, paramètre donnée » ; le nom se lit ensuite dans la forme comme une donnée. `components/a-saisir/manifest.yaml` :
+
+<!-- sitec: components/a-saisir/manifest.yaml -->
+```yaml
+description: Quelques produits de la boutique, avec leur stock du moment et l'ajout au panier.
+données:
+  title: texte, facultatif
+  category: texte, facultatif — ne montrer qu'une catégorie
+  limit: nombre entier, facultatif, de 1 à 6, par défaut 3
+fonctionnement:
+  lit:
+    produits: produits de la boutique, catégorie category, limite limit
+forme:
+  section, seulement si produits:
+    - en-tête: title
+    - grille de produits, 3 colonnes:
+        - carte:
+            - titre: name
+            - texte: price_text
+            - texte discret: stock_text
+            - si in_stock:
+                - ajout au panier: id, category
+            - sinon:
+                - texte discret: « Épuisé »
+```
+
+<!-- sitec: fragment sections -->
+```yaml
+- a-saisir: { title: À saisir cette semaine, limit: 3 }
+```
+
+| Source | Paramètres | Ce qu'elle rend |
+|---|---|---|
+| `produits de la boutique` | `catégorie`, `vedettes`, `tri`, `limite` | la liste des produits de `data/products.yaml`, avec le stock restant |
+| `produit de la page` | aucun | le produit d'une page `source: products` |
+| `produits voisins` | `limite` | les autres produits de la catégorie du produit de la page |
+| `panier du visiteur` | aucun | les lignes du panier, ses totaux, les liens vers le panier et la commande |
+| `saisie de la commande` | `précisions` | les champs du formulaire de commande, la saisie conservée, les erreurs, le mode de paiement |
+| `commande de la page` | aucun | la commande d'une page `source: orders` : lignes, totaux, statut, où en est le paiement |
+| `horaires du moment` | `jours`, `fuseau` | ouvert ou fermé en ce moment, prochaine ouverture, plages de chaque jour |
+| `consultations récentes` | `limite`, `types` | ce que le visiteur a consulté, s'il a accepté la personnalisation |
+
+`sitec explain "<source>"` donne ses champs un par un (`name`, `price_text`, `in_stock`, `stock_text`…) ; `sitec catalog` liste les sources. Une valeur de paramètre est une donnée du composant (`limit`, `filter.category`), un nombre, `oui`, `non` ou « un texte ». La forme connaît le type de chaque champ lu : un champ mal écrit est une erreur à la ligne du manifeste, avec le champ le plus proche. Une source mal écrite ou un paramètre inconnu sont signalés à la ligne de la lecture, une seule fois.
+
+Une source est un **service de la cible** : la boutique, les horaires, la mémoire du visiteur. Le langage dit ce qu'on lui demande et connaît la forme de ce qu'elle rend ; il ne décrit pas comment elle le calcule (`docs/CIBLES.md`). Les **actions** suivent la même frontière : un composant ne modifie pas le panier, il affiche le formulaire d'une action que la cible exécute, par un mot natif (`ajout au panier`, `tableau du panier`, `formulaire de commande`). Tous les composants natifs à état sont écrits ainsi, et un composant de site ou de paquet dispose des mêmes sources et des mêmes mots. `sitec component show` montre l'appel produit pour chaque lecture.
+
+Deux conséquences. Une page qui contient un composant qui lit n'est pas servie depuis le cache statique : ce qu'il lit change d'une visite à l'autre. Et un cas de test fournit lui-même ce qui serait lu, sous la clé `à la visite`, vérifié contre ce que la source annonce : le rendu ne dépend ni du stock ni de l'heure. `components/a-saisir/fixtures/un-produit.yaml` :
+
+<!-- sitec: components/a-saisir/fixtures/un-produit.yaml -->
+```yaml
+title: À saisir
+à la visite:
+  produits:
+    - { id: savon-miel, name: Savon miel et avoine, price: 6.9, price_text: "6,90 €", stock: 2, stock_text: Plus que 2 en stock, in_stock: true, max_qty: 2 }
+```
+
+Ce que `lit` ne fait pas : créer un état nouveau sur le serveur. Les sources sont celles que la cible fournit ; une réservation de créneaux, une liste d'attente ou un compteur de places n'en font pas partie, et rien dans le langage ne permet de les définir. La seule écriture qu'un composant déclare lui-même reste le formulaire, ci-dessous.
+
+#### Recueillir une saisie
+
+Ce que le composant fait d'une saisie, une fois envoyée au serveur. Exemple complet, `components/demande-devis/manifest.yaml` :
 
 <!-- sitec: components/demande-devis/manifest.yaml -->
 ```yaml
@@ -463,18 +527,20 @@ Mesure (`scripts/measure-format.mjs`) : sur sept composants natifs et trois comp
 
 Les six natifs portés en v0.10.0 avec le vocabulaire (`hero`, `gallery`, `richtext`, `pricelist`, `map`, `collection.list`) gardent leurs props (`scripts/compare-props.mjs v0.9.0 …`) et leurs 36 pages, à cinq changements de balisage voulus près (classes de variante, attributs `data-sl-…`). Le gain d'écriture y est plus faible, et `scripts/measure-vocabulaire.mjs` le dit : 4 651 tokens avant, 3 790 après (19 % de moins), dont 1 800 pour le vocabulaire natif, compté en entier. Ce qui change est la nature du reste : 131 lignes de gabarit réparties dans six composants deviennent 32 lignes dans cinq mots, nommés, documentés et réutilisables par tout composant.
 
+Les neuf natifs à état portés en v0.11.0 avec les lectures à la visite (`hours`, `recent`, `contact.form` et la boutique) gardent leurs props (quatre valeurs par défaut ajoutées) et leurs pages. Le volume écrit ne baisse presque pas (`scripts/measure-vocabulaire.mjs état` : 10 385 tokens avant, 9 480 après, dix-huit mots compris), et la logique n'a pas disparu : 308 lignes de gabarit PHP sont devenues 153 lignes de gabarit neutre dans des mots, plus 133 lignes de fonctions de source dans la cible. Le gain est ailleurs : aucun composant ne contient plus de code de la cible, chaque champ lu est typé et vérifié avant la compilation, et un composant de site dispose des mêmes sources et des mêmes actions que le catalogue.
+
 ### Gabarit
 
 | Construction | Sens |
 |---|---|
-| `{{ expr }}` | sortie échappée ; HTML sûr seulement pour `link`, `img`, `icon`, `paragraphs`, `markup`, `field`, `lines` en tête d'expression |
+| `{{ expr }}` | sortie échappée ; HTML sûr seulement pour `link`, `img`, `icon`, `paragraphs`, `markup`, `field`, `lines`, `csrf`, `event` en tête d'expression |
 | `{% if e %} … {% elif e %} … {% else %} … {% endif %}` | condition |
 | `{% for x in e %} … {% endfor %}`, `{% for k, x in e %}` | boucle ; `loop.index`, `loop.index0`, `loop.first`, `loop.last`, `loop.count` |
 | `{% set x = e %}` | valeur locale |
 | `{% form %} … {% endform %}` | formulaire déclaré par `fonctionnement` (ou `effects.form`) : méthode, nom, jeton, pot de miel |
 | `{# … #}` | commentaire |
 
-Variables : `p` (props, vérifiées contre le manifeste), `site`, `page`, `item`, `product`, `order`, `form`, `loop`, `cart`, `shop`. Fonctions : `link(lien, classe)`, `img(chemin, alt, sizes, eager)`, `img_src(chemin, largeur)`, `asset(chemin)`, `url(cible)`, `icon(nom)`, `paragraphs(texte)`, `markup(texte)`, `lines(texte)` (retours à la ligne conservés), `money(n)`, `field(nom)`.
+Variables : `p` (props, vérifiées contre le manifeste), `site`, `page`, `item`, `product`, `order`, `form`, `loop`, `cart`, `shop`. Fonctions : `link(lien, classe)`, `img(chemin, alt, sizes, eager)`, `img_src(chemin, largeur)`, `asset(chemin)`, `url(cible)`, `icon(nom)`, `paragraphs(texte)`, `markup(texte)`, `lines(texte)` (retours à la ligne conservés), `money(n)`, `field(nom)`, `csrf()` (jeton d'un formulaire d'action de la cible), `event(nom, clé, valeur…)` (marque invisible d'un événement de mesure).
 
 La vérification refuse, avec le numéro de ligne : PHP ou tout code de cible, variable inconnue, prop absente du manifeste, clé inconnue d'un élément de liste typé, balise déséquilibrée, filtre ou fonction inconnus, `form` sans formulaire déclaré. Pour un composant au format langage, ces erreurs portent sur `manifest.yaml`, à la ligne de la forme (`E_COMPONENT`) ; pour le fragment d'un mot, sur `vocabulaire.yaml`, à la ligne du fragment (`E_WORD`) ; pour un gabarit écrit à la main, sur `template.html` (`E_TEMPLATE`). Le balisage ne contient pas de code navigateur : `<script>`, attributs `on…=`, liens `javascript:`, `<iframe>`, `<object>`, `<embed>`, `<link>`, `<meta>`, `<base>` sont refusés.
 
@@ -592,11 +658,11 @@ Avant toute génération : structure et types de chaque document, routes et ancr
 
 Le rendu des gabarits, le protocole des formulaires, le stockage, le cache statique, le déploiement : `docs/CIBLES.md`. Le langage n'y fait pas référence.
 
-Composants natifs écrits sans code de la cible, tous au format langage (aucun gabarit HTML ne reste dans le catalogue ; cinq mots natifs portent le balisage que les primitives n'écrivent pas) : `hero`, `richtext`, `gallery`, `pricelist`, `map`, `collection.list`, `features`, `stats`, `steps`, `cta`, `timeline`, `testimonials`, `faq`, `team`. Composants natifs écrits pour la cible, les **primitives à effets ou à état** : `contact.form` (formulaire de contact), `products.grid`, `product.hero`, `products.related`, `cart.page`, `checkout.page`, `order.confirmation` (boutique), `hours` (horaires calculés à l'heure de la visite), `recent` (mémoire du visiteur), `custom` (bloc libre). Leur contrat est décrit dans `CIBLES.md` ; c'est ce qu'une seconde cible devrait réécrire, le reste vient du gabarit. Un natif au format langage peut recevoir des données que le compilateur calcule (les éléments d'une collection, filtrés et triés) : il les déclare dans un bloc `calculé`, écrit comme `données`, et sa forme les emploie par leur nom. Ce bloc est réservé au catalogue natif.
+Composants natifs écrits sans code de la cible, tous au format langage (aucun gabarit HTML ni PHP ne reste dans le catalogue ; les mots natifs portent le balisage que les primitives n'écrivent pas, et ceux qui ont un état le lisent par une source) : `hero`, `richtext`, `gallery`, `pricelist`, `map`, `collection.list`, `features`, `stats`, `steps`, `cta`, `timeline`, `testimonials`, `faq`, `team`, `contact.form`, `products.grid`, `product.hero`, `products.related`, `cart.page`, `checkout.page`, `order.confirmation`, `hours`, `recent`. Composants natifs écrits pour la cible : `custom` (bloc libre, la porte de sortie). Leur contrat est décrit dans `CIBLES.md`. Ce qu'une seconde cible devrait réécrire n'est plus un jeu de gabarits : ce sont les sources et les actions (boutique, formulaires, horaires, mémoire du visiteur), le reste vient du gabarit. Un natif au format langage peut recevoir des données que le compilateur calcule (les éléments d'une collection, filtrés et triés) : il les déclare dans un bloc `calculé`, écrit comme `données`, et sa forme les emploie par leur nom. Ce bloc est réservé au catalogue natif.
 
 ## 9. Versions et migration
 
 `sitec migrate <dossier>` fait passer un site à la dernière version, étape par étape, en modifiant le texte des fichiers (commentaires et mise en forme conservés), puis vérifie que le site migré passe `check`. `--dry-run` montre les changements sans écrire. Chaque migration propose aussi des suggestions non appliquées : ce que la nouvelle version permet d'écrire mieux (coordonnées recopiées en dur, valeurs répétées à mettre en constantes). Un site sans `language` est lu comme version 1 avec l'avertissement `W_LANGUAGE`.
 
 - **0** : sites écrits avant la déclaration de version (compilateur ≤ 0.1.3). Migration vers 1 : ajout de `language: 1`, aucune construction ne change.
-- **1** (2026-11-08) : première version écrite. Expressions, constantes, collections, composants composés, composants de projet avec gabarit neutre et effet `form`, paquets de composants, tests de composants, feuille de style encadrée, comportements déclarés. Ajouts compatibles, sans changement de version : composants en français contrôlé (compilateur 0.7.0 et 0.8.0), objectifs et expériences dans `segments.yaml` (0.9.0), vocabulaire ouvert (`vocabulaire.yaml`, 0.10.0).
+- **1** (2026-11-08) : première version écrite. Expressions, constantes, collections, composants composés, composants de projet avec gabarit neutre et effet `form`, paquets de composants, tests de composants, feuille de style encadrée, comportements déclarés. Ajouts compatibles, sans changement de version : composants en français contrôlé (compilateur 0.7.0 et 0.8.0), objectifs et expériences dans `segments.yaml` (0.9.0), vocabulaire ouvert (`vocabulaire.yaml`, 0.10.0), lectures à la visite (`fonctionnement: lit:`, 0.11.0).

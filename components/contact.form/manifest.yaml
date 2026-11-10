@@ -15,7 +15,19 @@ props:
       description: "champs dans l'ordre. Chaque élément est soit un nom connu (name | email | phone | subject | message), soit un objet { name*, label*, type, required, options, placeholder } avec type parmi text | email | tel | number | date | select | textarea (select exige options). Défaut : [name, email, message]"
     required: { type: array, items: { type: string }, description: "noms des champs obligatoires (défaut : name, email, message s'ils sont présents). Un objet de champ peut aussi porter required: true" }
     success: { type: string, description: message affiché après envoi }
-    show_contact: { type: boolean, description: afficher adresse / téléphone du site à côté (défaut true) }
+    show_contact: { type: boolean, default: true, description: afficher adresse / téléphone du site à côté (défaut true) }
+# Ce que le composant lit à chaque visite : l'état du formulaire (saisie conservée, erreurs, envoi réussi). Les champs
+# viennent de la page ; la cible valide, enregistre le message et prévient par e-mail quand le formulaire revient.
+fonctionnement:
+  lit:
+    saisie: saisie du contact, champs fields
+forme:
+  section « contact », ancre « contact »:
+    - en-tête: title, intro
+    - contact en colonnes, show_contact:
+        - formulaire de contact: saisie, success
+        - si show_contact:
+            - coordonnées du site
 example: |
   - contact.form:
       title: Demande de devis

@@ -1,0 +1,2 @@
+.checkout-inner{display:grid;gap:40px;grid-template-columns:minmax(0,3fr) minmax(260px,2fr)}
+@media (max-width:760px){.checkout-inner{grid-template-columns:1fr}}

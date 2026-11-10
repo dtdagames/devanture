@@ -215,6 +215,80 @@ function sl_fn_field(mixed $form, mixed $name): string {
     if ($err) $h .= '<div class="field-error">' . e($err) . '</div>';
     return $h . '</div>';
 }
+
+/** Lecture à la visite (fonctionnement › lit d'un composant) : une source est un service de la cible ; null si ce site ne l'a pas. */
+function sl_source(array $p, string $key, string $id, array $a = []): mixed {
+    if (defined('SL_FIXTURES') && array_key_exists('_' . $key, $p)) return $p['_' . $key];
+    $f = 'sl_src_' . $id;
+    return function_exists($f) ? $f($a) : null;
+}
+function sl_hm(string $hm): string { return ltrim(substr($hm, 0, 2), '0') . ' h' . (substr($hm, 3, 2) === '00' ? '' : ' ' . substr($hm, 3, 2)); }
+/** Source « horaires du moment » : état à l'heure de la visite (ouvert, prochaine ouverture) et plages de chaque jour. */
+function sl_src_hours(array $a): array {
+    static $DAYS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+    $days = is_array($a['days'] ?? null) ? $a['days'] : [];
+    $byDay = [];
+    foreach ($days as $d) $byDay[$d['day']] = (!empty($d['closed']) || empty($d['slots'])) ? [] : $d['slots'];
+    try { $tz = new DateTimeZone(sl_str($a['timezone'] ?? '') ?: 'Europe/Paris'); } catch (Throwable $e) { $tz = new DateTimeZone('Europe/Paris'); }
+    $now = new DateTime('now', $tz);
+    $todayIdx = (int)$now->format('N') - 1; $today = $DAYS[$todayIdx];
+    $nowMin = (int)$now->format('G') * 60 + (int)$now->format('i');
+    $toMin = fn(string $hm) => (int)substr($hm, 0, 2) * 60 + (int)substr($hm, 3, 2);
+    $open = false; $closesAt = null;
+    foreach ($byDay[$today] ?? [] as $sl) {
+        if ($nowMin >= $toMin(substr($sl, 0, 5)) && $nowMin < $toMin(substr($sl, 6, 5))) { $open = true; $closesAt = substr($sl, 6, 5); break; }
+    }
+    if ($open) $text = 'Ouvert actuellement · ferme à ' . sl_hm($closesAt);
+    else {
+        $next = null;
+        for ($i = 0; $i < 8 && $next === null; $i++) {
+            $d = $DAYS[($todayIdx + $i) % 7];
+            foreach ($byDay[$d] ?? [] as $sl) {
+                $start = $toMin(substr($sl, 0, 5));
+                if ($i > 0 || $start > $nowMin) { $next = ($i === 0 ? 'aujourd\\'hui' : ($i === 1 ? 'demain' : $d)) . ' à ' . sl_hm(substr($sl, 0, 5)); break; }
+            }
+        }
+        $text = 'Fermé actuellement' . ($next ? ' · ouvre ' . $next : '');
+    }
+    $out = ['open' => $open, 'status_text' => $text, 'days' => []];
+    foreach ($days as $d) {
+        $slots = $byDay[$d['day']];
+        $out['days'][] = ['name' => ucfirst($d['day']), 'slots_text' => $slots ? implode(' et ', array_map(fn($sl) => sl_hm(substr($sl, 0, 5)) . ' – ' . sl_hm(substr($sl, 6, 5)), $slots)) : null, 'today' => $d['day'] === $today];
+    }
+    return $out;
+}
+/** Source « saisie du contact » : champs du formulaire de la page, saisie conservée, erreurs, envoi réussi. */
+function sl_src_contact(array $a): array {
+    global $formResult; $r = $formResult ?? ['status' => null]; $old = $r['data'] ?? []; $errs = $r['errors'] ?? [];
+    $fields = [];
+    foreach ((is_array($a['fields'] ?? null) ? $a['fields'] : []) as $f) {
+        if (!is_array($f) || !isset($f['name'])) continue;
+        $n = $f['name']; $val = $old[$n] ?? ''; $w = $f['when'] ?? null;
+        $shown = !$w || in_array((string)($old[$w['field']] ?? ''), array_map('strval', $w['values']), true);
+        $opts = []; foreach (($f['options'] ?? []) as $o) $opts[] = ['value' => $o, 'selected' => (string)$val === (string)$o];
+        $fields[] = ['name' => $n, 'label' => $f['label'], 'type' => $f['type'], 'long' => $f['type'] === 'textarea', 'choice' => $f['type'] === 'select', 'numeric' => $f['type'] === 'number',
+            'required' => !empty($f['required']), 'value' => (string)$val, 'error' => $errs[$n] ?? null, 'placeholder' => $f['placeholder'] ?? null, 'options' => $opts,
+            'when_field' => $w ? $w['field'] : null, 'when_values' => $w ? json_encode(array_map('strval', $w['values']), JSON_UNESCAPED_UNICODE) : null, 'hidden' => !$shown];
+    }
+    return ['sent' => ($r['status'] ?? null) === 'ok', 'error' => ($r['status'] ?? null) === 'error' ? (string)($r['message'] ?? '') : null, 'csrf' => (string)($r['csrf'] ?? ''), 'fields' => $fields];
+}
+/** Source « consultations récentes » : la mémoire du visiteur, résolue en titres et liens. */
+function sl_src_recent(array $a): array {
+    if (!function_exists('sl_recent')) return [];
+    $kinds = is_array($a['kinds'] ?? null) && $a['kinds'] ? $a['kinds'] : ['products', 'sections'];
+    $out = [];
+    foreach (sl_recent((int)sl_num($a['limit'] ?? 0) ?: 4, $kinds) as $it) {
+        $isP = $it['kind'] === 'product';
+        $out[] = ['title' => $it['title'], 'url' => $it['url'], 'is_product' => $isP, 'image' => $isP ? ($it['image'] ?? null) : null, 'meta' => $isP ? $it['price'] : $it['page']];
+    }
+    return $out;
+}
+/** Jeton des formulaires d'action (panier, commande) et marqueur d'un événement de mesure : HTML sûr, échappé ici. */
+function sl_fn_csrf(): string { return '<input type="hidden" name="_csrf" value="' . e(csrf_token()) . '">'; }
+function sl_fn_event(mixed $name, mixed ...$kv): string {
+    $d = []; for ($i = 0; $i + 1 < count($kv); $i += 2) $d[sl_str($kv[$i])] = $kv[$i + 1];
+    return '<span hidden data-sl-event="' . e(sl_str($name)) . '"' . ($d ? ' data-sl-data="' . e(json_encode($d)) . '"' : '') . '></span>';
+}
 `;
 
 export const FORMS_PHP = `<?php
@@ -810,6 +884,73 @@ function shop_stripe_session(array $order, string $returnUrl, array $site): ?arr
     if ($order['shipping'] > 0) { $fields["line_items[$i][quantity]"] = 1; $fields["line_items[$i][price_data][currency]"] = 'eur'; $fields["line_items[$i][price_data][unit_amount]"] = (int)round($order['shipping'] * 100); $fields["line_items[$i][price_data][product_data][name]"] = 'Livraison'; }
     $s = shop_http_post('https://api.stripe.com/v1/checkout/sessions', $fields, $key);
     return ($s && !empty($s['url']) && !empty($s['id'])) ? ['id' => $s['id'], 'url' => $s['url']] : null;
+}
+
+/** Sources de la boutique pour les composants (fonctionnement › lit) : un produit avec ce qui se calcule à la visite. */
+function sl_shop_item(array $pr): array {
+    $s = $pr['stock'] ?? null; $d = (string)($pr['description'] ?? '');
+    return $pr + [
+        'price_text' => shop_money((float)$pr['price']),
+        'summary' => $d === '' ? null : str_cut($d, 110) . (strlen($d) > 110 ? '…' : ''),
+        'in_stock' => shop_in_stock($pr),
+        'low_stock' => $s !== null && (int)$s > 0 && (int)$s <= 3,
+        'stock_text' => ($s === null || (int)$s <= 0) ? null : ((int)$s <= 3 ? 'Plus que ' . (int)$s . ' en stock' : (int)$s . ' en stock'),
+        'max_qty' => $s !== null ? (int)$s : 99,
+        'url' => shop_product_url((string)$pr['id']),
+    ];
+}
+function sl_src_products(array $a): array {
+    $list = shop_products();
+    if (sl_truthy($a['category'] ?? null)) { $c = sl_str($a['category']); $list = array_values(array_filter($list, fn($x) => ($x['category'] ?? null) === $c)); }
+    if (sl_truthy($a['featured'] ?? null)) $list = array_values(array_filter($list, fn($x) => !empty($x['featured'])));
+    $sort = $a['sort'] ?? null;
+    if ($sort === 'name') usort($list, fn($x, $y) => strcmp($x['name'], $y['name']));
+    elseif ($sort === 'price') usort($list, fn($x, $y) => $x['price'] <=> $y['price']);
+    elseif ($sort === 'price_desc') usort($list, fn($x, $y) => $y['price'] <=> $x['price']);
+    if (sl_truthy($a['limit'] ?? null)) $list = array_slice($list, 0, (int)sl_num($a['limit']));
+    return array_map('sl_shop_item', $list);
+}
+function sl_src_product(array $a): ?array { global $product; return $product ? sl_shop_item($product) : null; }
+function sl_src_related(array $a): array {
+    global $product; if (!$product) return [];
+    $list = array_values(array_filter(shop_products(), fn($x) => $x['id'] !== $product['id'] && ($x['category'] ?? null) === ($product['category'] ?? null)));
+    return array_map('sl_shop_item', array_slice($list, 0, (int)sl_num($a['limit'] ?? 0) ?: 3));
+}
+function sl_src_cart(array $a): array {
+    global $SHOP; $lines = shop_cart_lines(); $t = shop_totals($lines);
+    $out = [];
+    foreach ($lines as $l) $out[] = sl_shop_item($l) + ['total_text' => shop_money((float)$l['total']), 'low_text' => ($l['stock'] !== null && $l['stock'] <= 3) ? 'Plus que ' . (int)$l['stock'] . ' disponible' . ($l['stock'] > 1 ? 's' : '') : null];
+    return ['lines' => $out, 'empty' => !$lines, 'subtotal_text' => shop_money((float)$t['subtotal']),
+        'shipping_text' => $t['shipping'] > 0 ? shop_money((float)$t['shipping']) : 'Offerte',
+        'free_from_text' => ($t['free_from'] && $t['shipping'] > 0) ? shop_money((float)$t['free_from']) : null,
+        'total_text' => shop_money((float)$t['total']), 'cart_url' => $SHOP['cart_route'] ?? null,
+        'cart' => !empty($SHOP['cart_route']) ? ['label' => 'Voir le panier', 'to' => $SHOP['cart_route']] : null,
+        'checkout' => !empty($SHOP['checkout_route']) ? ['label' => 'Commander', 'to' => $SHOP['checkout_route']] : null];
+}
+/** Source « saisie de la commande » : les champs du formulaire, ce qui a été saisi, les erreurs, le paiement. */
+function sl_src_checkout(array $a): array {
+    global $SHOP, $checkoutResult; $r = $checkoutResult ?? ['status' => null]; $old = $r['data'] ?? []; $errs = $r['errors'] ?? [];
+    $stripe = ($SHOP['payment'] ?? 'manual') === 'stripe'; $t = shop_totals(shop_cart_lines());
+    $notes = sl_str($a['notes_label'] ?? '') ?: 'Précisions pour la livraison';
+    $fields = [];
+    foreach ([['name', 'Nom et prénom', 'text', true], ['email', 'E-mail', 'email', true], ['phone', 'Téléphone', 'tel', false], ['address', 'Adresse de livraison', 'textarea', true], ['notes', $notes, 'textarea', false]] as [$n, $label, $type, $req])
+        $fields[] = ['name' => $n, 'label' => $label, 'type' => $type, 'long' => $type === 'textarea', 'rows' => $n === 'address' ? 3 : 2, 'required' => $req, 'value' => (string)($old[$n] ?? ''), 'error' => $errs[$n] ?? null];
+    return ['error' => ($r['status'] ?? null) === 'error' ? (string)($r['message'] ?? '') : null, 'fields' => $fields,
+        'payment_text' => $stripe ? 'Paiement sécurisé par carte à l\\'étape suivante (Stripe).' : ($SHOP['manual_instructions'] ?? 'Paiement à la livraison ou par virement : les instructions vous sont envoyées avec la confirmation.'),
+        'submit_label' => $stripe ? 'Payer ' . shop_money((float)$t['total']) : 'Confirmer la commande'];
+}
+function sl_src_order(array $a): ?array {
+    global $order, $SHOP; $o = $order; if (!$o) return null;
+    if ($o['status'] === 'cancelled') $note = 'Cette commande a été annulée (paiement non finalisé). Les articles sont de nouveau disponibles.';
+    elseif ($o['status'] === 'paid') $note = 'Paiement confirmé' . (!empty($o['paid_at']) ? ' le ' . date('d/m/Y à H:i', strtotime($o['paid_at'])) : '') . '. Préparation en cours.';
+    elseif ($o['payment'] === 'manual') $note = $SHOP['manual_instructions'] ?? 'Paiement à la livraison ou par virement : nos coordonnées bancaires vous sont envoyées par e-mail.';
+    elseif ($o['status'] === 'pending') $note = 'Paiement en cours de confirmation par Stripe. Cette page se mettra à jour, et vous recevrez un e-mail dès validation.';
+    else $note = null;
+    return ['id' => $o['id'], 'date_text' => date('d/m/Y à H:i', strtotime($o['at'])), 'status' => $o['status'], 'status_text' => shop_status_label($o['status']),
+        'lines' => array_map(fn($l) => ['qty' => (int)$l['qty'], 'name' => $l['name'], 'total_text' => shop_money((float)($l['price'] * $l['qty']))], $o['lines']),
+        'subtotal_text' => shop_money((float)$o['subtotal']), 'shipping_text' => $o['shipping'] > 0 ? shop_money((float)$o['shipping']) : 'offerte',
+        'total' => $o['total'], 'total_text' => shop_money((float)$o['total']), 'note' => $note,
+        'address' => $o['customer']['address'], 'email' => $o['customer']['email']];
 }
 `;
 

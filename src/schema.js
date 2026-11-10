@@ -13,6 +13,7 @@ import { BEHAVIOR_NAMES } from './lang/behaviors.js';
 import { TYPE_WORDS } from './lang/donnees.js';
 import { PRIMITIVE_HELP } from './lang/forme.js';
 import { wordUsage, WORD_KEYS } from './lang/vocabulaire.js';
+import { SOURCES, PUBLIC_SOURCE_NAMES, sourceUsage } from './lang/sources.js';
 import { INTENT_NAMES } from './lang/apparence.js';
 import { FORM_SETTINGS, FIELD_TYPE_WORDS, FIELD_MODIFIERS } from './lang/fonctionnement.js';
 
@@ -104,7 +105,7 @@ export function buildSchemas(project, catalog) {
     'données': { type: 'object', additionalProperties: fieldSpec, markdownDescription: 'Ce que le composant accepte, une ligne par champ :\n\n```yaml\ntitle: texte, facultatif — titre de la section\nitems (liste, au moins 1):\n  text: texte\n  rating: nombre entier, de 1 à 5, facultatif\n```' },
     forme: { anyOf: [{ type: 'array' }, { type: 'object' }], markdownDescription: `La structure, en primitives : ${Object.keys(PRIMITIVE_HELP).join(', ')}.\n\n\`\`\`yaml\n- en-tête: title, intro\n- grille de items, 3 colonnes:\n    - carte:\n        - titre: title\n        - texte discret: text\n\`\`\`${wordList.length ? `\n\nMots du vocabulaire, employés comme des primitives :\n\n${wordList.map(w => `- \`${wordUsage(w)}\` : ${w.description}`).join('\n')}` : ''}` },
     apparence: { type: 'object', markdownDescription: `L'allure, par partie (primitive ou nom « ») : ${INTENT_NAMES.join(', ')} ; « sur téléphone: » pour les petits écrans.` },
-    fonctionnement: { type: 'object', additionalProperties: false, properties: { formulaire: { type: 'object', description: `réglages : ${FORM_SETTINGS.join(', ')}`, properties: {
+    fonctionnement: { type: 'object', additionalProperties: false, properties: { lit: { type: 'object', additionalProperties: { type: 'string' }, markdownDescription: `Ce que le composant lit à chaque visite, une ligne par lecture : « nom: source, paramètre donnée ». Le nom se lit ensuite dans la forme comme une donnée.\n\n${PUBLIC_SOURCE_NAMES.map(n => `- \`${sourceUsage(n)}\` : ${SOURCES[n].description}`).join('\n')}` }, formulaire: { type: 'object', description: `réglages : ${FORM_SETTINGS.join(', ')}`, properties: {
       'enregistre dans': { type: 'string', pattern: '^[a-z][a-z0-9_]*$', description: 'registre où ranger les envois (onglet « Formulaires » du back-office), ex. devis' },
       'prévient par e-mail': { anyOf: [{ type: 'boolean' }, { type: 'string' }], description: 'oui, non, ou une adresse e-mail' },
       destinataire: { type: 'string', description: 'adresse e-mail qui reçoit les envois (par défaut : celle du site)' },

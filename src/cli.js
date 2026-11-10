@@ -11,6 +11,7 @@ import { BEHAVIORS } from './lang/behaviors.js';
 import { TYPE_WORDS } from './lang/donnees.js';
 import { PRIMITIVE_HELP, nearest } from './lang/forme.js';
 import { wordUsage, WORD_KEYS } from './lang/vocabulaire.js';
+import { SOURCES, SOURCE_NAMES, PUBLIC_SOURCE_NAMES, sourceUsage, sourceFields } from './lang/sources.js';
 import YAML from 'yaml';
 import { INTENT_NAMES } from './lang/apparence.js';
 import { FIELD_TYPE_WORDS, FIELD_MODIFIERS, FORM_SETTINGS } from './lang/fonctionnement.js';
@@ -77,6 +78,9 @@ export async function run(argv) {
       const words = proj?.project.words || catalog.words;
       const word = words.get(name.trim().toLowerCase().replace(/\s+/g, ' '));
       if (word && !(proj?.catalog || catalog).has(name)) { printWord(word); return 0; }
+      // Une source (ce qu'un composant lit à la visite) s'explique de la même façon : « sitec explain "panier du visiteur" ».
+      const srcName = SOURCE_NAMES.find(n => n === name.trim().toLowerCase().replace(/\s+/g, ' '));
+      if (srcName) { printSource(srcName); return 0; }
       return explain(proj?.catalog || catalog, name, words);
     }
 
@@ -518,6 +522,9 @@ Composants de projet, format langage (défaut) : un seul manifest.yaml avec donn
     ou par un fragment de gabarit, avec « feuille » pour son CSS. Emploi : « - mot: a, b » ou « - mot, a, b: » puis des éléments ; un mot de paquet : « - paquet.mot: a ».
     Liste des mots : sitec catalog <dossier> ; fiche : sitec explain "<mot>" <dossier>.
   apparence : partie: ${INTENT_NAMES.join(', ')} ; « sur téléphone: ».
+  fonctionnement : « lit: » puis une ligne par lecture à la visite, « nom: source, paramètre donnée » ; le nom se lit dans la forme comme une donnée.
+    sources (services de la cible) : ${PUBLIC_SOURCE_NAMES.join(', ')} ; fiche : sitec explain "<source>".
+    « section, seulement si nom: » n'affiche la section que si la lecture rend quelque chose ; cas de test : « à la visite: { nom: … } ».
   fonctionnement : « formulaire: » puis ${FORM_SETTINGS.join(', ')} ; un champ par ligne « nom: type, précisions — Libellé (ex. exemple) ».
     types de champ : ${FIELD_TYPE_WORDS.join(', ')} ; précisions : ${FIELD_MODIFIERS.join(' ; ')} ; name, email, phone, subject, message sont connus (rien à écrire après).
     dans la forme : « - formulaire, bouton Envoyer » (tous les champs), ou « - formulaire: » puis « - champ: nom » pour les placer.
@@ -544,6 +551,8 @@ function printCatalog(catalog, proj = null) {
     console.log('\nMots du vocabulaire (forme des composants, en plus des primitives). Détail : sitec explain "<mot>"' + (proj ? ' <dossier>' : '') + '\n');
     for (const w of words.values()) console.log(`${wordUsage(w).padEnd(34)} ${w.description}   [${wordOrigin(w)}]`);
   }
+  console.log('\nSources (ce qu\'un composant lit à la visite : « fonctionnement: lit: nom: source, paramètre donnée »). Détail : sitec explain "<source>"\n');
+  for (const n of PUBLIC_SOURCE_NAMES) console.log(`${n.padEnd(34)} ${SOURCES[n].description}   [${SOURCES[n].service}]`);
   console.log(`\nFichiers attendus : site.yaml, pages/*.page.yaml, assets/ (images). Voir CLAUDE.md.\nConfiguration du site (nav, thème, tokens, pied, coordonnées) : sitec explain site`);
 }
 
@@ -668,11 +677,24 @@ function printWord(w) {
   if (w.feuille) console.log(`\nSa feuille (ajoutée une fois à la feuille du site quand le mot sert) :\n${ind(w.feuille)}`);
 }
 
+function printSource(name) {
+  const d = SOURCES[name], g = sourceFields(name);
+  console.log(`# ${name} (source : service « ${d.service} » de la cible)\n${d.description.charAt(0).toUpperCase() + d.description.slice(1)}.${d.only ? ` Réservée au composant ${d.only}.` : ''}\n`);
+  console.log(`Dans le manifeste d'un composant :\n  fonctionnement:\n    lit:\n      nom: ${sourceUsage(name)}\n`);
+  const params = Object.keys(d.params);
+  console.log(params.length ? `Paramètres (facultatifs ; valeur : une donnée du composant, un nombre, oui, non ou « un texte ») : ${params.join(', ')}.` : 'Aucun paramètre.');
+  console.log(`\nElle rend ${g.list ? 'une liste ; chaque élément' : 'un groupe'} :`);
+  const show = (fs0, ind) => { for (const x of fs0) { console.log(`${ind}${x.name}: ${x.spec}`); if (x.children) show(x.children, ind + '  '); } };
+  show(g.fields, '  ');
+  console.log(`\nDans la forme, « nom » se lit comme une donnée${g.list ? ' (« - grille de nom: » puis les champs de l\'élément)' : ' (« - texte: nom.champ », « - si nom.champ: »)'} ; « section, seulement si nom: » n'affiche la section que si la lecture rend quelque chose.`);
+  console.log('Un cas de test fournit la valeur lue : clé « à la visite: { nom: … } » dans fixtures/<cas>.yaml.');
+}
+
 function explain(catalog, name, words = null) {
   if (name === 'site' || name === 'theme' || name === 'site.yaml') return explainSite();
   const c = catalog.get(name);
   if (!c) {
-    const hint = catalog.suggest(name) || (words?.size ? nearest(name, [...words.keys()]) : null);
+    const hint = catalog.suggest(name) || (words?.size ? nearest(name, [...words.keys()]) : null) || nearest(name, SOURCE_NAMES);
     console.error(`Composant inconnu : ${name}.${hint ? ` Vouliez-vous dire ${hint} ?` : ''} (sitec catalog pour la liste)`);
     return 1;
   }
