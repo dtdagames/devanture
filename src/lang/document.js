@@ -27,7 +27,7 @@ const cap = s => { const t = String(s).trim(); return t.charAt(0).toUpperCase() 
 const LIAISON = new Set(['le', 'la', 'les', 'l', 'un', 'une', 'des', 'du', 'de', 'd', 'a', 'au', 'aux', 'en', 'et', 'ou', 'par', 'pour', 'dans', 'sur', 'avec', 'ce', 'cet', 'cette', 'ces', 'son', 'sa', 'ses', 'leur', 'leurs', 'il', 'elle', 'ils', 'elles', 'on', 'y', 'est', 'sont', 'sommes', 'etre', 'ete', 'qui', 'que', 'qu', 'se', 's', 'c', 'lui', 'alors', 'donc', 'puis', 'aussi', 'ici', 'tout', 'tous', 'toute', 'toutes', 'chaque', 'chacun', 'chacune', 'meme', 'memes', 'peu', 'bien', 'tres', 'deja', 'ainsi', 'cela', 'ca', 'dont', 'ou', 'comme', 'choisi', 'choisie', 'concerne', 'concernee', 'nouveau', 'nouvelle', 'nouvelles', 'particulier', 'particuliere', 'propre', 'simple', 'simplement', 'bien', 'desormais', 'ensuite', 'enfin', 'avant', 'autre', 'autres', 'quelqu', 'tandis', 'donc', 'indique', 'indiquee', 'saisi', 'saisie', 'renseigne', 'renseignee', 'declare', 'declaree', 'arrive', 'arrivent'].map(key));
 /** Négations : jamais ignorées. Une tournure doit les prendre en charge, sinon la phrase est refusée. */
 const NEGATIONS = ['ne', 'n', 'pas', 'sans', 'aucun', 'aucune', 'jamais', 'sauf', 'ni', 'personne', 'excepte', 'hormis'];
-const NOMBRES = { deux: 2, trois: 3, quatre: 4, cinq: 5, six: 6, sept: 7, huit: 8, neuf: 9, dix: 10, onze: 11, douze: 12, quinze: 15, vingt: 20, trente: 30, cinquante: 50, cent: 100 };
+export const NOMBRES = { deux: 2, trois: 3, quatre: 4, cinq: 5, six: 6, sept: 7, huit: 8, neuf: 9, dix: 10, onze: 11, douze: 12, quinze: 15, vingt: 20, trente: 30, cinquante: 50, cent: 100 };
 
 /**
  * Lexique : notion → mots ou expressions qui la portent. Une expression de plusieurs mots est reconnue avant ses mots.
@@ -342,7 +342,7 @@ export const TOURNURES = [
   { id: 'obligation', label: 'champs obligatoires et facultatifs', exemple: 'Le nom et l\'e-mail sont obligatoires, la ville est facultative.',
     need: ['CHAMP'], anyOf: [['OBLIGATOIRE'], ['FACULTATIF']], may: ['OBLIGATOIRE', 'FACULTATIF', 'PEUT'],
     // Chaque champ prend la mention qui le suit : « A et B sont obligatoires, C est facultatif ».
-    read: toks => { const u = toks.find(t => t.many); if (u) return { error: `« ${u.text} » désigne ${u.many.length} champs du formulaire (${u.many.join(', ')}) : dites le libellé entier du champ voulu` }; const out = { required: [], optional: [] }; let wait = []; for (const t of toks) { const c = [...t.classes].find(x => x.startsWith('CHAMP:')); if (c) wait.push(c.slice(6)); else if (t.classes.has('OBLIGATOIRE') && !t.classes.has('FACULTATIF')) { out.required.push(...wait); wait = []; } else if (t.classes.has('FACULTATIF')) { out.optional.push(...wait); wait = []; } } return wait.length ? { error: `obligatoire ou facultatif : ${wait.join(', ')} ?` } : out; },
+    read: toks => { const u = toks.find(t => t.many); if (u) return { error: `« ${u.text} » désigne ${u.many.length} champs du formulaire (${u.many.join(', ')}) : dites le libellé entier du champ voulu` }; const out = { required: [], optional: [] }; let wait = []; for (const t of toks) { const c = [...t.classes].find(x => x.startsWith('CHAMP:')); if (c) wait.push(c.slice(6)); else if (t.classes.has('OBLIGATOIRE') && !t.classes.has('FACULTATIF')) { out.required.push(...wait); wait = []; } else if (t.classes.has('FACULTATIF')) { out.optional.push(...wait); wait = []; } } out.required = [...new Set(out.required)]; out.optional = [...new Set(out.optional)]; const both = out.required.filter(n => out.optional.includes(n)); return wait.length ? { error: `obligatoire ou facultatif : ${[...new Set(wait)].join(', ')} ?` } : both.length ? { error: `obligatoire et facultatif à la fois : ${both.join(', ')}` } : out; },
     say: r => `formulaire : obligatoires = ${r.required.join(', ') || 'aucun'} ; facultatifs = ${r.optional.join(', ') || 'aucun'}` },
   { id: 'message_doublon', label: 'message au second envoi', exemple: 'Si la même adresse s\'inscrit de nouveau, le visiteur lit : « Vous êtes déjà inscrit. »',
     need: ['DEJA', 'CITE'], may: ['QUAND', 'CHAMP', 'SINSCRIT', 'INSCRIPTION', ...MSG],
@@ -516,7 +516,9 @@ function fieldSpec(f) {
  */
 export function readDocument(text, { name }) {
   const doc = splitDocument(text), errors = [], trace = [];
-  const fail = (line, message, hint = null) => errors.push({ line, message, ...(hint ? { hint } : {}) });
+  // whole : l'erreur vient de la cohérence entre phrases (jugée quand tout est lu), pas d'une phrase refusée.
+  let whole = false;
+  const fail = (line, message, hint = null) => errors.push({ line, message, ...(hint ? { hint } : {}), ...(whole ? { whole: true } : {}) });
   if (!doc.title) fail(1, 'un document commence par son titre : « # Atelier »');
   if (!doc.description) fail(doc.titleLine || 1, 'après le titre, un paragraphe dit ce que montre le composant (c\'est sa description)');
 
@@ -596,6 +598,7 @@ export function readDocument(text, { name }) {
   if (got.allure && !(got.places_affichees && got.places_affichees.by)) fail(got.allure.line, 'ces lignes : le document n\'affiche pas de lignes de places (« Les places restantes de chaque séance sont affichées, une ligne par séance. »)');
   if (got.allure) for (const i of got.allure.intents) if (!INTENT_NAMES.includes(i)) fail(got.allure.line, `présentation inconnue : ${i}`);
   };
+  whole = true;
   if (complete) cohere();
 
   // --- la lecture : un manifeste au format langage, dans un ordre fixe

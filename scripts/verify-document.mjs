@@ -4,7 +4,9 @@
 //   - tolérance : des reformulations donnent la même lecture ;
 //   - garde-fou 1 : un mot sans rôle fait refuser la phrase ; garde-fou 2 : deux lectures possibles, c'est une erreur ;
 //     garde-fou 3 : la lecture est figée, et tout changement arrête la compilation jusqu'à ce qu'on l'accepte ;
-//   - jamais deviné : un nombre, une négation, un destinataire.
+//   - jamais deviné : un nombre, une négation, un destinataire ;
+//   - réécriture : un modèle propose, deux contrôles sans modèle puis le lecteur jugent, rien n'est accepté sans relecture
+//     (réponses fixes : le banc n'appelle aucun modèle).
 // Usage : node scripts/verify-document.mjs
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs/promises';
@@ -13,7 +15,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import YAML from 'yaml';
 import { encode } from 'gpt-tokenizer';
-import { readDocument } from '../src/lang/document.js';
+import { readDocument, TOURNURES } from '../src/lang/document.js';
+import { refusedSentences, rewriteRun, exportPrompt, invented, buildSystemPrompt, FORMES_VOISINES, CHAMPS_EXEMPLE } from '../src/lang/rewrite.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SITEC = path.join(ROOT, 'bin', 'sitec.js');
@@ -169,6 +172,68 @@ try {
   ok('cohérence : une règle de formulaire sans la phrase des champs', q.errors.some(x => /ne dit pas quels champs le visiteur remplit/.test(x.message)), JSON.stringify(q.errors).slice(0, 300));
   q = read('', BASE.replace('Les inscriptions sont rangées dans le registre « ateliers ».', ''));
   ok('cohérence : des champs sans registre', refused(q, /ne dit pas où ranger les envois/), q.err);
+
+  // --- réécriture des phrases refusées : le modèle propose, le lecteur juge
+  const LIBRE = BASE + [
+    'Le musée n\'est pas prévenu par e-mail lorsqu\'une réservation arrive.',
+    'Chaque séance offre 8 places, et elles se comptent selon le nombre de personnes indiqué dans la réservation, pas selon le nombre de réservations.',
+    'Lorsque la séance est pleine, impossible de réserver : le message « Cette séance est complète » apparaît.',
+    'Une même adresse e-mail ne peut s\'inscrire qu\'une seule fois : une seconde tentative affiche le message « Vous êtes déjà inscrit. »',
+    'Le tarif est de 35 euros par personne.',
+  ].join('\n') + '\n';
+  const LD = [{ name: 'atelier', text: LIBRE }], li = refusedSentences(LIBRE, 'atelier');
+  const BON = { 7: ['Nous ne sommes pas prévenus par e-mail.', '« Le musée » désigne le site.'], 8: ['Il y a 8 places par séance, comptées par personnes.'], 9: ['Quand une séance est complète, l\'inscription est refusée et le visiteur lit : « Cette séance est complète ».'], 10: ['Une même adresse e-mail ne s\'inscrit qu\'une fois. Si la même adresse s\'inscrit de nouveau, le visiteur lit : « Vous êtes déjà inscrit. »'] };
+  const reply = over => JSON.stringify(li.map(it => { const v = it.line in over ? over[it.line] : BON[it.line]; return v ? { id: it.id, reecriture: v[0], hypothese: v[1] || null, raison: null } : { id: it.id, reecriture: null, hypothese: null, raison: 'Un tarif n\'a pas de tournure.' }; }));
+  const at = (r, line) => r.results.find(x => x.line === line);
+  ok('réécriture : les phrases refusées du document, et elles seules, avec la ligne et une empreinte dans l\'identifiant', li.length === 5 && li.map(x => x.line).join() === '7,8,9,10,11' && li.every(x => new RegExp('^atelier:' + x.line + ':[0-9a-f]{4}$').test(x.id)) && new Set(li.map(x => x.id)).size === 5, JSON.stringify(li.map(x => x.id)));
+  const pr = exportPrompt(LD);
+  ok('réécriture : la consigne cite chaque tournure du lecteur par sa phrase d\'exemple, et les phrases à récrire', TOURNURES.filter(t => t.id !== 'message_seul').every(t => pr.system.includes(t.exemple)) && pr.system.includes(CHAMPS_EXEMPLE) && li.every(x => pr.user.includes('[' + x.id + '] ' + x.phrase)) && pr.sentences.length === 5 && !pr.user.includes('] Les inscriptions sont rangées'), pr.user.slice(-400));
+  const fv = FORMES_VOISINES.map(([l, e]) => [l, read((/complète/.test(e) ? 'Il y a 8 places par séance.\n' : '') + e)]);
+  ok('réécriture : chaque forme voisine donnée dans la consigne est lue par le lecteur', fv.every(([, r]) => !r.errors.length) && FORMES_VOISINES.every(([, e]) => buildSystemPrompt().includes(e)), fv.filter(([, r]) => r.errors.length).map(([l, r]) => l + ' : ' + r.err).join(' | '));
+  let w = await rewriteRun({ docs: LD, answerText: reply({}) });
+  const lw = w.texts.atelier.split('\n'), l0w = LIBRE.split('\n');
+  ok('réécriture : une bonne réécriture est relue par le lecteur, et sa lecture est dite', [7, 8, 9, 10].every(n => at(w, n).status === 'récrite') && /prévient par e-mail = non/.test(at(w, 7).said.join()) && /places = 8 par seance, comptées par personnes/.test(at(w, 8).said.join()) && /si complet = « Cette séance est complète »/.test(at(w, 9).said.join()) && at(w, 7).hypothese === '« Le musée » désigne le site.', JSON.stringify(w.results).slice(0, 500));
+  ok('réécriture : une phrase récrite en deux phrases, les deux lectures sont dites', at(w, 10).said.length === 2 && /une fois par = email/.test(at(w, 10).said[0]) && /si déjà inscrit = « Vous êtes déjà inscrit\. »/.test(at(w, 10).said[1]), JSON.stringify(at(w, 10)));
+  ok('réécriture : ce que le modèle dit ne pas pouvoir dire reste tel quel, avec sa raison', at(w, 11).status === 'laissée' && /tarif/.test(at(w, 11).raison) && lw[10] === l0w[10], JSON.stringify(at(w, 11)));
+  ok('réécriture : seules les lignes récrites changent dans le document', lw.length === l0w.length && lw.every((l, i) => (l === l0w[i]) === (i < 6 || i > 9)) && lw[6] === BON[7][0], lw.slice(5, 11).join(' ⏎ '));
+  q = readDocument(w.texts.atelier, { name: 'atelier' });
+  ok('réécriture : après réécriture, il ne reste que la phrase laissée', q.errors.length === 1 && q.errors[0].line === 11 && /35/.test(q.errors[0].message), JSON.stringify(q.errors).slice(0, 300));
+  w = await rewriteRun({ docs: LD, answerText: reply({ 8: ['Il y a 10 places par séance, comptées par personnes.'] }) });
+  ok('réécriture : un nombre que la phrase d\'origine ne donne pas → réécriture refusée, phrase inchangée', at(w, 8).status === 'refusée' && /le nombre 10 n'est pas dans la phrase d'origine/.test(at(w, 8).why) && w.texts.atelier.split('\n')[7] === l0w[7], JSON.stringify(at(w, 8)));
+  w = await rewriteRun({ docs: LD, answerText: reply({ 9: ['Quand une séance est complète, l\'inscription est refusée et le visiteur lit : « Cette séance affiche complet ».'], 10: ['Une même adresse e-mail ne s\'inscrit qu\'une fois.'] }) });
+  ok('réécriture : un texte affiché changé, ou perdu → réécriture refusée', at(w, 9).status === 'refusée' && /n'est pas dans la phrase d'origine/.test(at(w, 9).why) && at(w, 10).status === 'refusée' && /« Vous êtes déjà inscrit\. » de la phrase d'origine a disparu/.test(at(w, 10).why), JSON.stringify([at(w, 9), at(w, 10)]).slice(0, 500));
+  ok('réécriture : un nom de registre se normalise, un message ne change pas d\'une lettre', invented('Chaque réservation est enregistrée dans le registre « visites guidees »', 'Les inscriptions sont rangées dans le registre « visites_guidees ».') === null && /a changé/.test(invented('Le bouton affiche « Réserve »', 'Le bouton s\'appelle « reserve ».') || '') && /entre parenthèses, « soir »/.test(invented('Le formulaire demande la séance (Matin, Midi) et le nom', 'Le visiteur choisit sa séance (Matin ou Soir) et indique son nom.') || ''), String(invented('Le bouton affiche « Réserve »', 'Le bouton s\'appelle « reserve ».')));
+  w = await rewriteRun({ docs: LD, answerText: reply({ 7: ['Le musée n\'est pas prévenu par e-mail.'] }) });
+  const rp = exportPrompt(LD.map(d => ({ name: d.name, text: w.texts[d.name] })), w.results);
+  ok('réécriture : une réécriture que le lecteur refuse reste refusée, avec son message', at(w, 7).status === 'refusée' && /qui est prévenu \?|non compris|musée/.test(at(w, 7).why) && w.texts.atelier.split('\n')[6] === l0w[6], JSON.stringify(at(w, 7)));
+  ok('réécriture : le tour de réparation ne reprend que la réécriture refusée, avec le refus du lecteur', rp.sentences.length === 1 && rp.user.includes('réécriture refusée : Le musée n\'est pas prévenu par e-mail.') && rp.user.includes('refus du lecteur : ') && !rp.user.includes('] Le tarif'), rp.user.slice(-500));
+  let asked = 0;
+  w = await rewriteRun({ docs: LD, rounds: 2, ask: async ({ user, round }) => { asked++; return round === 1 ? reply({ 7: ['Le musée n\'est pas prévenu par e-mail.'] }) : (/refus du lecteur/.test(user) ? JSON.stringify([{ id: li[0].id, reecriture: BON[7][0] }]) : '[]'); } });
+  ok('réécriture : au second tour, le modèle reçoit le refus du lecteur et la phrase est lue', asked === 2 && w.rounds === 2 && at(w, 7).status === 'récrite' && [8, 9, 10].every(n => at(w, n).status === 'récrite'), JSON.stringify({ asked, r: at(w, 7) }));
+  w = await rewriteRun({ docs: LD, answerText: JSON.stringify([{ id: 'atelier:7:0000', reecriture: BON[7][0] }, { id: 'atelier:8:' + li[0].id.split(':')[2], reecriture: BON[7][0] }]) });
+  ok('réécriture : une réponse faite pour un autre état du document ne s\'applique à aucune phrase', w.unknown.length === 2 && w.results.every(x => x.status === 'sans réponse') && w.texts.atelier === LIBRE, JSON.stringify(w.unknown));
+  // Limite connue : une réécriture lisible qui dit autre chose passe les deux contrôles et le lecteur. Elle n'est pas acceptée pour autant.
+  w = await rewriteRun({ docs: LD, answerText: JSON.stringify([{ id: li[4].id, reecriture: 'Il y a 35 places.' }]) });
+  ok('réécriture, limite dite : un sens changé qui se lit passe les contrôles (le tarif devient des places)…', at(w, 11).status === 'récrite' && /places = 35/.test(at(w, 11).said.join()), JSON.stringify(at(w, 11)));
+  const rdir = await copy('recrire'), rfile = path.join(rdir, 'components', 'sortie', 'document.md'), rjson = path.join(tmp, 'reponse.json'), pjson = path.join(tmp, 'consigne.json');
+  await fs.mkdir(path.dirname(rfile), { recursive: true });
+  const SORTIE = LIBRE.replace('# Atelier', '# Sortie').replace('« ateliers »', '« sorties »').split('\n').slice(0, 10).join('\n') + '\n', si = refusedSentences(SORTIE, 'sortie');
+  await fs.writeFile(rfile, SORTIE);
+  r = run('lire', rdir, 'sortie', '--recrire', '--export', pjson);
+  const pj = JSON.parse(await fs.readFile(pjson, 'utf8').catch(() => '{}'));
+  ok('lire --recrire --export : la consigne à soumettre à un modèle, sans clé d\'API', r.code === 0 && pj.sentences?.length === 4 && /lecteur strict/.test(pj.system) && pj.user.includes(si[0].id), r.out.slice(0, 300));
+  await fs.writeFile(rjson, JSON.stringify(si.map(it => ({ id: it.id, reecriture: BON[it.line][0], hypothese: BON[it.line][1] || null, raison: null }))));
+  r = run('lire', rdir, '--recrire', '--import', rjson, 'sortie', '--dry-run');
+  ok('lire --recrire --dry-run : chaque réécriture, sa lecture et sa supposition sont montrées, rien n\'est écrit', r.code === 0 && /récrit  : Nous ne sommes pas prévenus par e-mail\./.test(r.out) && /lu      : formulaire : prévient par e-mail = non/.test(r.out) && /suppose : « Le musée » désigne le site\./.test(r.out) && (await fs.readFile(rfile, 'utf8')) === SORTIE, r.out.slice(0, 600));
+  r = run('lire', rdir, 'sortie', '--recrire', '--accepter', '--import', rjson);
+  ok('lire --recrire --accepter : refusé, une réécriture se relit avant d\'être acceptée', r.code === 2 && /ne vont pas ensemble/.test(r.out) && (await fs.readFile(rfile, 'utf8')) === SORTIE, r.out.slice(0, 300));
+  r = run('lire', rdir, 'sortie', '--recrire', '--import', rjson);
+  const sortie1 = await fs.readFile(rfile, 'utf8');
+  ok('lire --recrire --import : document.md est récrit, et se lit en entier', r.code === 0 && /4 phrases récrites sur 4 : document\.md est modifié\. Le document se lit en entier\./.test(r.out) && sortie1.includes(BON[8][0]) && !readDocument(sortie1, { name: 'sortie' }).errors.length, r.out.slice(-500));
+  e = errs(rdir);
+  ok('… mais rien ne compile tant que la lecture du document récrit n\'est pas acceptée (garde-fou 3)', e.length === 1 && e[0].code === 'E_READING' && /lecture absente/.test(e[0].message), JSON.stringify(e).slice(0, 300));
+  r = run('lire', rdir, 'sortie', '--accepter');
+  ok('lire --accepter après réécriture : la lecture relue est figée, le site se vérifie', r.code === 0 && errs(rdir).length === 0 && run('lire', rdir, 'sortie', '--recrire').code === 0, r.out.slice(-300));
 
   // --- mesure : ce qu'on écrit, en tokens (hors exemple et mots-clés, communs aux deux formats)
   const mtext = await fs.readFile(path.join(ROOT, 'scripts', 'reference', 'atelier.manifest.yaml'), 'utf8'), m = YAML.parse(mtext);

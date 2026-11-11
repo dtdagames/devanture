@@ -39,6 +39,8 @@ Usage :
                                              Chaque bloc du manifeste (données, fonctionnement, forme, apparence) et ce qu'il devient : schéma, effets, gabarit, feuille (--php : le PHP exécuté)
   sitec lire <dossier> [composant] [--accepter] [--json] | sitec lire --tournures
                                              Composants au format document (document.md) : ce que le compilateur comprend de chaque phrase ; --accepter fige cette lecture (lecture.yaml)
+  sitec lire <dossier> [composant] --recrire [--dry-run] [--model id] [--rounds n] [--export p.json] [--import r.json]
+                                             Fait récrire par un modèle (Claude) les phrases refusées d'un document.md ; le lecteur relit chaque réécriture et reste seul juge, la lecture reste à accepter
   sitec schema <dossier> [--no-vscode]       Schémas JSON du site pour l'éditeur (.devanture/schema) et réglages VS Code : complétion des composants, props, assets et routes
   sitec migrate <dossier> [--dry-run] [--to N]
                                              Fait passer le site à la dernière version du langage (texte modifié, commentaires conservés) et suggère ce qu'elle permet d'écrire mieux
@@ -98,11 +100,71 @@ export async function run(argv) {
         console.log('\nJamais devinés : un nombre, une négation, un destinataire. Une phrase dont un mot n\'a pas de rôle est refusée.');
         return 0;
       }
-      if (!dir) { console.error('Usage : sitec lire <dossier-projet> [composant] [--accepter] [--json] | sitec lire --tournures'); return 2; }
-      const root = path.resolve(dir), only = args[1] || null, accept = flags.has('--accepter'), json = flags.has('--json');
+      if (!dir) { console.error('Usage : sitec lire <dossier-projet> [composant] [--accepter] [--json] | sitec lire <dossier-projet> [composant] --recrire [--dry-run] [--model id] [--rounds n] [--export p.json] [--import r.json] | sitec lire --tournures'); return 2; }
+      const opt = k => { const i = rest.indexOf(k); return i >= 0 ? rest[i + 1] : null; };
+      const valued = new Set(['--model', '--rounds', '--export', '--import'].map(k => rest.indexOf(k)).filter(i => i >= 0).map(i => i + 1));
+      const positional = rest.filter((a, i) => !a.startsWith('--') && !valued.has(i));
+      const root = path.resolve(dir), only = positional[1] || null, accept = flags.has('--accepter'), json = flags.has('--json');
       const project = await loadProject(root);
       const sources = [...(project.componentSources || []), ...(project.packages || []).flatMap(p => p.componentSources || [])].filter(x => x.documentText !== undefined && (!only || x.name === only));
       if (!sources.length) { console.error(only ? `Aucun composant au format document nommé ${only} (components/${only}/document.md).` : 'Aucun composant au format document dans ce site (components/<nom>/document.md).'); return only ? 1 : 0; }
+      if (flags.has('--recrire')) {
+        // Un modèle propose une réécriture des phrases refusées ; le lecteur à règles la relit et reste seul juge. Rien n'est accepté ici.
+        if (accept) { console.error('--recrire et --accepter ne vont pas ensemble : relisez d\'abord ce que le lecteur comprend des phrases récrites (sitec lire <dossier>), puis acceptez.'); return 2; }
+        const dry = flags.has('--dry-run'), exp = opt('--export'), imp = opt('--import');
+        if (dry && exp && imp) { console.error('--export avec --import écrit la consigne du tour de réparation d\'après le document récrit : sans --dry-run.'); return 2; }
+        const rw = await import('./lang/rewrite.js');
+        const files = new Map();
+        for (const s of sources) files.set(s.name, { file: path.join(s.dir, 'document.md'), text: await fs.readFile(path.join(s.dir, 'document.md'), 'utf8') });
+        const docs = sources.map(s => ({ name: s.name, text: files.get(s.name).text }));
+        const todo = docs.flatMap(d => rw.refusedSentences(d.text, d.name));
+        if (!todo.length) { console.log(json ? JSON.stringify({ ok: true, sentences: 0 }) : 'Aucune phrase refusée : rien à récrire.'); return 0; }
+        if (exp && !imp) {
+          await fs.writeFile(path.resolve(exp), JSON.stringify(rw.exportPrompt(docs), null, 2));
+          console.log(JSON.stringify({ ok: true, exported: exp, sentences: todo.length, hint: `Soumettez system + user à un modèle, enregistrez sa réponse (le tableau JSON), puis : sitec lire ${dir}${only ? ' ' + only : ''} --recrire --import reponse.json` }));
+          return 0;
+        }
+        let run;
+        try {
+          if (imp) run = await rw.rewriteRun({ docs, answerText: await fs.readFile(path.resolve(imp), 'utf8') });
+          else {
+            const { askModel, DEFAULT_MODEL } = await import('./keywords.js');
+            const model = opt('--model') || DEFAULT_MODEL;
+            run = await rw.rewriteRun({ docs, rounds: Math.max(1, Number(opt('--rounds')) || 2), ask: ({ system, user, round, count }) => { console.error(`Appel du modèle ${model} : ${count} phrase${count > 1 ? 's' : ''} à récrire${round > 1 ? ' (tour ' + round + ', avec le refus du lecteur)' : ''}…`); return askModel({ system, user, model }); } });
+          }
+        } catch (e) { console.error('Erreur : ' + e.message + (/api.?key|auth/i.test(e.message) ? ' (définissez ANTHROPIC_API_KEY, ou utilisez --export puis --import)' : '')); return 1; }
+        const done = run.results.filter(r => r.status === 'récrite'), left = run.results.length - done.length;
+        const out = [];
+        for (const s of sources) {
+          const f = files.get(s.name), rs = run.results.filter(r => r.doc === s.name); if (!rs.length) continue;
+          const changed = run.texts[s.name] !== f.text, rel = path.relative(process.cwd(), f.file).replaceAll('\\', '/');
+          if (changed && !dry) await fs.writeFile(f.file, run.texts[s.name]);
+          const after = readDocument(run.texts[s.name], { name: s.name });
+          out.push({ component: s.name, file: rel, written: changed && !dry, sentences: rs, errors: after.errors });
+          if (json) continue;
+          console.log(`# ${s.name} (${rel})`);
+          for (const r of rs) {
+            console.log(`  ligne ${String(r.line).padStart(2)}  ${r.phrase}`);
+            if (r.status === 'récrite') console.log(`            récrit  : ${r.rewrite}\n            lu      : ${r.said.join(' ; ')}${r.hypothese ? '\n            suppose : ' + r.hypothese : ''}`);
+            else if (r.status === 'laissée') console.log(`            laissée : ${r.raison}`);
+            else if (r.status === 'refusée') console.log(`            réécriture refusée : ${r.rewrite}\n            ${r.why}`);
+            else console.log('            sans réponse du modèle');
+          }
+          const n = rs.filter(r => r.status === 'récrite').length;
+          console.log(`  ${n} phrase${n > 1 ? 's' : ''} récrite${n > 1 ? 's' : ''} sur ${rs.length}${!changed ? '' : dry ? ' (--dry-run : document.md n\'est pas modifié)' : ' : document.md est modifié'}.${after.errors.length ? ` Il reste ${after.errors.length} erreur${after.errors.length > 1 ? 's' : ''} dans le document.` : ' Le document se lit en entier.'}\n`);
+        }
+        if (imp && exp && left) {
+          const rep = rw.exportPrompt(sources.map(s => ({ name: s.name, text: run.texts[s.name] })), run.results);
+          if (rep.sentences.length) { await fs.writeFile(path.resolve(exp), JSON.stringify(rep, null, 2)); if (!json) console.log(`Consigne du tour de réparation écrite : ${exp} (${rep.sentences.length} phrase${rep.sentences.length > 1 ? 's' : ''}, avec le refus du lecteur).`); }
+        }
+        if (json) console.log(JSON.stringify({ ok: !left, dry_run: dry, rewritten: done.length, left, unknown: run.unknown, documents: out }));
+        else {
+          if (run.unknown.length) console.log(`Réponses ignorées, pour des phrases que le document n'a pas ou n'a plus : ${run.unknown.join(', ')}.`);
+          if (done.length) console.log(`Une réécriture est une proposition : le lecteur garantit qu'elle se lit, pas qu'elle dit ce que vous vouliez dire. Relisez chaque « lu » et chaque « suppose », puis${dry ? ' relancez sans --dry-run, puis' : ''} : sitec lire ${dir} --accepter`);
+          if (left) console.log(`${left} phrase${left > 1 ? 's' : ''} à reprendre à la main (sitec lire ${dir} cite la tournure la plus proche).`);
+        }
+        return left ? 1 : 0;
+      }
       let bad = 0; const report = [];
       for (const src of sources) {
         const r = readDocument(src.documentText, { name: src.name });
