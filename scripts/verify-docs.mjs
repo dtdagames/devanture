@@ -305,7 +305,7 @@ async function claims() {
     const c = grab(C, /Sources : (.*?)\. Valeur d'un paramètre/) || '';
     claim('CLAUDE.md : sources et paramètres cités', c.split(/,\s*(?![^()]*\))/).map(x => x.trim()).filter(Boolean).map(x => { const m = /^(.*?)\s*\((.*)\)$/.exec(x); return m ? `${m[1]} : ${m[2]}` : `${x} : aucun`; }), PUBLIC_SOURCE_NAMES.map(n => `${n} : ${Object.keys(SOURCES[n].params).join(', ') || 'aucun'}`)); }
   // Vocabulaire : clés d'un mot, mots natifs (components/vocabulaire.yaml), et natifs qui les emploient.
-  { const nativeWords = [...compileVocabulaire(await read('components/vocabulaire.yaml'), { scope: 'natif', lint: false }).own.keys()];
+  { const nativeWords = [...compileVocabulaire(await read('components/vocabulaire.md'), { scope: 'natif', lint: false, outline: true }).own.keys()];
     const t = rows(L, /^\| Dans la définition d'un mot \| Signifie \|/); claim('LANGAGE.md : clés de la définition d\'un mot = WORD_KEYS', t && t.map(r => ticks(r[0])[0]), WORD_KEYS);
     const l = lineWith(L, /Mots natifs : /) || ''; claim('LANGAGE.md : mots natifs = components/vocabulaire.yaml', ticks(grab(l, /Mots natifs : ([^;]*);/) || ''), nativeWords);
     const users = []; for (const n of catalogNames) { const m = await read(`components/${n}/composant.md`); if (nativeWords.some(w => new RegExp('^\\s*- ' + w + '\\s*(:|,|$)', 'm').test(m))) users.push(n); }

@@ -737,6 +737,45 @@ Le compilateur produit la validation serveur, le jeton CSRF, le pot de miel, l'e
 
 Un cas de test est un fichier `components/<nom>/fixtures/<cas>.yaml` contenant des props. `sitec test <dossier>` valide chaque cas contre le manifeste, le rend par le runtime de la cible et le compare à l'instantané `<cas>.html` (créé au premier passage, mis à jour par `--update`). Un composant sans cas est rendu avec l'exemple de son manifeste, pour vérifier l'absence d'erreur. `--catalog` étend le test aux composants natifs à gabarit. Le rendu se fait sans variantes d'images et sans session réelle (jeton constant), pour des instantanés stables.
 
+### Vocabulaire, cas de test, paquet et hôte en documents
+
+Les autres fichiers d'un composant et de ce qui l'entoure s'écrivent de la même façon, sans YAML.
+
+**Vocabulaire** : `vocabulaire.md` à la place de `vocabulaire.yaml` (site, paquet ; le vocabulaire natif est écrit ainsi). Une section `## mot` par mot, sa description, puis `### Données`, `### Forme` et `### Apparence` en puces, `### Gabarit` et `### Feuille` dans des blocs.
+
+<!-- sitec: aucun — le site d'essai de ce document a déjà un vocabulaire.yaml ; scripts/verify-site-document.mjs lit cette écriture -->
+```markdown
+# Vocabulaire
+
+## carte de visite
+Une carte avec un nom et un rôle.
+
+### Données
+- nom : texte
+- role : texte, facultatif
+
+### Forme
+- carte « fiche » :
+  - sous-titre : nom
+  - texte discret : role
+
+### Apparence
+- fiche : centré
+```
+
+**Cas de test** : `components/<nom>/fixtures/<cas>.md` à la place de `<cas>.yaml`. Le composant y est écrit comme une section de page ; pour un composant qui lit à la visite, « À la visite : » suivi d'un bloc `yaml` dit ce que chaque lecture rendrait. Les lignes « > … » sont des notes.
+
+<!-- sitec: aucun — cas de test d'un composant, lu par sitec test ; scripts/verify-site-document.mjs lit cette écriture -->
+```markdown
+## annonce
+-15 % sur l'entretien annuel de chaudière
+Code : ENTRETIEN15
+```
+
+**Paquet** : `package.md` à la place de `package.yaml` (`# vitrine`, la description, `Version : 1.0.0`, `Langage : 1`). **Hôte** : `hosts.md` à la place de `hosts.yaml`, une puce « - domaine | alias, alias | ../dossier-du-site » par site.
+
+`sitec rediger` convertit tous ces fichiers, dans un site, un paquet ou un hôte. Reste en YAML : `components.yaml` (les composants composés, dont les boucles `for` n'ont pas d'écriture en document), et, dans un cas de test, les données « à la visite ».
+
 ## 6 bis. Paquets de composants
 
 Un paquet regroupe des composants à gabarit et des composés, partagés par plusieurs sites :

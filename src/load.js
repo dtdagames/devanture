@@ -3,7 +3,7 @@ import path from 'node:path';
 import YAML from 'yaml';
 import { err } from './errors.js';
 import { readComponentDir, loadCatalog } from './catalog.js';
-import { readSiteDocument, readPageDocument, componentSchemas, baseOf, readDataDocument, PRODUCTS, collectionData, readSegmentsDocument } from './lang/site-document.js';
+import { readSiteDocument, readPageDocument, componentSchemas, baseOf, readDataDocument, PRODUCTS, collectionData, readSegmentsDocument, readPackageDocument } from './lang/site-document.js';
 import { EVENTS } from './segments.js';
 import { readingDiff } from './lang/document.js';
 import { THEME_PRESETS } from './emit/php/css.js';
@@ -108,6 +108,9 @@ export async function loadProject(root, { catalog = null } = {}) {
   // Vocabulaire du projet (optionnel) : vocabulaire.yaml, des mots nouveaux pour la forme des composants. Lu en texte : ses erreurs renvoient à la ligne.
   project.vocabFile = path.join(root, 'vocabulaire.yaml');
   project.vocabText = await fs.readFile(project.vocabFile, 'utf8').catch(() => null);
+  // Le même vocabulaire écrit en document : vocabulaire.md (l'un ou l'autre).
+  { const md = await fs.readFile(path.join(root, 'vocabulaire.md'), 'utf8').catch(() => null);
+    if (md !== null) { if (project.vocabText !== null) project.loadErrors.push(err('E_WORD', { file: path.join(root, 'vocabulaire.md'), path: '', message: 'vocabulaire.md et vocabulaire.yaml à la fois : un vocabulaire n\'a qu\'une source.' })); project.vocabFile = path.join(root, 'vocabulaire.md'); project.vocabText = md; project.vocabOutline = true; } }
 
   // Composants de projet (gabarit neutre) : components/<nom>/manifest.yaml + template.html (+ styles.css, module.js).
   project.componentSources = [];
@@ -122,10 +125,20 @@ export async function loadProject(root, { catalog = null } = {}) {
     const local = /^(\.{1,2}[\\/]|[\\/]|[A-Za-z]:)/.test(spec);
     const dir = local ? path.resolve(root, spec) : path.join(root, 'node_modules', spec);
     const pkg = { spec, dir, local, file: path.join(dir, 'package.yaml'), meta: null, componentSources: [], compositesRaw: null, compositesFile: path.join(dir, 'components.yaml'), vocabFile: path.join(dir, 'vocabulaire.yaml'), vocabText: null, missing: false };
+    // Le paquet se décrit dans package.yaml, ou en document dans package.md (« # nom », description, « Version : … »).
+    const pkgMd = await fs.readFile(path.join(dir, 'package.md'), 'utf8').catch(() => null);
+    if (pkgMd !== null && await fs.access(pkg.file).then(() => false, () => true)) {
+      pkg.file = path.join(dir, 'package.md');
+      const r = readPackageDocument(pkgMd);
+      for (const e of r.errors) project.loadErrors.push(err('E_DOCUMENT', { file: pkg.file, path: e.line ? `ligne ${e.line}` : '', message: e.message + (/[.?!…»]$/.test(e.message) ? '' : '.') }));
+      pkg.meta = r.data;
+    } else {
     try { await fs.access(pkg.file); } catch { pkg.missing = true; project.packages.push(pkg); continue; }
     pkg.meta = await readYaml(pkg.file, project.loadErrors) ?? null;
+    }
     try { for (const d of await fs.readdir(path.join(dir, 'components'), { withFileTypes: true })) if (d.isDirectory() && !d.name.startsWith('.')) { const src = await readComponentDir(path.join(dir, 'components', d.name)); if (src) pkg.componentSources.push(src); } } catch { /* pas de composants à gabarit */ }
     pkg.vocabText = await fs.readFile(pkg.vocabFile, 'utf8').catch(() => null);
+    { const md = await fs.readFile(path.join(dir, 'vocabulaire.md'), 'utf8').catch(() => null); if (md !== null && pkg.vocabText === null) { pkg.vocabFile = path.join(dir, 'vocabulaire.md'); pkg.vocabText = md; pkg.vocabOutline = true; } }
     try { await fs.access(pkg.compositesFile); pkg.compositesRaw = await readYaml(pkg.compositesFile, project.loadErrors) ?? null; } catch { /* pas de composés */ }
     project.packages.push(pkg);
   }

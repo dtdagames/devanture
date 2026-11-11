@@ -244,14 +244,14 @@ export function validateProject(project, catalog) {
   let siteInherited = new Map(catalog.words);
   for (const pkg of project.packages || []) {
     if (!pkg.prefix) continue;
-    const v = typeof pkg.vocabText === 'string' ? vocab(pkg.vocabText, pkg.vocabFile, { scope: pkg.prefix, inherited: catalog.words }) : { words: catalog.words, own: new Map() };
+    const v = typeof pkg.vocabText === 'string' ? vocab(pkg.vocabText, pkg.vocabFile, { scope: pkg.prefix, inherited: catalog.words, outline: !!pkg.vocabOutline }) : { words: catalog.words, own: new Map() };
     wordsOf.set(pkg.prefix, v.words); pkg.words = v.own;
     const seen = siteInherited;
     siteInherited = new Map([...siteInherited, ...prefixedWords(v.own, pkg.prefix)]);
     siteInherited.broken = new Set([...(seen.broken || []), ...[...(v.words.broken || [])].map(n => `${pkg.prefix}.${n}`)]);
     if (seen.unreadable || v.words.unreadable) siteInherited.unreadable = true;
   }
-  const siteVocab = typeof project.vocabText === 'string' ? vocab(project.vocabText, project.vocabFile, { scope: 'site', inherited: siteInherited }) : { words: siteInherited, own: new Map() };
+  const siteVocab = typeof project.vocabText === 'string' ? vocab(project.vocabText, project.vocabFile, { scope: 'site', inherited: siteInherited, outline: !!project.vocabOutline }) : { words: siteInherited, own: new Map() };
   project.words = siteVocab.words; project.ownWords = siteVocab.own;
 
   // --- composants de projet (components/<nom>/manifest.yaml + template.html) et des paquets : construits, vérifiés, ajoutés au catalogue

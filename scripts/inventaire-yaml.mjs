@@ -39,4 +39,4 @@ console.log(`Blocs yaml que garderaient les quatre sites d'exemple écrits en do
 for (const [k, n] of Object.entries(fences).sort((a, b) => b[1] - a[1])) console.log(`  ${String(n).padStart(2)}  ${k}`);
 console.log('\nAutres fichiers YAML et PHP d\'auteur dans examples/ :');
 for (const [k, n] of Object.entries(kinds).sort((a, b) => b[1] - a[1])) console.log(`  ${String(n).padStart(2)}  ${k}`);
-console.log(`\nCatalogue natif : ${natif.yaml} fichiers yaml, ${natif.php} fichier php`);
+console.log(`\nCatalogue natif : ${natif.yaml} fichier(s) yaml, ${natif.php} fichier php`);

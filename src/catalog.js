@@ -225,7 +225,9 @@ export async function loadCatalog() {
   // Vocabulaire natif : les mots que les composants natifs partagent, écrits dans le langage comme ceux d'un site.
   let words = new Map();
   try {
-    const v = compileVocabulaire(await fs.readFile(path.join(COMPONENTS_DIR, 'vocabulaire.yaml'), 'utf8'), { scope: 'natif', lint: false });
+    // Le vocabulaire natif est écrit en document (vocabulaire.md) ; l'ancienne écriture, vocabulaire.yaml, reste lue.
+    const md = await fs.readFile(path.join(COMPONENTS_DIR, 'vocabulaire.md'), 'utf8').catch(() => null);
+    const v = compileVocabulaire(md ?? await fs.readFile(path.join(COMPONENTS_DIR, 'vocabulaire.yaml'), 'utf8'), { scope: 'natif', lint: false, outline: md !== null });
     if (v.errors.length) throw new Error(`Vocabulaire natif : ${v.errors.map(e => (e.line ? `ligne ${e.line} : ` : '') + e.message).join(' ; ')}`);
     words = v.words;
   } catch (e) { if (e.code !== 'ENOENT') throw e; }

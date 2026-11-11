@@ -3,7 +3,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import YAML, { isMap, isScalar } from 'yaml';
-import { writeComponentOutline, parseComponentOutline } from './lang/outline.js';
+import { writeComponentOutline, parseComponentOutline, writeVocabularyOutline } from './lang/outline.js';
 import { writeSectionDocument, readPageDocument, canon } from './lang/site-document.js';
 
 const same = (a, b) => JSON.stringify(canon(a, true)) === JSON.stringify(canon(b, true));
@@ -43,6 +43,26 @@ export function outlineOf(manifestText, { name, props }) {
     if (r.errors.length || !same(r.data.sections, sections)) return { error: `l'exemple écrit ne rend pas l'exemple d'origine${r.errors[0] ? ' : ' + r.errors[0].message : ''}` };
   }
   return { text: w.text, comments: { kept, lost: Math.max(0, total - kept) } };
+}
+
+/** Écrit un vocabulaire en document depuis son YAML. Renvoie { text, comments: { kept, lost } } ou { error }. */
+export function vocabularyOutlineOf(text) {
+  let doc; try { doc = YAML.parseDocument(text); } catch (e) { return { error: `vocabulaire.yaml illisible : ${e.message.split('\n')[0]}` }; }
+  if (doc.errors.length) return { error: `vocabulaire.yaml illisible : ${doc.errors[0].message.split('\n')[0]}` };
+  const lines = c => String(c).split('\n').map(l => l.replace(/^\s?/, '').trimEnd()).filter(Boolean);
+  const notes = [...(doc.commentBefore ? lines(doc.commentBefore) : []), ...(isMap(doc.contents) && doc.contents.commentBefore ? lines(doc.contents.commentBefore) : [])];
+  // Un commentaire placé avant un mot le précède aussi dans le document.
+  const wordNotes = {}; let kept = notes.length;
+  if (isMap(doc.contents)) for (const pair of doc.contents.items) {
+    if (isScalar(pair.key) && pair.key.commentBefore) { notes.push(...lines(pair.key.commentBefore)); kept += lines(pair.key.commentBefore).length; }
+    if (!isMap(pair.value)) continue;
+    const first = pair.value.items[0];
+    if (pair.value.commentBefore && first && isScalar(first.key)) { wordNotes[String(first.key.value)] = lines(pair.value.commentBefore); kept += lines(pair.value.commentBefore).length; }
+    for (const wp of pair.value.items) if (isScalar(wp.key) && wp.key.commentBefore) { const k = String(wp.key.value); wordNotes[k] = [...(wordNotes[k] || []), ...lines(wp.key.commentBefore)]; kept += lines(wp.key.commentBefore).length; }
+  }
+  const w = writeVocabularyOutline(doc.toJS(), { notes, wordNotes });
+  if (w.error) return { error: w.error };
+  return { text: w.text, comments: { kept, lost: Math.max(0, text.split('\n').filter(l => /^\s*#/.test(l)).length - kept) } };
 }
 
 /** Convertit un dossier de composant : écrit composant.md, retire manifest.yaml. Renvoie { ok, error, comments }. */

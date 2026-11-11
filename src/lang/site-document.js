@@ -34,7 +34,7 @@ export const PROP_NAMES = {
   fields: 'champs', required: 'obligatoires', success: 'confirmation', members: 'membres', address: 'adresse', access: 'accès',
   limit: 'limite', sort: 'tri', days: 'jours', groups: 'groupes', icon: 'icône', tone: 'ton', label: 'libellé', value: 'valeur',
   q: 'question', a: 'réponse', name: 'nom', role: 'rôle', src: 'fichier', caption: 'légende', price: 'prix', badge: 'mention',
-  back: 'retour', unit: 'unité', variants: 'variantes', filter: 'filtre', category: 'catégorie', featured: 'vedette', priority: 'priorité', goals: 'objectifs', experiments: 'expériences', goal: 'objectif', arms: 'bras', holdout: 'témoin', event: 'événement', where: 'où', constants: 'constantes', enabled: 'actif', currency: 'devise', payment: 'paiement', summary: 'résumé', quality: 'qualité', widths: 'largeurs', business_type: "type d'activité", manual_instructions: 'instructions de paiement', order_email: 'e-mail des commandes', short_name: 'nom court', theme_color: 'couleur du thème', requires_consent: 'consentement requis', consent_text: 'texte du consentement', title_field: 'champ du titre', placeholder: 'invite', timezone: 'fuseau', closed: 'fermé', slots: 'plages', day: 'jour', id: 'ancre', keywords: 'mots-clés', empty: 'vide',
+  back: 'retour', unit: 'unité', variants: 'variantes', filter: 'filtre', category: 'catégorie', featured: 'vedette', project: 'projet', domain: 'domaine', aliases: 'alias', priority: 'priorité', goals: 'objectifs', experiments: 'expériences', goal: 'objectif', arms: 'bras', holdout: 'témoin', event: 'événement', where: 'où', constants: 'constantes', enabled: 'actif', currency: 'devise', payment: 'paiement', summary: 'résumé', quality: 'qualité', widths: 'largeurs', business_type: "type d'activité", manual_instructions: 'instructions de paiement', order_email: 'e-mail des commandes', short_name: 'nom court', theme_color: 'couleur du thème', requires_consent: 'consentement requis', consent_text: 'texte du consentement', title_field: 'champ du titre', placeholder: 'invite', timezone: 'fuseau', closed: 'fermé', slots: 'plages', day: 'jour', id: 'ancre', keywords: 'mots-clés', empty: 'vide',
 };
 /** Valeurs d'un choix dites en français. */
 const VALUE_NAMES = { gauche: 'left', droite: 'right', centre: 'center', 'centré': 'center' };
@@ -1008,6 +1008,79 @@ export function writeSegmentsDocument(data, { events }) {
   if (back.errors.length) return { error: `le document écrit ne se relit pas : ligne ${back.errors[0].line}, ${back.errors[0].message}` };
   if (!same(back.data, d)) return { error: 'le document écrit ne rend pas les segments d\'origine' };
   return { text };
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// Petits documents : le paquet (package.md), l'hôte (hosts.md), un cas de test de composant (fixtures/<cas>.md).
+
+const PACKAGE = { properties: { description: { type: 'string' }, version: { type: 'string' }, language: { type: 'integer' } } };
+const PACKAGE_OPTS = { title: null, prose: 'description', what: 'le paquet', labels: [['version', 'version'], ['langage', 'language']], label: k => ({ version: 'Version', language: 'Langage' }[k] || null) };
+/** Lit package.md : « # nom », la description, « Version : 1.0.0 », « Langage : 1 ». Renvoie { data, errors }. */
+export function readPackageDocument(text) {
+  const blocks = splitBlocks(text), h1 = blocks.findIndex(b => b.kind === 'h1'), errors = [];
+  if (h1 < 0) errors.push({ line: 1, message: 'le document d\'un paquet commence par son nom : « # vitrine »' });
+  for (const b of blocks) if (/^h[2-6]$/.test(b.kind) || (b.kind === 'h1' && b !== blocks[h1])) errors.push({ line: b.line, message: 'un paquet n\'a qu\'un titre : son nom' });
+  const r = readBody(blocks.filter((b, i) => i !== h1 && !/^h\d$/.test(b.kind)), PACKAGE, PACKAGE_OPTS);
+  const data = { ...(h1 >= 0 ? { name: blocks[h1].text } : {}) }; for (const k of ['description', 'version', 'language']) if (k in r.props) data[k] = r.props[k];
+  return { data, errors: [...errors, ...r.errors].sort((a, b) => (a.line || 0) - (b.line || 0)) };
+}
+export function writePackageDocument(meta) {
+  const { name, ...rest } = meta || {};
+  if (!oneLine(name) || Object.keys(rest).some(k => !(k in PACKAGE.properties))) return { error: 'paquet illisible (name, description, version, language)' };
+  const body = writeChecked(rest, PACKAGE, PACKAGE_OPTS, lines => readBody(splitBlocks(lines.join('\n')), PACKAGE, PACKAGE_OPTS));
+  if (!body || body.some(l => /^```/.test(l))) return { error: 'une donnée du paquet ne s\'écrit pas sur une ligne' };
+  const hasProse = typeof rest.description === 'string' && body[0] === rest.description;
+  const text = [`# ${name}`, '', ...(hasProse ? [body[0], '', ...body.slice(1)] : body)].join('\n').replace(/\n{3,}/g, '\n\n') + '\n';
+  const back = readPackageDocument(text);
+  return back.errors.length || !same(back.data, meta) ? { error: 'le document écrit ne rend pas le paquet d\'origine' } : { text };
+}
+
+const HOSTS = { properties: { sites: { type: 'array', items: { type: 'object', properties: { domain: { type: 'string' }, aliases: { type: 'array', items: { type: 'string' } }, project: { type: 'string' }, name: { type: 'string' } } } } } };
+const HOSTS_OPTS = { title: null, prose: null, what: 'l\'hébergement' };
+/** Lit hosts.md : « # Hébergement », puis une puce « - domaine | alias, alias | ../dossier-du-site » par site. Renvoie { data, errors }. */
+export function readHostsDocument(text) {
+  const blocks = splitBlocks(text), r = readBody(blocks.filter(b => b.kind !== 'h1'), HOSTS, HOSTS_OPTS);
+  return { data: { sites: r.props.sites || [] }, errors: r.errors };
+}
+export function writeHostsDocument(cfg) {
+  if (!cfg || !Array.isArray(cfg.sites) || Object.keys(cfg).some(k => k !== 'sites')) return { error: 'hôte illisible (sites: [ { domain, aliases, project } ])' };
+  const body = writeChecked(cfg, HOSTS, HOSTS_OPTS, lines => readBody(splitBlocks(lines.join('\n')), HOSTS, HOSTS_OPTS));
+  if (!body || body.some(l => /^```/.test(l))) return { error: 'un site ne s\'écrit pas sur une ligne' };
+  const text = ['# Hébergement', '', ...body].join('\n') + '\n';
+  return same(readHostsDocument(text).data, cfg) ? { text } : { error: 'le document écrit ne rend pas l\'hôte d\'origine' };
+}
+
+const VISIT = /^à la visite\s*:\s*$/i;
+/**
+ * Lit un cas de test de composant : le composant écrit comme une section de page (« ## composant : titre », puis ses données) ;
+ * ce que ses lectures rendraient à la visite suit « À la visite : », dans un bloc yaml. Les lignes « > … » sont des notes.
+ * Renvoie { props (avec « à la visite » s'il est dit), error }.
+ */
+export function readFixtureDocument(text, { name, props }) {
+  const lines = String(text).replace(/\r\n/g, '\n').split('\n').filter(l => !/^\s*>/.test(l));
+  const at = lines.findIndex(l => VISIT.test(l.trim()));
+  const head = (at < 0 ? lines : lines.slice(0, at)).join('\n'), tail = at < 0 ? null : lines.slice(at + 1).join('\n');
+  const r = readPageDocument(`Adresse : /x\n\n${head}\n`, { schemas: new Map([[name, props]]) });
+  if (r.errors.length) return { props: null, error: `ligne ${Math.max(1, r.errors[0].line - 2)} : ${r.errors[0].message}` };
+  const sections = r.data.sections || [];
+  if (sections.length !== 1 || Object.keys(sections[0])[0] !== name) return { props: null, error: `un cas de test est une section du composant : « ## ${name} »` };
+  const out = { ...(sections[0][name] || {}) };
+  if (tail !== null) {
+    const fence = splitBlocks(tail).filter(b => b.kind !== 'blank');
+    if (fence.length !== 1 || fence[0].kind !== 'fence' || !fence[0].closed || !/^ya?ml$/.test(fence[0].lang)) return { props: null, error: '« À la visite : » est suivi d\'un bloc ```yaml : ce que chaque lecture du composant rendrait' };
+    try { out['à la visite'] = YAML.parse(fence[0].text); } catch (e) { return { props: null, error: `bloc yaml illisible : ${String(e.message).split('\n')[0]}` }; }
+  }
+  return { props: out, error: null };
+}
+/** Écrit un cas de test en document. notes : lignes de commentaire reprises en « > … ». Renvoie { text } ou { error }. */
+export function writeFixtureDocument(data, { name, props, notes = [] }) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return { error: 'cas de test illisible' };
+  const { 'à la visite': visit, ...rest } = data;
+  const w = writeSectionDocument({ [name]: rest }, { schemas: new Map([[name, props]]) });
+  if (w.error) return { error: w.error };
+  const text = [...notes.map(n => `> ${n}`), ...w.lines, ...(visit !== undefined ? ['', 'À la visite :', '```yaml', ...YAML.stringify(visit, { lineWidth: 0 }).trimEnd().split('\n'), '```'] : [])].join('\n') + '\n';
+  const back = readFixtureDocument(text, { name, props });
+  return back.error || !same(back.props, data) ? { error: back.error || 'le cas écrit ne rend pas le cas d\'origine' } : { text };
 }
 
 /** Ligne du document où se trouve un chemin de validation (« sections[2].hero.cta.to ») : le préfixe connu le plus long. */

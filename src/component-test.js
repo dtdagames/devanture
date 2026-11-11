@@ -7,6 +7,7 @@ import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import YAML from 'yaml';
+import { readFixtureDocument } from './lang/site-document.js';
 import Ajv from 'ajv';
 import { RENDER_PHP, FORMS_PHP, phpValue } from './emit/php/php.js';
 import { sourceSchema } from './lang/sources.js';
@@ -51,12 +52,14 @@ async function casesOf(c) {
   const out = [];
   const fdir = path.join(c.dir, 'fixtures');
   let files = [];
-  try { files = (await fs.readdir(fdir)).filter(f => /\.ya?ml$/.test(f)).sort(); } catch { /* pas de fixtures */ }
+  // Un cas s'écrit en YAML (fixtures/<cas>.yaml) ou en document (fixtures/<cas>.md : le composant écrit comme une section de page).
+  try { files = (await fs.readdir(fdir)).filter(f => /\.(ya?ml|md)$/.test(f)).sort(); } catch { /* pas de fixtures */ }
   for (const f of files) {
     const file = path.join(fdir, f);
     let props, error = null;
-    try { props = YAML.parse(await fs.readFile(file, 'utf8')) ?? {}; } catch (e) { error = `YAML invalide : ${e.message.split('\n')[0]}`; }
-    out.push({ component: c.name, name: f.replace(/\.ya?ml$/, ''), file, snapshot: file.replace(/\.ya?ml$/, '.html'), props, error });
+    if (/\.md$/.test(f)) ({ props, error } = readFixtureDocument(await fs.readFile(file, 'utf8'), { name: c.name, props: c.manifest.props }));
+    else try { props = YAML.parse(await fs.readFile(file, 'utf8')) ?? {}; } catch (e) { error = `YAML invalide : ${e.message.split('\n')[0]}`; }
+    out.push({ component: c.name, name: f.replace(/\.(ya?ml|md)$/, ''), file, snapshot: file.replace(/\.(ya?ml|md)$/, '.html'), props, error });
   }
   if (!out.length && c.manifest.example) {
     let props = null, error = null;

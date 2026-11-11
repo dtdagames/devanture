@@ -12,7 +12,7 @@ import { TYPE_WORDS } from './lang/donnees.js';
 import { PRIMITIVE_HELP, nearest } from './lang/forme.js';
 import { wordUsage, WORD_KEYS } from './lang/vocabulaire.js';
 import { readDocument, readingDiff, TOURNURES } from './lang/document.js';
-import { writeSiteDocument, writePageDocument, writeSectionDocument, componentSchemas, readSiteDocument, readPageDocument, COMPONENT_NAMES, PROP_NAMES, GROUP_NAMES, writeDataDocument, readDataDocument, PRODUCTS, collectionData, writeSegmentsDocument, readSegmentsDocument } from './lang/site-document.js';
+import { writeSiteDocument, writePageDocument, writeSectionDocument, componentSchemas, readSiteDocument, readPageDocument, COMPONENT_NAMES, PROP_NAMES, GROUP_NAMES, writeDataDocument, readDataDocument, PRODUCTS, collectionData, writeSegmentsDocument, readSegmentsDocument, writeFixtureDocument, writePackageDocument, writeHostsDocument } from './lang/site-document.js';
 import { SOURCES, SOURCE_NAMES, PUBLIC_SOURCE_NAMES, sourceUsage, sourceFields } from './lang/sources.js';
 import YAML from 'yaml';
 import { INTENT_NAMES } from './lang/apparence.js';
@@ -43,7 +43,8 @@ Usage :
                                              Composants au format document (document.md) : ce que le compilateur comprend de chaque phrase ; --accepter fige cette lecture (lecture.yaml)
   sitec lire <dossier> [--accepter] [--tout] Site au format document (site.md, pages/<id>.md) : ce que vaut chaque document, section par section, et ce qui a changé depuis la lecture acceptée (lecture/)
   sitec rediger <dossier> [--composants] [--dry-run]
-                                             Récrit en documents ce qui est encore en YAML dans un site ou un paquet (site.md, pages/<id>.md, data/<nom>.md, segments.md, components/<nom>/composant.md) ;
+                                             Récrit en documents ce qui est encore en YAML dans un site, un paquet ou un hôte (site.md, pages/<id>.md, data/<nom>.md, segments.md, vocabulaire.md,
+                                             components/<nom>/composant.md et ses cas de test, package.md, hosts.md) ;
                                              chaque document est relu et doit rendre les données d'origine, sinon rien n'est écrit (--composants : les composants seulement ; --catalogue : les composants natifs)
   sitec lire <dossier> [composant] --recrire [--dry-run] --export p.json | --import r.json
                                              Consigne pour faire récrire par un modèle les phrases refusées d'un document.md, puis import de sa réponse ; le lecteur relit chaque réécriture et reste seul juge, la lecture reste à accepter
@@ -225,9 +226,9 @@ export async function run(argv) {
       //   paquet   : components/<nom>/composant.md
       //   --catalogue : les composants natifs du compilateur
       const dir = args[0], dry = flags.has('--dry-run'), natives = flags.has('--catalogue'), only = flags.has('--composants');
-      if (!dir && !natives) { console.error('Usage : sitec rediger <dossier-projet | dossier-paquet> [--composants] [--dry-run] | sitec rediger --catalogue [--dry-run]'); return 2; }
+      if (!dir && !natives) { console.error('Usage : sitec rediger <dossier-projet | dossier-paquet | dossier-hôte> [--composants] [--dry-run] | sitec rediger --catalogue [--dry-run]'); return 2; }
       const cat = await import('./catalog.js');
-      const { outlineOf } = await import('./component-rediger.js');
+      const { outlineOf, vocabularyOutlineOf } = await import('./component-rediger.js');
       const root = natives ? cat.COMPONENTS_DIR : path.resolve(dir);
       const out = [], failed = [];
       const exists = p => fs.access(p).then(() => true, () => false);
@@ -239,19 +240,53 @@ export async function run(argv) {
         if (r.error) failed.push(`${path.relative(root, from).replaceAll('\\', '/')} : ${r.error}`);
         else out.push({ from, to: path.join(cdir, 'composant.md'), text: r.text, note: r.comments.lost ? `${r.comments.lost} ligne(s) de commentaire non reprise(s)` : '' });
       };
-      const isPackage = !natives && await exists(path.join(root, 'package.yaml')) && !await exists(path.join(root, 'site.yaml')) && !await exists(path.join(root, 'site.md'));
+      // Cas de test d'un composant : fixtures/<cas>.yaml devient fixtures/<cas>.md, le composant écrit comme une section de page.
+      const fixtures = async (cdir, name, props) => {
+        const fdir = path.join(cdir, 'fixtures');
+        for (const file of (await fs.readdir(fdir).catch(() => [])).filter(x => /\.ya?ml$/.test(x)).sort()) {
+          const from = path.join(fdir, file), rel = path.relative(root, from).replaceAll('\\', '/');
+          if (!props) { failed.push(`${rel} : composant refusé par check, corrigez-le d'abord`); continue; }
+          let doc; try { doc = YAML.parseDocument(await fs.readFile(from, 'utf8')); } catch (e) { failed.push(`${rel} : ${e.message.split('\n')[0]}`); continue; }
+          const lines = c => String(c || '').split('\n').map(l => l.replace(/^\s?/, '').trimEnd()).filter(Boolean);
+          const notes = [...lines(doc.commentBefore), ...lines(doc.contents?.commentBefore), ...lines(doc.contents?.items?.[0]?.key?.commentBefore)];
+          const r = writeFixtureDocument(doc.toJS() ?? {}, { name, props, notes });
+          if (r.error) failed.push(`${rel} : ${r.error}`); else out.push({ from, to: from.replace(/\.ya?ml$/, '.md'), text: r.text });
+        }
+      };
+      const plain = async (file, to, write) => {
+        const from = path.join(root, file);
+        if (!await exists(from)) return;
+        const r = write(YAML.parse(await fs.readFile(from, 'utf8')));
+        if (r.error) failed.push(`${file} : ${r.error}`); else out.push({ from, to: path.join(root, to), text: r.text });
+      };
+      const vocabulary = async vdir => {
+        const from = path.join(vdir, 'vocabulaire.yaml');
+        if (!await exists(from)) return;
+        const r = vocabularyOutlineOf(await fs.readFile(from, 'utf8'));
+        if (r.error) failed.push(`${path.relative(root, from).replaceAll('\\', '/')} : ${r.error}`);
+        else out.push({ from, to: path.join(vdir, 'vocabulaire.md'), text: r.text, note: r.comments.lost ? `${r.comments.lost} ligne(s) de commentaire non reprise(s)` : '' });
+      };
+      const isSite = !natives && (await exists(path.join(root, 'site.yaml')) || await exists(path.join(root, 'site.md')));
+      const isPackage = !natives && !isSite && (await exists(path.join(root, 'package.yaml')) || await exists(path.join(root, 'package.md')));
+      const isHost = !natives && !isSite && !isPackage && await exists(path.join(root, 'hosts.yaml'));
       if (natives) {
         for (const c of catalog.list()) await component(c.dir, c.name, c.manifest.props);
+        await vocabulary(root);
+      } else if (isHost) {
+        await plain('hosts.yaml', 'hosts.md', writeHostsDocument);
       } else if (isPackage) {
-        const meta = YAML.parse(await fs.readFile(path.join(root, 'package.yaml'), 'utf8')) || {};
+        const meta = await exists(path.join(root, 'package.yaml')) ? YAML.parse(await fs.readFile(path.join(root, 'package.yaml'), 'utf8')) || {} : (await import('./lang/site-document.js')).readPackageDocument(await fs.readFile(path.join(root, 'package.md'), 'utf8')).data;
+        await plain('package.yaml', 'package.md', writePackageDocument);
         const dirs = await fs.readdir(path.join(root, 'components'), { withFileTypes: true }).catch(() => []);
         for (const d of dirs) {
           if (!d.isDirectory() || d.name.startsWith('.')) continue;
           const src = await cat.readComponentDir(path.join(root, 'components', d.name));
-          if (!src || src.manifestText === undefined) continue;
-          const name = `${meta.name}.${src.name}`;
-          await component(src.dir, name, cat.buildComponent({ ...src, name, shortName: src.name, pkg: meta.name, project: true, words: catalog.words }).entry?.manifest.props);
+          if (!src) continue;
+          const name = `${meta.name}.${src.name}`, props = cat.buildComponent({ ...src, name, shortName: src.name, pkg: meta.name, project: true, words: catalog.words }).entry?.manifest.props;
+          if (src.manifestText !== undefined) await component(src.dir, name, props);
+          await fixtures(src.dir, name, props);
         }
+        await vocabulary(root);
       } else {
         const project = await loadProject(root, { catalog });
         if (project.loadErrors.length) { for (const e of project.loadErrors) console.log(JSON.stringify(e)); console.error('Corrigez d\'abord le site (sitec check).'); return 1; }
@@ -282,7 +317,8 @@ export async function run(argv) {
         }
         // Composants du site encore écrits en manifeste : leur plan, composant.md.
         validateProject(project, catalog);
-        for (const src of project.componentSources || []) if (src.manifestText !== undefined) await component(src.dir, src.name, project.catalog?.get(src.name)?.manifest.props);
+        for (const src of project.componentSources || []) { const props = project.catalog?.get(src.name)?.manifest.props; if (src.manifestText !== undefined) await component(src.dir, src.name, props); await fixtures(src.dir, src.name, props); }
+        await vocabulary(root);
       }
       if (failed.length) { for (const m of failed) console.error('Ne s\'écrit pas en document : ' + m); console.error('Rien n\'est écrit.'); return 1; }
       if (!out.length) { console.log('Rien à convertir : plus aucun fichier YAML d\'auteur ici.'); return 0; }
@@ -714,7 +750,7 @@ Composants de projet, format langage (défaut) : un seul fichier avec données, 
   données : nom: ${TYPE_WORDS.join(' | ')}, puis facultatif, au moins N, au plus N, de A à B, un parmi a, b — description ; « items (liste): » puis les champs.
   forme : ${Object.keys(PRIMITIVE_HELP).join(', ')}.
     comportements posés par la forme, sans rien déclarer : défilement, onglets, accordéon, repli, filtres de x selon champ, image agrandissable, copier.
-  vocabulaire (des mots en plus des primitives, sans toucher au compilateur) : vocabulaire.yaml à la racine du site ou d'un paquet ; « mots: » puis, par mot,
+  vocabulaire (des mots en plus des primitives, sans toucher au compilateur) : vocabulaire.md (une section « ## mot » par mot) ou vocabulaire.yaml à la racine du site ou d'un paquet ; « mots: » puis, par mot,
     ${WORD_KEYS.join(', ')}. Un mot se définit par une forme (primitives, autres mots, « contenu » pour ce que l'appelant place dedans)
     ou par un fragment de gabarit, avec « feuille » pour son CSS. Emploi : « - mot: a, b » ou « - mot, a, b: » puis des éléments ; un mot de paquet : « - paquet.mot: a ».
     Liste des mots : sitec catalog <dossier> ; fiche : sitec explain "<mot>" <dossier>.

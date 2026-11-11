@@ -15,9 +15,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadCatalog } from '../src/catalog.js';
 import { loadProject } from '../src/load.js';
-import { componentSchemas, readPageDocument, readSiteDocument, writePageDocument, writeSiteDocument, canon, parseLink, COMPONENT_NAMES, PROP_NAMES, readDataDocument, writeDataDocument, PRODUCTS, collectionData, readSegmentsDocument, writeSegmentsDocument } from '../src/lang/site-document.js';
+import { componentSchemas, readPageDocument, readSiteDocument, writePageDocument, writeSiteDocument, canon, parseLink, COMPONENT_NAMES, PROP_NAMES, readDataDocument, writeDataDocument, PRODUCTS, collectionData, readSegmentsDocument, writeSegmentsDocument, readPackageDocument, readHostsDocument, readFixtureDocument } from '../src/lang/site-document.js';
 import { EVENTS } from '../src/segments.js';
-import { parseComponentOutline, writeComponentOutline } from '../src/lang/outline.js';
+import { parseComponentOutline, writeComponentOutline, parseVocabularyOutline, writeVocabularyOutline } from '../src/lang/outline.js';
+import { compileVocabulaire } from '../src/lang/vocabulaire.js';
 import { THEME_PRESETS } from '../src/emit/php/css.js';
 import { SITE_SCHEMA } from '../src/validate.js';
 
@@ -233,15 +234,36 @@ try {
   const natifs = (await fs.readdir(path.join(ROOT, 'components'), { withFileTypes: true })).filter(x => x.isDirectory()).map(x => x.name);
   const enYaml = []; for (const n of natifs) if (await fs.access(path.join(ROOT, 'components', n, 'manifest.yaml')).then(() => true, () => false)) enYaml.push(n);
   ok(`catalogue natif : les ${natifs.length} composants sont écrits en plan, aucun manifest.yaml`, natifs.length >= 23 && !enYaml.length, enYaml.join(', '));
-  // Les composants des exemples et du paquet, encore en manifeste au dépôt : convertis dans une copie, ils compilent à l'identique.
+  // --- vocabulaire, cas de test, paquet, hôte
+  const VOC = '# Vocabulaire\n> une note\n\n## carte de visite\nUne carte avec un nom et un rôle.\n\n### Données\n- nom : texte\n- role : texte, facultatif\n\n### Forme\n- carte « fiche » :\n  - sous-titre : nom\n  - texte discret : role\n\n### Apparence\n- fiche : centré\n\n## heure de sortie\nUne heure balisée.\n\n### Données\n- heure : texte\n\n### Gabarit\n```html\n<p class="heure-de-sortie"><time>{{ heure }}</time></p>\n```\n\n### Feuille\n```css\n.heure-de-sortie{margin:0}\n```\n';
+  const pv = parseVocabularyOutline(VOC);
+  ok('vocabulaire : un mot par section, ses parties en puces, gabarit et feuille en blocs', !pv.errors.length && same(pv.value, { mots: { 'carte de visite': { description: 'Une carte avec un nom et un rôle.', 'données': { nom: 'texte', role: 'texte, facultatif' }, forme: [{ 'carte « fiche »': [{ 'sous-titre': 'nom' }, { 'texte discret': 'role' }] }], apparence: { fiche: 'centré' } }, 'heure de sortie': { description: 'Une heure balisée.', 'données': { heure: 'texte' }, gabarit: '<p class="heure-de-sortie"><time>{{ heure }}</time></p>\n', feuille: '.heure-de-sortie{margin:0}\n' } } }) && pv.lineOf({ in: pv.value.mots, at: 'heure de sortie' }) === 19 && pv.lineOf({ in: pv.value.mots['heure de sortie'], at: 'gabarit' }) === 26, JSON.stringify(pv));
+  const cv = compileVocabulaire(VOC, { scope: 'site', inherited: catalog.words, outline: true }), wv = writeVocabularyOutline(pv.value);
+  ok('vocabulaire : le document compile comme un vocabulaire, se récrit et se relit à l\'identique', !cv.errors.length && cv.own.size === 2 && !wv.error && same(parseVocabularyOutline(wv.text).value, pv.value), JSON.stringify(cv.errors) + (wv.error || ''));
+  ok('vocabulaire, refus : ligne sans rôle, partie inconnue, mot dit deux fois', parseVocabularyOutline('## a\nx\n\n### Données\ntexte perdu\n').errors.some(e => /ligne sans rôle/.test(e.message) && e.line === 5) && parseVocabularyOutline('## a\nx\n\n### Style\n- a : b\n').errors.some(e => /partie inconnue/.test(e.message)) && parseVocabularyOutline('## a\nx\n\n## a\ny\n').errors.some(e => /mot dit deux fois/.test(e.message)));
+  ok('catalogue natif : le vocabulaire est écrit en document, sans vocabulaire.yaml', await fs.access(path.join(ROOT, 'components', 'vocabulaire.md')).then(() => true, () => false) && await fs.access(path.join(ROOT, 'components', 'vocabulaire.yaml')).then(() => false, () => true) && catalog.words.size >= 23);
+  const pk = readPackageDocument('# vitrine\n\nEncarts pour sites de services.\n\nVersion : 1.0.0\nLangage : 1\n'), hs = readHostsDocument('# Hébergement\n\n- a.fr | www.a.fr, a.com | ../a\n- b.fr | projet : ../b\n');
+  ok('paquet et hôte en documents', !pk.errors.length && same(pk.data, { name: 'vitrine', description: 'Encarts pour sites de services.', version: '1.0.0', language: 1 }) && !hs.errors.length && same(hs.data, { sites: [{ domain: 'a.fr', aliases: ['www.a.fr', 'a.com'], project: '../a' }, { domain: 'b.fr', project: '../b' }] }), JSON.stringify([pk, hs]));
+  const fx = readFixtureDocument('> un cas avec des données de visite\n## features : Nos atouts\n- leaf | Naturel\n- Fait main\n\nÀ la visite :\n```yaml\nproduits: []\n```\n', { name: 'features', props: schemas.get('features') });
+  ok('cas de test en document : le composant écrit comme une section, puis « À la visite : »', !fx.error && same(fx.props, { title: 'Nos atouts', items: [{ icon: 'leaf', title: 'Naturel' }, { title: 'Fait main' }], 'à la visite': { produits: [] } }) && /n'est pas un composant|une section du composant/.test(readFixtureDocument('## hero : A\n', { name: 'features', props: schemas.get('features') }).error || ''), JSON.stringify(fx));
+
+  // --- tout le dépôt d'exemples, converti dans une copie : il ne reste en YAML que les composés ; rien ne change à la compilation
   const exs = path.join(tmp, 'exemples');
   await fs.cp(path.join(ROOT, 'examples'), exs, { recursive: true, filter: s => !/[\\/](dist|node_modules)([\\/]|$)/.test(s) });
   const empreinte = (...a) => spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'empreinte-catalogue.mjs'), ...a], { encoding: 'utf8' });
   empreinte(path.join(tmp, 'avant.json'), '--exemples', exs);
-  const conv = []; for (const s of ['plomberie-martin', 'le-fournil', 'savonnerie']) conv.push(run('rediger', path.join(exs, s), '--composants')); conv.push(run('rediger', path.join(exs, 'paquets', 'vitrine')));
+  const SITES = ['garnier-associes', 'plomberie-martin', 'le-fournil', 'savonnerie'];
+  const conv = [...SITES.map(s => run('rediger', path.join(exs, s))), run('rediger', path.join(exs, 'paquets', 'vitrine')), run('rediger', path.join(exs, 'hote'))];
   empreinte(path.join(tmp, 'apres.json'), '--exemples', exs);
   const cmpE = empreinte('--compare', path.join(tmp, 'avant.json'), path.join(tmp, 'apres.json')), vE = jsonLines(cmpE.stdout || '').pop() || {};
-  ok('plan : les composants des exemples et du paquet, convertis par rediger, compilent à l\'identique (données, effets, gabarit, feuilles, PHP)', conv.every(c => c.code === 0) && vE.composants >= 30 && vE.differents === 0, (cmpE.stdout || '').slice(0, 500) + conv.map(c => c.out).join('').slice(0, 300));
+  ok('exemples convertis : les composants compilent à l\'identique (données, effets, gabarit, feuilles, PHP)', conv.every(c => c.code === 0) && vE.composants >= 30 && vE.differents === 0, (cmpE.stdout || '').slice(0, 500) + conv.map(c => c.out).join('').slice(0, 300));
+  const yamlLeft = (await fs.readdir(exs, { recursive: true })).map(x => String(x).replaceAll('\\', '/')).filter(x => /\.ya?ml$/.test(x) && !/(^|\/)lecture(\/|\.yaml$)/.test(x)).sort();
+  ok('exemples convertis : il ne reste en YAML que les composants composés (components.yaml)', JSON.stringify(yamlLeft) === JSON.stringify(['paquets/vitrine/components.yaml', 'plomberie-martin/components.yaml']), yamlLeft.join(', '));
+  const checks2 = SITES.map(s => run('check', path.join(exs, s))), tests2 = SITES.map(s => run('test', path.join(exs, s)));
+  ok('exemples convertis : les quatre sites passent check', checks2.every(c => c.code === 0 && /"ok":true/.test(c.out)), checks2.map(c => c.out.slice(-200)).join(' | '));
+  ok('exemples convertis : les cas de test écrits en documents rendent les mêmes instantanés', tests2.every(c => c.code === 0 && /"failed":0,"created":0,"updated":0/.test(c.out)), tests2.map(c => c.out.slice(-160)).join(' | '));
+  const hb = run('host', path.join(exs, 'hote'));
+  ok('exemples convertis : l\'hôte écrit en document (hosts.md) compile ses deux sites', hb.code === 0 && await fs.access(path.join(exs, 'hote', 'dist', 'sites', 'savonnerie', 'index.php')).then(() => true, () => false), hb.out.slice(-300));
   r = run('explain', 'features', '--document');
   ok('explain --document : l\'exemple du composant écrit en document, sans son écriture YAML', r.code === 0 && /Exemple, en document/.test(r.out) && !/- features:/.test(r.out) && /## Points forts : Pourquoi nous choisir/.test(r.out) && /- leaf \| 100 % naturel \| Huiles bio et locales/.test(r.out), r.out);
   r = run('explain', 'hero', site);
