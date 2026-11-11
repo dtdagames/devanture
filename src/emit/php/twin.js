@@ -54,7 +54,6 @@ export function buildIntentIndex(pages, catalog, site = {}) {
     page.data.sections.forEach((s) => {
       const name = Object.keys(s)[0];
       const props = s[name] || {};
-      if (name === 'custom') return;
       const comp = catalog.get(name);
       const intents = (comp?.manifest.intents || []).join(' ');
       const keywords = [...(props.keywords || [])].join(' ');

@@ -701,11 +701,9 @@ Un site les déclare à la racine de `site.yaml` : `packages: [ ./paquets/vitrin
 
 ## 6 quater. Composants décrits en langage naturel
 
-`sitec component new <dossier> <nom> --describe "…"` (ou `--from description.md`) fait écrire le composant par un modèle (Claude Opus 5.5 par défaut, `--model`). Par défaut, le modèle écrit le format langage (données, forme, apparence et cas de test : aucun HTML ni CSS) ; `--format html` lui fait écrire gabarit et feuille. `scripts/measure-gen.mjs` compare les deux formats sur une série fixe de descriptions (composants valides, tours de réparation, tokens), avec une clé d'API. Le guide donné au modèle est construit depuis le compilateur (vocabulaire du gabarit, filtres, comportements, jetons, pictogrammes, deux composants natifs de référence) et le contexte du site (thème, images, noms déjà pris, mots du vocabulaire utilisables avec leurs données). La proposition est écrite dans `components/<nom>/`, puis vérifiée comme tout composant (`check`, règles CSS, comportements, cas de test rendus) ; les erreurs et avertissements sont renvoyés au modèle, jusqu'à trois tours (`--rounds`). La description reste dans `components/<nom>/description.md`, source lisible ; le reste est figé et versionné. La compilation n'appelle jamais le modèle.
+`sitec component new <dossier> <nom> --describe "…" --export consigne.json` (ou `--from description.md`) écrit la consigne et le schéma de sortie à soumettre à un modèle ; sa réponse s'importe par `--import reponse.json`. Le compilateur n'appelle lui-même aucun modèle. Par défaut, la consigne demande le format langage (données, forme, apparence et cas de test : aucun HTML ni CSS) ; `--format html` demande gabarit et feuille. Le guide donné au modèle est construit depuis le compilateur (vocabulaire du gabarit, filtres, comportements, jetons, pictogrammes, deux composants natifs de référence) et le contexte du site (thème, images, noms déjà pris, mots du vocabulaire utilisables avec leurs données). La proposition est écrite dans `components/<nom>/`, puis vérifiée comme tout composant (`check`, règles CSS, comportements, cas de test rendus) ; si elle ne passe pas, `--import reponse.json --export reparation.json` écrit la consigne du tour suivant, avec les erreurs et les avertissements. La description reste dans `components/<nom>/description.md`, source lisible ; le reste est figé et versionné. La compilation n'appelle jamais le modèle.
 
-Sans clé d'API : `--export prompt.json` écrit le prompt et le schéma de sortie ; la réponse d'un modèle (ou d'un agent) s'importe par `--import reponse.json`, vérifiée, avec `--export reparation.json` pour le tour suivant si elle ne passe pas.
-
-`sitec component edit <dossier> <nom> --ask "…"` modifie un composant existant : le modèle reçoit les fichiers actuels et la demande, la même vérification s'applique, la demande s'ajoute à l'historique de `description.md`, et la version précédente est restaurée si aucun tour ne passe. `--package chemin` écrit dans un paquet déclaré par le site (nom court dans le manifeste, nom préfixé dans les pages).
+`sitec component edit <dossier> <nom> --ask "…" --export consigne.json` prépare la modification d'un composant existant : la consigne porte les fichiers actuels et la demande ; à l'import, la même vérification s'applique et la demande s'ajoute à l'historique de `description.md`. `--package chemin` écrit dans un paquet déclaré par le site (nom court dans le manifeste, nom préfixé dans les pages).
 
 `sitec component preview <dossier> <nom>` écrit `.devanture/preview/<nom>.html` : tous les cas de test rendus avec la feuille du site et ses comportements, des boutons pour essayer les trois thèmes et une largeur de téléphone. `new` et `edit` la produisent après chaque succès : c'est l'outil de la relecture visuelle, que la vérification ne remplace pas.
 
@@ -799,15 +797,15 @@ Dans la phrase des champs, un champ se dit avec son article (« son nom », « l
 
 ### Faire récrire les phrases refusées
 
-Un texte libre fait refuser une phrase sur deux. `sitec lire <dossier> --recrire` soumet les phrases refusées à un modèle (Claude ; `--model id`, clé d'API requise), qui propose pour chacune une phrase dans une tournure connue, ou dit ce qui ne peut pas être dit. Le modèle ne décide de rien :
+Un texte libre fait refuser une phrase sur deux. `sitec lire <dossier> --recrire --export p.json` écrit la consigne (`system`, `user`) qui soumet les phrases refusées à un modèle, et `--recrire --import r.json` applique sa réponse. Le modèle propose pour chacune une phrase dans une tournure connue, ou dit ce qui ne peut pas être dit. Le modèle ne décide de rien :
 
 1. **Deux contrôles sans modèle.** Une réécriture est refusée si elle contient un nombre que la phrase d'origine ne donne pas, une valeur de choix qu'elle ne donne pas, ou si un texte entre « » est changé, ajouté ou perdu. Seul un nom de registre se normalise (« visites guidees » devient « visites_guidees »).
-2. **Le lecteur relit.** Le document est relu avec la phrase récrite ; elle n'est gardée que si le lecteur la lit et qu'aucun autre refus n'apparaît. Une réécriture refusée repart une fois vers le modèle avec le message du lecteur (`--rounds n`, 2 par défaut).
+2. **Le lecteur relit.** Le document est relu avec la phrase récrite ; elle n'est gardée que si le lecteur la lit et qu'aucun autre refus n'apparaît. Pour une réécriture refusée, `--import r.json --export p2.json` écrit la consigne d'un second tour, avec le message du lecteur.
 3. **Rien n'est accepté.** `document.md` est récrit (`--dry-run` pour seulement voir). Chaque phrase est montrée avec sa réécriture, ce que le lecteur en lit et la supposition du modèle (« La ferme » désigne le site). La lecture reste à relire, puis à figer par `sitec lire <dossier> --accepter` ; `--recrire --accepter` est refusé.
 
 Ce que ces contrôles ne voient pas : une réécriture qui se lit et dit autre chose que la phrase d'origine. « Le tarif est de 35 euros par personne », récrit « Il y a 35 places. », passe les trois étapes. Seule la lecture redite le montre, et c'est pourquoi elle n'est jamais acceptée d'office : relisez chaque « lu » et chaque « suppose ».
 
-Sans clé d'API, `--recrire --export p.json` écrit la consigne (`system`, `user`) à soumettre à un modèle, et `--recrire --import r.json` applique sa réponse ; avec `--export p2.json` en plus, la consigne du tour de réparation est écrite. L'identifiant de chaque phrase porte sa ligne et une empreinte de son texte : une réponse faite pour un autre état du document ne s'applique à aucune phrase.
+L'identifiant de chaque phrase porte sa ligne et une empreinte de son texte : une réponse faite pour un autre état du document ne s'applique à aucune phrase.
 
 ### Ce qui est mesuré
 
@@ -857,8 +855,13 @@ Prendre rendez-vous → /contact
 | `Libellé → /cible` seul sur sa ligne | le premier lien libre du composant ; cible : route, `#ancre`, `https://…`, `mailto:…`, `tel:…` |
 | `- valeur \| valeur \| valeur` | un élément de la liste du composant ; les valeurs remplissent ses champs dans l'ordre de leur déclaration |
 | puces en retrait | la liste d'un élément (les lignes d'un groupe de tarifs) |
-| `Nom :` seul sur sa ligne | annonce la liste qui suit, si le composant en a plusieurs, ou un texte de plusieurs paragraphes |
-| un bloc `yaml` | ce qui ne se dit pas en lignes : `variants`, groupes libres, champs de formulaire libres |
+| `Nom :` seul sur sa ligne | annonce la liste qui suit, si le composant en a plusieurs, ou un texte, lu alors tel quel jusqu'à la fin de la section |
+| `Champs :` puis des puces | les champs d'un formulaire : un nom connu, ou `societe : facultatif — Entreprise`, dans l'écriture du bloc `fonctionnement` (type, « facultatif », « si champ vaut valeur », « un parmi a, b ») |
+| `Filtre : category = savons` | un groupe de données sur une ligne, « nom = valeur, nom = valeur » ; ou `Filtre :` puis une puce « nom \| valeur » par donnée (c'est aussi l'écriture d'un groupe libre : oui / non, un nombre, sinon le texte) |
+| `Variantes :` puis des puces | les variantes de la section : `- segment \| donnée : valeur \| …`, lues avec les données du composant |
+| lignes en retrait sous une puce | la suite du dernier texte de la puce ; une ligne vide fait un paragraphe |
+| `Dérive de : accueil` | une page dérivée : `Retire : ancre, ancre`, `Remplace :` puis `- ancre \| donnée : valeur \| …` (lu d'après le composant de la section de base), et ses sections `##` s'ajoutent à la fin |
+| un bloc `yaml` | en dernier recours, une donnée trop imbriquée pour une ligne |
 
 Dans une puce, un champ dont le type ne convient pas à la valeur est sauté : un nom d'icône va au champ icône, un fichier image au champ image, un « Libellé → /cible » au champ lien. « rien » saute un champ, « nom : valeur » en vise un. Rien ne se protège : « : », « , », « # », `{{ … }}` et les nombres s'écrivent tels quels, sans guillemets ni indentation. Les trois pièges YAML du mode d'emploi n'existent pas dans un document.
 
@@ -884,11 +887,52 @@ Liens du pied de page :
 - Mentions légales → /mentions-legales
 ```
 
-Le reste de `site.yaml` (constantes, collections, boutique, agents…) s'écrit dans un bloc `yaml` du document, tel qu'en YAML.
+Le reste de `site.yaml` se dit de la même façon : `Constantes :` puis une puce `- delai | 48 h` par constante ; une section par réglage du site, `## Boutique`, `## Agents`, `## Recherche`, `## Images`, `## Hors ligne`, `## Atelier`, `## Personnalisation`, `## Statique`, avec ses données en « Nom : valeur » (un groupe dans le groupe prend un nom pointé, `shipping.flat : 4.9`, comme un jeton de thème) ; une section `## Collection realisations : Réalisations` par collection, avec `Tri : -date` et `Champs :` suivi d'une puce `- title | string | oui` par champ (nom, type, « oui » s'il est obligatoire).
+
+### Données et segments
+
+Les fichiers de données et les segments se lisent avec les mêmes règles. `data/products.md` remplace `data/products.yaml`, `data/<collection>.md` remplace `data/<collection>.yaml` : une section par élément, son identifiant puis son nom (ou le champ de titre de la collection) dans l'intitulé, sa description (ou le premier champ `text`) en texte libre, ses autres champs en « Nom : valeur ».
+
+<!-- sitec: aucun — le site d'essai de ce document garde ses données en YAML ; scripts/verify-site-document.mjs lit ces écritures -->
+```markdown
+# Produits
+
+## savon-lavande : Savon à la lavande
+Savon surgras à 8 %, huile d'olive et lavande fine. Pain de 100 g.
+
+Convient à tous les types de peau.
+Prix : 6.5
+Catégorie : savons
+Image : savon-lavande.svg
+Vedette : oui
+```
+
+`segments.md` remplace `segments.yaml`. Une condition se dit en clair : « visites = 1 », « visites >= 2 », « sur mobile », « sur ordinateur », un événement suivi de « où clé = valeur », « au moins 2 fois » (ou « au plus », « plus de », « moins de »), « depuis 7d » ; « pas … » la nie ; « tout » et « un parmi » prennent une puce en retrait par condition.
+
+<!-- sitec: aucun — le site d'essai de ce document garde ses segments en YAML ; scripts/verify-site-document.mjs lit ces écritures -->
+```markdown
+# Segments
+
+Priorité : devis_abandonne, recurrent, nouveau
+Segments :
+- nouveau | visites = 1
+- recurrent | visites >= 2
+- devis_abandonne | tout
+  - form_start depuis 7d
+  - pas form_submit depuis 7d
+- fan_services | section_view où section = services, au moins 2 fois
+Objectifs :
+- appel | click_cta | to = tel:0472001122
+Expériences :
+- accroche | appel | prix_annonce
+- relance | appel | segment : devis_abandonne | témoin : 20
+```
+
+La lecture de ces documents est figée comme les autres, dans `lecture/data/` et `lecture/segments.yaml`, et `sitec rediger` les écrit depuis le YAML.
 
 ### Les garde-fous
 
-1. **Toute ligne a un rôle.** Une ligne qui ne trouve pas sa place est refusée, à sa ligne (`E_DOCUMENT`) : un texte sous un composant qui n'a pas de texte libre, une valeur de puce sans champ, un lien de trop, un intertitre. Une ligne « nom : valeur » dont le nom est à une lettre d'une donnée, ou reprend un mot d'une donnée sans en être une (« Image côté : left » pour « Côté de l'image »), est refusée elle aussi au lieu d'être rangée dans le texte.
+1. **Toute ligne a un rôle.** Une ligne qui ne trouve pas sa place est refusée, à sa ligne (`E_DOCUMENT`) : un texte sous un composant qui n'a pas de texte libre, une valeur de puce sans champ, un lien de trop, un intertitre. Une ligne « nom : suite » d'un à trois mots avant les deux-points est toujours une donnée : si le nom n'en est pas une, elle est refusée, avec le nom le plus proche (« Image côté : left » pour « Côté de l'image »), jamais rangée dans le texte. Un texte dont une phrase commence ainsi (« Téléphone : 05 56 00 00 00 ») s'annonce par « Texte : » seul sur sa ligne et se lit alors tel quel.
 2. **Une seule lecture.** Les valeurs d'une puce suivent l'ordre des champs, et le type tranche. Il n'y a pas de seconde règle.
 3. **La lecture est redite et figée.** Ce que vaut chaque document est un YAML, gardé dans `lecture/` (`lecture/site.yaml`, `lecture/pages/<id>.page.yaml`). Un document modifié ou nouveau arrête `check` et `build` (`E_READING`) jusqu'à `sitec lire <dossier> --accepter`, qui dit, pour un document changé, les lignes de lecture retirées et ajoutées, et pour un document nouveau, chaque section avec ses données.
 
@@ -904,10 +948,10 @@ Hors du format à ce jour : `sitec migrate`, `sitec keywords --import`, les sch�
 
 ### Ce qui est mesuré
 
-- **Même site.** `examples/garnier-document` est `examples/garnier-associes` écrit en documents : mêmes données, mêmes fichiers compilés à l'octet hors pages PHP (qui gardent l'ordre des données de leur source), même HTML rendu sur toutes les pages. `scripts/verify-site-document.mjs` le vérifie. Les quatre sites d'exemple s'écrivent en documents et se relisent à l'identique.
-- **Texte à écrire.** `scripts/measure-site-document.mjs` : la source des quatre sites d'exemple pèse 17 079 tokens en YAML (hors commentaires) et 14 250 en documents, soit 17 % de moins (de 14 à 23 % selon le site ; le plus fort gain là où aucun bloc `yaml` ne reste). Les quatre modifications du test de maintenance demandent 916 tokens écrits en YAML et 751 en documents, 18 % de moins.
+- **Même site.** `examples/garnier-document` est `examples/garnier-associes` écrit en documents : mêmes données, mêmes fichiers compilés à l'octet hors pages PHP (qui gardent l'ordre des données de leur source), même HTML rendu sur toutes les pages. `scripts/verify-site-document.mjs` le vérifie. Les quatre sites d'exemple (29 pages) s'écrivent en documents sans aucun bloc `yaml` et se relisent à l'identique, à ceci près qu'un nombre y devient son écriture (`1999` et « 1999 ») là où le composant accepte les deux.
+- **Texte à écrire.** `scripts/measure-site-document.mjs` : la source des quatre sites d'exemple pèse 17 079 tokens en YAML (hors commentaires) et 13 686 en documents, soit 20 % de moins (de 18 à 23 % selon le site). Les quatre modifications du test de maintenance demandent 916 tokens écrits en YAML et 734 en documents, 20 % de moins.
 - **Travail d'un agent.** Douze agents Sonnet sans contexte, trois par case, tous réussis (`mesure-document/`, `scripts/measure-site-document-agents.mjs`). Création d'un site depuis un brief : 58 % de tokens produits en moins et 52 % de tokens traités en moins en documents. Cet écart tient pour partie à un seuil : les trois sites YAML dépassaient la longueur d'une commande sous Windows, leur écriture groupée a échoué et ils ont été écrits deux fois ; les trois sites en documents tenaient dessous. Éditions (quatre modifications) : aucun gain, 31 % de tokens produits en plus et 25 % de tokens traités en plus en documents (10 % et 4 % sans l'essai où le script de l'agent n'avait rien écrit), parce que la relecture ajoute une commande et que le champ de formulaire libre retombe en YAML. Trois essais par case, un seul modèle, un seul site : des ordres de grandeur.
-- **Une lecture fausse passée.** Sur les trois créations en documents, une portait une ligne de réglage mal nommée, lue comme du texte et affichée sur la page ; `check` et le banc ne la voyaient pas, l'agent l'a vue dans la lecture redite. Le lecteur refuse maintenant cette ligne.
+- **Une lecture fausse passée.** Sur les trois créations en documents, une portait une ligne de réglage mal nommée, lue comme du texte et affichée sur la page ; `check` et le banc ne la voyaient pas, l'agent l'a vue dans la lecture redite. Depuis la v0.15.0, le lecteur refuse toute ligne « nom : suite » courte dont le nom n'est pas une donnée ; cinq des six sites en documents laissés par les agents, écrits avant cette règle, ne passent plus `check` (leurs mentions légales commencent par « Éditeur du site : … ») et gardent leurs mesures d'alors.
 
 ## 6 ter. Éditeur
 
@@ -921,11 +965,11 @@ Avant toute génération : structure et types de chaque document, routes et ancr
 
 Le rendu des gabarits, le protocole des formulaires, le stockage, le cache statique, le déploiement : `docs/CIBLES.md`. Le langage n'y fait pas référence.
 
-Composants natifs écrits sans code de la cible, tous au format langage (aucun gabarit HTML ni PHP ne reste dans le catalogue ; les mots natifs portent le balisage que les primitives n'écrivent pas, et ceux qui ont un état le lisent par une source) : `hero`, `richtext`, `gallery`, `pricelist`, `map`, `collection.list`, `features`, `stats`, `steps`, `cta`, `timeline`, `testimonials`, `faq`, `team`, `contact.form`, `products.grid`, `product.hero`, `products.related`, `cart.page`, `checkout.page`, `order.confirmation`, `hours`, `recent`. Composants natifs écrits pour la cible : `custom` (bloc libre, la porte de sortie). Leur contrat est décrit dans `CIBLES.md`. Ce qu'une seconde cible devrait réécrire n'est plus un jeu de gabarits : ce sont les sources et les actions (boutique, formulaires, horaires, mémoire du visiteur), le reste vient du gabarit. Un natif au format langage peut recevoir des données que le compilateur calcule (les éléments d'une collection, filtrés et triés) : il les déclare dans un bloc `calculé`, écrit comme `données`, et sa forme les emploie par leur nom. Ce bloc est réservé au catalogue natif.
+Composants natifs écrits sans code de la cible, tous au format langage (aucun gabarit HTML ni PHP ne reste dans le catalogue ; les mots natifs portent le balisage que les primitives n'écrivent pas, et ceux qui ont un état le lisent par une source) : `hero`, `richtext`, `gallery`, `pricelist`, `map`, `collection.list`, `features`, `stats`, `steps`, `cta`, `timeline`, `testimonials`, `faq`, `team`, `contact.form`, `products.grid`, `product.hero`, `products.related`, `cart.page`, `checkout.page`, `order.confirmation`, `hours`, `recent`. Aucun composant natif n'est écrit pour la cible : la porte de sortie `custom` (un fichier PHP du projet) est retirée depuis la v0.15.0. Leur contrat est décrit dans `CIBLES.md`. Ce qu'une seconde cible devrait réécrire n'est plus un jeu de gabarits : ce sont les sources et les actions (boutique, formulaires, horaires, mémoire du visiteur), le reste vient du gabarit. Un natif au format langage peut recevoir des données que le compilateur calcule (les éléments d'une collection, filtrés et triés) : il les déclare dans un bloc `calculé`, écrit comme `données`, et sa forme les emploie par leur nom. Ce bloc est réservé au catalogue natif.
 
 ## 9. Versions et migration
 
 `sitec migrate <dossier>` fait passer un site à la dernière version, étape par étape, en modifiant le texte des fichiers (commentaires et mise en forme conservés), puis vérifie que le site migré passe `check`. `--dry-run` montre les changements sans écrire. Chaque migration propose aussi des suggestions non appliquées : ce que la nouvelle version permet d'écrire mieux (coordonnées recopiées en dur, valeurs répétées à mettre en constantes). Un site sans `language` est lu comme version 1 avec l'avertissement `W_LANGUAGE`.
 
 - **0** : sites écrits avant la déclaration de version (compilateur ≤ 0.1.3). Migration vers 1 : ajout de `language: 1`, aucune construction ne change.
-- **1** (2026-11-08) : première version écrite. Expressions, constantes, collections, composants composés, composants de projet avec gabarit neutre et effet `form`, paquets de composants, tests de composants, feuille de style encadrée, comportements déclarés. Ajouts compatibles, sans changement de version : composants en français contrôlé (compilateur 0.7.0 et 0.8.0), objectifs et expériences dans `segments.yaml` (0.9.0), vocabulaire ouvert (`vocabulaire.yaml`, 0.10.0), lectures à la visite (`fonctionnement: lit:`, 0.11.0), registres à règles (`places`, `liste d'attente`, `une fois par`, 0.12.0).
+- **1** (2026-11-08) : première version écrite. Expressions, constantes, collections, composants composés, composants de projet avec gabarit neutre et effet `form`, paquets de composants, tests de composants, feuille de style encadrée, comportements déclarés. Ajouts compatibles, sans changement de version : composants en français contrôlé (compilateur 0.7.0 et 0.8.0), objectifs et expériences dans `segments.yaml` (0.9.0), vocabulaire ouvert (`vocabulaire.yaml`, 0.10.0), lectures à la visite (`fonctionnement: lit:`, 0.11.0), registres à règles (`places`, `liste d'attente`, `une fois par`, 0.12.0), composant et site écrits en documents (0.13.0 à 0.15.0). Retrait, sans changement de version : le bloc `custom` (0.15.0), qui incluait un fichier PHP du projet hors de toute validation ; une page qui l'emploie encore reçoit `E_UNKNOWN_COMPONENT` avec la marche à suivre (un composant du site).

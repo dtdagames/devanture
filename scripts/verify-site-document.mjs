@@ -15,8 +15,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadCatalog } from '../src/catalog.js';
 import { loadProject } from '../src/load.js';
-import { componentSchemas, readPageDocument, readSiteDocument, writePageDocument, writeSiteDocument, canon, parseLink, COMPONENT_NAMES, PROP_NAMES } from '../src/lang/site-document.js';
+import { componentSchemas, readPageDocument, readSiteDocument, writePageDocument, writeSiteDocument, canon, parseLink, COMPONENT_NAMES, PROP_NAMES, readDataDocument, writeDataDocument, PRODUCTS, collectionData, readSegmentsDocument, writeSegmentsDocument } from '../src/lang/site-document.js';
+import { EVENTS } from '../src/segments.js';
 import { THEME_PRESETS } from '../src/emit/php/css.js';
+import { SITE_SCHEMA } from '../src/validate.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SITEC = path.join(ROOT, 'bin', 'sitec.js');
@@ -27,6 +29,9 @@ const run = (...args) => { try { return { code: 0, out: execFileSync(process.exe
 const jsonLines = out => out.split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
 const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'sitec-site-document-'));
 const same = (a, b) => JSON.stringify(canon(a)) === JSON.stringify(canon(b));
+// À la conversion d'un site YAML, un nombre vaut son écriture (1999 et « 1999 ») : un document ne dit pas la différence.
+const sameLoose = (a, b) => JSON.stringify(canon(a, true)) === JSON.stringify(canon(b, true));
+const groups = SITE_SCHEMA.properties.site.properties;
 const tokens = Object.keys(THEME_PRESETS.clair);
 const catalog = await loadCatalog();
 const schemas = new Map(catalog.list().map(c => [c.name, c.manifest.props]));
@@ -65,11 +70,13 @@ try {
   // --- aller-retour : tout site d'exemple s'écrit en documents et se relit à l'identique
   for (const site of ['garnier-associes', 'plomberie-martin', 'le-fournil', 'savonnerie']) {
     const project = await loadProject(path.join(ROOT, 'examples', site));
-    const sch = componentSchemas(project, catalog), bad = [];
-    const s = writeSiteDocument(project.site, { tokens });
-    if (s.error || !same(readSiteDocument(s.text, { tokens }).data, { language: 1, ...project.site })) bad.push('site : ' + (s.error || 'relu différent'));
-    for (const p of project.pages) { const w = writePageDocument(p.data, { schemas: sch }); if (w.error || !same(readPageDocument(w.text, { schemas: sch }).data, strip(p.data))) bad.push(`${p.id} : ${w.error || 'relu différent'}`); }
-    ok(`aller-retour : ${site} (${project.pages.length} pages) s'écrit en documents et se relit à l'identique`, !bad.length, bad.join(' | '));
+    const sch = componentSchemas(project, catalog), bad = []; let blocs = 0;
+    const pageOf = id => project.pages.find(x => x.id === id)?.data || null;
+    const s = writeSiteDocument(project.site, { tokens, groups });
+    if (s.error || !sameLoose(readSiteDocument(s.text, { tokens, groups }).data, { language: 1, ...project.site })) bad.push('site : ' + (s.error || 'relu différent'));
+    blocs += ((s.text || '').match(/^```yaml/gm) || []).length;
+    for (const p of project.pages) { const w = writePageDocument(p.data, { schemas: sch, pageOf }); if (w.error || !sameLoose(readPageDocument(w.text, { schemas: sch, pageOf }).data, strip(p.data))) bad.push(`${p.id} : ${w.error || 'relu différent'}`); blocs += ((w.text || '').match(/^```yaml/gm) || []).length; }
+    ok(`aller-retour : ${site} (${project.pages.length} pages) s'écrit en documents, sans aucun bloc yaml, et se relit à l'identique`, !bad.length && blocs === 0, bad.join(' | ') + (blocs ? ` ${blocs} bloc(s) yaml` : ''));
   }
 
   // --- règles de lecture
@@ -86,22 +93,57 @@ try {
   ok('lecture : puces en retrait, la liste d\'un élément', !d.errors.length && first(d).groups.length === 2 && same(first(d).groups[0], { title: 'Dépannage', items: [{ name: 'Déplacement', price: 'à partir de 95 €', description: 'Lyon' }, { name: 'Recherche de fuite', price: '180 €', badge: 'Rapport inclus' }] }) && first(d).note === 'Prix TTC.', JSON.stringify(d));
   d = page('## Horaires\n- lundi | fermé : oui\n- mardi | 06:30-13:00, 15:00-19:30');
   ok('lecture : oui / non, liste de mots sur une ligne', !d.errors.length && same(first(d).days, [{ day: 'lundi', closed: true }, { day: 'mardi', slots: ['06:30-13:00', '15:00-19:30'] }]), JSON.stringify(d));
-  d = page('## Texte : Notre histoire\nPremier paragraphe : fondé en 1987, « à la main ».\n\nSecond paragraphe.\n\n- un point\n- un autre\nImage : atelier.jpg');
-  ok('lecture : paragraphes, deux-points et guillemets tels quels, puces gardées dans un texte sans liste', !d.errors.length && first(d).text === 'Premier paragraphe : fondé en 1987, « à la main ».\n\nSecond paragraphe.\n\n- un point\n- un autre' && first(d).image === 'atelier.jpg', JSON.stringify(d));
+  d = page('## Texte : Notre histoire\nNotre tout premier paragraphe : fondé en 1987, « à la main ».\n\nSecond paragraphe.\n\n- un point\n- un autre\nImage : atelier.jpg');
+  ok('lecture : paragraphes, deux-points et guillemets tels quels, puces gardées dans un texte sans liste', !d.errors.length && first(d).text === 'Notre tout premier paragraphe : fondé en 1987, « à la main ».\n\nSecond paragraphe.\n\n- un point\n- un autre' && first(d).image === 'atelier.jpg', JSON.stringify(d));
   d = page('## Chiffres\n- 2011 | année de fondation\n- 3 | associés\nMots-clés : chiffres, année, combien');
   ok('lecture : un nombre reste le texte qu\'on a écrit, mots-clés sur une ligne', !d.errors.length && same(first(d), { items: [{ value: '2011', label: 'année de fondation' }, { value: '3', label: 'associés' }], keywords: ['chiffres', 'année', 'combien'] }), JSON.stringify(d));
   d = page('## Accès : Venir\nlat : 45.7745\nlon : 4.832\nAccès :\nMétro C.\n\nParking à 200 m.');
   ok('lecture : nombres, texte de plusieurs paragraphes annoncé par « Nom : »', !d.errors.length && first(d).lat === 45.7745 && first(d).access === 'Métro C.\n\nParking à 200 m.', JSON.stringify(d));
   d = page('## Formulaire de contact : Écrivez-nous\nDestinataire : a@b.fr\nChamps : name, email, message\n```yaml\nvariants:\n  mobile: { title: Appelez-nous }\n```');
   ok('lecture : bloc yaml pour ce qui ne se dit pas en lignes', !d.errors.length && same(first(d), { title: 'Écrivez-nous', to: 'a@b.fr', fields: ['name', 'email', 'message'], variants: { mobile: { title: 'Appelez-nous' } } }), JSON.stringify(d));
+  d = page('## products.grid : Nos savons\nFiltre : category = savons, featured = oui\nColonnes : 3');
+  const d2 = page('## products.grid : Nos savons\nFiltre :\n- category | savons\n- featured | oui');
+  ok('lecture : un groupe de données sur une ligne (« nom = valeur ») ou en puces (« nom | valeur »), typé par sa déclaration', !d.errors.length && same(first(d).filter, { category: 'savons', featured: true }) && !d2.errors.length && same(first(d2).filter, first(d).filter), JSON.stringify([d, d2]));
+  d = page('## Liste : Réalisations\nsource : realisations\nFiltre :\n- category | salle-de-bain\n- annee | 2024\n- vedette | oui');
+  ok('lecture : données libres en puces « nom | valeur » (oui / non, nombre, texte)', !d.errors.length && same(first(d).filter, { category: 'salle-de-bain', annee: 2024, vedette: true }), JSON.stringify(d));
+  d = page('## Bandeau : Plombier à Lyon\nDépannage 7j/7.\nAppeler → tel:0472001122\nVariantes :\n- mobile | Appeler maintenant → tel:0472001122\n- recurrent | sous-titre : Content de vous revoir.\n- prix | Dépannage dès 95 € | Devis gratuit.');
+  ok('lecture : variantes d\'une section, « segment | données du composant »', !d.errors.length && same(first(d).variants, { mobile: { cta: { label: 'Appeler maintenant', to: 'tel:0472001122' } }, recurrent: { subtitle: 'Content de vous revoir.' }, prix: { title: 'Dépannage dès 95 €', subtitle: 'Devis gratuit.' } }), JSON.stringify(d));
+  d = page('## Questions\n- Quel délai ? | Une semaine.\n- Comment obtenir un devis ? | Envoyez-nous la date.\n\n  Un acompte de 30 % est demandé.\n  Le solde au retrait.\n- Livrez-vous ? | Oui.');
+  ok('lecture : lignes en retrait sous une puce, la suite de son dernier texte', !d.errors.length && first(d).items.length === 3 && first(d).items[1].a === 'Envoyez-nous la date.\n\nUn acompte de 30 % est demandé.\nLe solde au retrait.', JSON.stringify(d));
+  const der = readPageDocument('# Savon de Marseille\n\nAdresse : /savons-marseille\nDérive de : accueil\nRetire : avis\nRemplace :\n- entree | Le savon de Marseille | Voir → /boutique\n\n## Questions : Trois questions\n- Pourquoi ? | Parce que.\n', { schemas, pageOf: id => (id === 'accueil' ? { route: '/', sections: [{ hero: { id: 'entree', title: 'A' } }, { testimonials: { id: 'avis', items: [] } }] } : null) });
+  ok('lecture : page dérivée (« Dérive de », « Retire », « Remplace : » lu d\'après le composant de la section, sections ajoutées)', !der.errors.length && same(der.data, { route: '/savons-marseille', extends: 'accueil', seo: { title: 'Savon de Marseille' }, override: { entree: { title: 'Le savon de Marseille', cta: { label: 'Voir', to: '/boutique' } } }, remove: ['avis'], append: [{ faq: { title: 'Trois questions', items: [{ q: 'Pourquoi ?', a: 'Parce que.' }] } }] }), JSON.stringify(der));
+  ok('refus : section remplacée dont l\'ancre n\'existe pas dans la page de base', readPageDocument('# T\n\nAdresse : /x\nDérive de : accueil\nRemplace :\n- absente | Titre\n', { schemas, pageOf: () => ({ sections: [] }) }).errors.some(e => /aucune section de cette ancre/.test(e.message)));
   ok('lecture : cibles de lien (route, ancre, URL, mailto, tel) ; un texte à flèche sans cible n\'est pas un lien', same(parseLink('Voir → #tarifs'), { label: 'Voir', to: '#tarifs' }) && parseLink('Appeler -> tel:+33472001122').to === 'tel:+33472001122' && parseLink('Paris → Lyon') === null && parseLink('Site → https://exemple.fr/a').to === 'https://exemple.fr/a');
   const sd = readSiteDocument('# Mon site\n\nUn slogan.\n\nLangue : fr-FR\nThème : sombre\ncolor.primary : #6b2d5c\nE-mail : a@b.fr\nMenu :\n- Accueil → /\n- Contact → /contact\nLiens du pied de page :\n- Mentions → /mentions\n```yaml\nconstants: { delai: 1 h }\nsite:\n  agents: { enabled: true }\n```\n', { tokens });
+  const sg = readSiteDocument('# Maison Dubois\n\nThème : chaleureux\nConstantes :\n- delai | 48 h\n- seuil | 50\n\n## Boutique\nDevise : €\nPaiement : manual\nshipping.flat : 4.9\nshipping.free_from : 50\n\n## Agents\nActif : oui\nType d\'activité : Store\n\n## Images\nLargeurs : 480, 960\n\n## Collection realisations : Réalisations\nTri : -date\nChamps :\n- title | string | oui\n- image | asset\n- date | date\n', { tokens, groups });
+  ok('lecture : site.md, constantes, réglages et collections dans leurs sections, sans bloc yaml', !sg.errors.length && same(sg.data, { language: 1, constants: { delai: '48 h', seuil: 50 }, collections: { realisations: { label: 'Réalisations', fields: { title: { type: 'string', required: true }, image: 'asset', date: 'date' }, sort: '-date' } }, site: { name: 'Maison Dubois', theme: { preset: 'chaleureux' }, shop: { currency: '€', payment: 'manual', shipping: { flat: 4.9, free_from: 50 } }, agents: { enabled: true, business_type: 'Store' }, images: { widths: [480, 960] } } }), JSON.stringify(sg));
+  ok('refus : section de site inconnue, réglage inconnu dans une section', readSiteDocument('# S\n\n## Boutiqu\nDevise : €\n', { tokens, groups }).errors.some(e => /n'est pas un réglage du site.*boutique/.test(e.message)) && readSiteDocument('# S\n\n## Boutique\nMonnaie : €\n', { tokens, groups }).errors.some(e => /« Monnaie » n'est pas une donnée/.test(e.message)));
   ok('lecture : site.md (nom, slogan, thème, jeton sans guillemets, menu, pied, bloc yaml fusionné)', !sd.errors.length && same(sd.data, { language: 1, constants: { delai: '1 h' }, site: { name: 'Mon site', tagline: 'Un slogan.', locale: 'fr-FR', theme: { preset: 'sombre', tokens: { 'color.primary': '#6b2d5c' } }, nav: [{ label: 'Accueil', to: '/' }, { label: 'Contact', to: '/contact' }], footer: { links: [{ label: 'Mentions', to: '/mentions' }] }, contact: { email: 'a@b.fr' }, agents: { enabled: true } } }), JSON.stringify(sd));
+
+  // --- données et segments
+  let dd = readDataDocument('# Produits\n\n## savon-lavande : Savon à la lavande\nSavon surgras à 8 %.\n\nConvient à tous.\nPrix : 6.5\nCatégorie : savons\nImage : savon.svg\nStock : 4\nVedette : oui\n\n## savon-olive : Savon pur olive\nPrix : 5.9\n', PRODUCTS);
+  ok('données : produits en document, une section « ## identifiant : nom » par produit', !dd.errors.length && same(dd.data, { products: [{ id: 'savon-lavande', name: 'Savon à la lavande', price: 6.5, category: 'savons', description: 'Savon surgras à 8 %.\n\nConvient à tous.', image: 'savon.svg', stock: 4, featured: true }, { id: 'savon-olive', name: 'Savon pur olive', price: 5.9 }] }), JSON.stringify(dd));
+  const ck = collectionData('realisations', { fields: { title: { type: 'string', required: true }, image: 'asset', date: 'date', category: 'string', text: 'text' } });
+  dd = readDataDocument('# Réalisations\n\n## salle-de-bain : Salle de bain, Lyon 3e\nDépose de la baignoire.\nImage : chantier.svg\nDate : 2026-09\nCatégorie : salle-de-bain\n', ck);
+  ok('données : éléments d\'une collection, lus d\'après sa déclaration (titre, texte libre, champs)', !dd.errors.length && same(dd.data, { realisations: [{ id: 'salle-de-bain', title: 'Salle de bain, Lyon 3e', image: 'chantier.svg', date: '2026-09', category: 'salle-de-bain', text: 'Dépose de la baignoire.' }] }), JSON.stringify(dd));
+  ok('refus : élément sans identifiant lisible, identifiant dit deux fois, champ inconnu, prix qui n\'est pas un nombre', refused(readDataDocument('## Savon Lavande\nPrix : 6\n', PRODUCTS), /s'ouvre par son identifiant/) && refused(readDataDocument('## a : A\nPrix : 1\n\n## a : B\nPrix : 2\n', PRODUCTS), /identifiant dit deux fois/) && refused(readDataDocument('## a : A\nTarif : 6\n', PRODUCTS), /« Tarif » n'est pas une donnée/) && refused(readDataDocument('## a : A\nPrix : six euros\n', PRODUCTS), /un nombre est attendu/));
+  const SEG = '# Segments\n\nPriorité : devis_abandonne, recurrent, nouveau\nSegments :\n- nouveau | visites = 1\n- recurrent | visites >= 2\n- devis_abandonne | tout\n  - form_start depuis 7d\n  - pas form_submit depuis 7d\n- fan | section_view où section = services, au moins 2 fois\n- mobile | sur mobile\n- l_un | un parmi\n  - sur ordinateur\n  - pas purchase\nObjectifs :\n- appel | click_cta | to = tel:0472001122\nExpériences :\n- accroche | appel | prix_annonce\n- relance | appel | segment : devis_abandonne | témoin : 20\n';
+  const sgm = readSegmentsDocument(SEG, { events: EVENTS });
+  ok('segments : conditions en clair, objectifs et expériences en puces', !sgm.errors.length && same(sgm.data, { segments: { nouveau: { visits: 1 }, recurrent: { visits: { gte: 2 } }, devis_abandonne: { all: [{ event: 'form_start', within: '7d' }, { not: { event: 'form_submit', within: '7d' } }] }, fan: { event: 'section_view', where: { section: 'services' }, count: { gte: 2 } }, mobile: { device: 'mobile' }, l_un: { any: [{ device: 'desktop' }, { not: { event: 'purchase' } }] } }, priority: ['devis_abandonne', 'recurrent', 'nouveau'], goals: { appel: { event: 'click_cta', where: { to: 'tel:0472001122' } } }, experiments: { accroche: { goal: 'appel', arms: ['prix_annonce'] }, relance: { goal: 'appel', segment: 'devis_abandonne', holdout: 20 } } }), JSON.stringify(sgm));
+  const sw = writeSegmentsDocument(sgm.data, { events: EVENTS });
+  ok('segments : ce qui est lu se récrit et se relit à l\'identique', !sw.error && same(readSegmentsDocument(sw.text, { events: EVENTS }).data, sgm.data), sw.error || sw.text);
+  ok('refus : condition non comprise, événement inconnu, « tout » sans conditions', refused(readSegmentsDocument('Segments :\n- a | revenu trois fois\n', { events: EVENTS }), /condition non comprise/) && refused(readSegmentsDocument('Segments :\n- a | form_start depuis hier\n', { events: EVENTS }), /condition non comprise après « form_start »/) && refused(readSegmentsDocument('Segments :\n- a | tout\n', { events: EVENTS }), /attend ses conditions en dessous/));
 
   // --- garde-fou 1 : toute ligne a un rôle, sinon elle est refusée à sa ligne
   ok('refus : ligne sans rôle (composant sans texte libre), à sa ligne', refused(page('## Chiffres\nUn texte sans place.\n- 3 | avocats\n- 2 | villes'), /ligne sans rôle/, 6));
   ok('refus : nom de réglage à une lettre près, pas rangé dans le texte', refused(page('## Bandeau : A\nAlignment : left'), /Alignment.*vouliez-vous dire « alignement »/));
-  ok('refus : nom de réglage qui reprend un mot d\'une donnée sans en être une ; un autre début de phrase reste du texte', refused(page('## Texte : A\nUn paragraphe.\nImage côté : left'), /Image côté.*vouliez-vous dire « côté de l'image »/) && !page('## Texte : A\nProfil : titulaire du CAPA.\nTéléphone : 05 56 00 00 00.').errors.length);
+  ok('refus : une ligne « nom : suite » d\'un à trois mots dont le nom n\'est pas une donnée, avec le nom le plus proche', refused(page('## Texte : A\nUn paragraphe.\nImage côté : left'), /Image côté.*vouliez-vous dire « côté de l'image »/) && refused(page('## Texte : A\nProfil : titulaire du CAPA.'), /« Profil » n'est pas une donnée de richtext$/, 6) && /annoncez le texte : « Texte : »/.test(page('## Texte : A\nProfil : titulaire du CAPA.').errors[0].hint) && refused(page('## Bandeau : A\nAccroche : Une longue phrase qui serait affichée telle quelle.'), /« Accroche » n'est pas une donnée de hero/));
+  d = page('## Texte : Mentions\nImage : a.jpg\nTexte :\nÉditeur du site : cabinet Garnier.\n\nTéléphone : 05 56 00 00 00.\nImage : crédit photo\n- un point\n### Un intertitre\nVoir → /contact');
+  ok('lecture : un texte annoncé par « Texte : » est lu tel quel jusqu\'à la fin de la section', !d.errors.length && first(d).image === 'a.jpg' && first(d).text === 'Éditeur du site : cabinet Garnier.\n\nTéléphone : 05 56 00 00 00.\nImage : crédit photo\n- un point\n### Un intertitre\nVoir → /contact', JSON.stringify(d));
+  ok('lecture : au-delà de trois mots avant les deux-points, c\'est une phrase du texte', !page('## Texte : A\nLe directeur de la publication : Me Garnier.').errors.length && first(page('## Texte : A\nLe directeur de la publication : Me Garnier.')).text === 'Le directeur de la publication : Me Garnier.');
+  d = page('## Formulaire de contact : Écrivez-nous\nDestinataire : a@b.fr\nChamps :\n- name\n- email\n- societe : facultatif — Entreprise\n- nature : un parmi Dépannage, Devis — Type de demande\n- date_souhaitee : date, facultatif, si nature vaut Devis — Date souhaitée (ex. 12/03)\n- message');
+  ok('lecture : champs de formulaire en lignes, dans l\'écriture du bloc fonctionnement', !d.errors.length && same(first(d).fields, ['name', 'email', { name: 'societe', label: 'Entreprise' }, { name: 'nature', label: 'Type de demande', type: 'select', required: true, options: ['Dépannage', 'Devis'] }, { name: 'date_souhaitee', label: 'Date souhaitée', type: 'date', placeholder: '12/03', when: { nature: 'Devis' } }, 'message']), JSON.stringify(d));
+  ok('refus : champ de formulaire mal dit (type inconnu, libellé manquant)', refused(page('## Formulaire de contact\nDestinataire : a@b.fr\nChamps :\n- societe : chiffre — Entreprise'), /champ societe : « chiffre » n'est ni un type de champ/) && refused(page('## Formulaire de contact\nDestinataire : a@b.fr\nChamps :\n- societe : texte'), /libellé manquant/));
   ok('refus : composant inconnu, avec le nom le plus proche', refused(page('## Formulaire : Écrivez-nous'), /n'est pas un composant.*formulaire de contact/) && refused(page('## Bandau : A'), /vouliez-vous dire « bandeau »/));
   ok('refus : un lien de trop', refused(page('## Appel : A\nUn → /a\nDeux → /b'), /un lien de trop/));
   ok('refus : valeur de puce sans champ', refused(page('## Galerie\n- a.jpg | Alt | Légende | en trop'), /ne trouve pas de champ/));
@@ -157,13 +199,15 @@ try {
   r = run('rediger', y, '--dry-run');
   ok('rediger --dry-run : dit ce qui s\'écrirait sans rien modifier', r.code === 0 && /site\.yaml → site\.md/.test(r.out) && /rien n'est modifié/.test(r.out) && await fs.access(path.join(y, 'site.yaml')).then(() => true, () => false), r.out);
   r = run('rediger', y); const r5 = run('check', y); const r6 = run('lire', y);
-  ok('rediger : écrit les documents et leur lecture, retire le YAML, et le site passe check', r.code === 0 && r5.code === 0 && /"ok":true/.test(r5.out) && !/à accepter|a changé/.test(r6.out) && await fs.access(path.join(y, 'site.yaml')).then(() => false, () => true) && await fs.access(path.join(y, 'lecture', 'site.yaml')).then(() => true, () => false), r.out + r5.out);
+  const left = (await fs.readdir(y, { recursive: true })).map(x => String(x).replaceAll('\\', '/')).filter(x => /\.yaml$/.test(x) && !/^(lecture|components)\//.test(x) && x !== 'components.yaml');
+  ok('rediger : site, pages, données et segments passent en documents ; il ne reste de YAML que les composants', /data\/realisations\.yaml → data\/realisations\.md/.test(r.out) && /segments\.yaml → segments\.md/.test(r.out) && !left.length, left.join(', '));
+  ok('rediger : écrit les documents et leur lecture, retire le YAML, sans garder de bloc yaml, et le site passe check', r.code === 0 && !/bloc/.test(r.out) && r5.code === 0 && /"ok":true/.test(r5.out) && !/à accepter|a changé/.test(r6.out) && await fs.access(path.join(y, 'site.yaml')).then(() => false, () => true) && await fs.access(path.join(y, 'lecture', 'site.yaml')).then(() => true, () => false), r.out + r5.out);
   r = run('rediger', y);
   ok('rediger : refuse un site déjà en documents', r.code === 1 && /déjà écrit en documents/.test(r.out), r.out);
   r = run('explain', 'features', '--document');
-  ok('explain --document : l\'exemple du composant écrit en document', r.code === 0 && /En document/.test(r.out) && /## Points forts : Pourquoi nous choisir/.test(r.out) && /- leaf \| 100 % naturel \| Huiles bio et locales/.test(r.out), r.out);
+  ok('explain --document : l\'exemple du composant écrit en document, sans son écriture YAML', r.code === 0 && /Exemple, en document/.test(r.out) && !/- features:/.test(r.out) && /## Points forts : Pourquoi nous choisir/.test(r.out) && /- leaf \| 100 % naturel \| Huiles bio et locales/.test(r.out), r.out);
   r = run('explain', 'hero', site);
-  ok('explain <composant> <dossier> : la forme document est donnée d\'office pour un site en documents', r.code === 0 && /En document/.test(r.out), r.out);
+  ok('explain <composant> <dossier> : la forme document est donnée d\'office pour un site en documents', r.code === 0 && /Exemple, en document/.test(r.out), r.out);
   r = run('explain', 'document');
   const frOk = Object.entries(COMPONENT_NAMES).every(([k, v]) => r.out.toLowerCase().includes(`${v} = ${k}`)) && Object.entries(PROP_NAMES).every(([k, v]) => r.out.includes(`${v} = ${k}`));
   ok('explain document : le format en une page, noms français tirés du lecteur', r.code === 0 && frOk && /Adresse : \/contact/.test(r.out), r.out.slice(0, 300));

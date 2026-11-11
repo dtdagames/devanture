@@ -58,7 +58,7 @@ for (const task of ['creation', 'edition']) for (const format of ['yaml', 'docum
 }
 const gap = (task, k) => { const y = cells[`${task}/yaml`][k].moyenne, d = cells[`${task}/document`][k].moyenne; return `${d > y ? '+' : ''}${Math.round((d / y - 1) * 100)} %`; };
 const ecarts = Object.fromEntries(['creation', 'edition'].map(t => [t, Object.fromEntries(['source_tokens', 'tours', 'tokens_produits', 'tokens_traites', 'contexte_final', 'appels_outils', 'duree_s'].map(k => [k, gap(t, k)]))]));
-fs.writeFileSync(path.join(BASE, 'mesures.json'), JSON.stringify({ essais: rows, cases: cells, ecarts_documents_contre_yaml: ecarts }, null, 1) + '\n');
+if (!noBench) fs.writeFileSync(path.join(BASE, 'mesures.json'), JSON.stringify({ essais: rows, cases: cells, ecarts_documents_contre_yaml: ecarts }, null, 1) + '\n');
 for (const r of rows.filter(x => x.depuis)) console.log(`${r.essai} : mesures de l'essai gardées ; ${r.depuis}`);
 for (const r of rows) console.log(`${r.essai.padEnd(24)} check ${r.check_ok ? 'ok ' : 'NON'} build ${r.build_ok ? 'ok ' : 'NON'} banc ${String(r.banc ?? '—').padEnd(6)} ${String(r.sections).padStart(2)} sections  source ${String(r.source_tokens).padStart(5)} tokens  tours ${String(r.tours).padStart(2)}  produits ${String(r.tokens_produits).padStart(6)}  traités ${String(r.tokens_traites).padStart(7)}  ${String(r.duree_s).padStart(6)} s`);
 console.log('\nÉcarts des documents par rapport au YAML (moyennes de trois essais) :');

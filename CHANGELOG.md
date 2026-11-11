@@ -1,6 +1,17 @@
 # Journal des versions
 
-Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.14.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.15.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+
+## v0.15.0 — 2026-11-11 — plus aucun appel à un modèle ; lecteur de site fermé aux réglages mal nommés
+
+- **Le compilateur n'appelle plus aucun modèle.** `keywords`, `review`, `component new --describe`, `component edit --ask` et `lire --recrire` écrivent une consigne (`--export`) et appliquent une réponse (`--import`). `--llm`, `--model` et `--rounds` sont retirés, ainsi que la dépendance `@anthropic-ai/sdk` et `scripts/measure-gen.mjs`. L'appel direct n'avait jamais été exercé.
+- **Site en documents, une ligne « nom : suite » est toujours une donnée** : d'un à trois mots avant les deux-points, un nom qui n'est pas une donnée du composant est refusé (`E_DOCUMENT`), avec le nom le plus proche, au lieu d'être rangé dans le texte. Un texte dont une phrase commence ainsi s'annonce par « Texte : » seul sur sa ligne et se lit alors tel quel. Changement de lecture : un document qui comptait sur l'ancienne tolérance est refusé jusqu'à ce qu'il annonce son texte.
+- **Champs de formulaire en lignes** : `Champs :` puis une puce par champ, un nom connu ou « nom : type, précisions — Libellé », l'écriture du bloc `fonctionnement`. Plus de bloc YAML pour un champ libre.
+- **Plus aucun bloc YAML dans les sites d'exemple écrits en documents** (`scripts/inventaire-yaml.mjs` en tient le compte) : groupe de données sur une ligne (`Filtre : category = savons`) ou en puces « nom | valeur », données libres typées (oui / non, nombre, texte), `Variantes :` avec une puce `- segment | donnée : valeur` par segment (section et page), lignes en retrait sous une puce pour un texte de plusieurs paragraphes, `Constantes :`, une section par réglage du site (`## Boutique`, `## Agents`, `## Recherche`…) et par collection (`## Collection <nom> : Libellé`), page dérivée en lignes (`Dérive de`, `Retire`, `Remplace :`). À la conversion, un nombre vaut son écriture là où le composant accepte les deux.
+- **Données et segments en documents** : `data/products.md` et `data/<collection>.md` (une section `## identifiant : Nom` par élément, lue d'après les champs des produits ou la déclaration de la collection), `segments.md` (conditions en clair, « visites >= 2 », « section_view où section = services, au moins 2 fois », « pas … », « tout » et « un parmi » avec des puces en retrait ; objectifs, expériences, priorité). Lecture figée dans `lecture/data/` et `lecture/segments.yaml` ; `sitec rediger` les convertit.
+- **Plus de PHP d'auteur** : la porte de sortie `custom` (un fichier PHP du projet, hors validation) est retirée avec le composant natif, sa copie à la compilation et l'avertissement `W_CUSTOM`. Une page qui l'emploie reçoit `E_UNKNOWN_COMPONENT` avec la marche à suivre. Dans l'exemple plomberie, le bandeau d'offre devient le composant du site `promo`, au format langage.
+- `sitec explain <composant> --document` ne montre plus que l'écriture en document.
+- Mesure du texte : 20 % de tokens en moins à la création (17 % en v0.14.0) et aux éditions (18 %). Banc du site en documents à 67 contrôles.
 
 ## v0.14.0 — 2026-11-11 — un site écrit comme des documents (prototype)
 

@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { loadCatalog } from './catalog.js';
 import { loadProject } from './load.js';
-import { validateProject, collectWarnings } from './validate.js';
+import { validateProject, collectWarnings, SITE_SCHEMA } from './validate.js';
 import { emit, TARGETS } from './emit/index.js';
 import { formatErrors } from './errors.js';
 import { THEME_PRESETS } from './emit/php/css.js';
@@ -12,7 +12,7 @@ import { TYPE_WORDS } from './lang/donnees.js';
 import { PRIMITIVE_HELP, nearest } from './lang/forme.js';
 import { wordUsage, WORD_KEYS } from './lang/vocabulaire.js';
 import { readDocument, readingDiff, TOURNURES } from './lang/document.js';
-import { writeSiteDocument, writePageDocument, writeSectionDocument, componentSchemas, readSiteDocument, readPageDocument, COMPONENT_NAMES, PROP_NAMES } from './lang/site-document.js';
+import { writeSiteDocument, writePageDocument, writeSectionDocument, componentSchemas, readSiteDocument, readPageDocument, COMPONENT_NAMES, PROP_NAMES, GROUP_NAMES, writeDataDocument, readDataDocument, PRODUCTS, collectionData, writeSegmentsDocument, readSegmentsDocument } from './lang/site-document.js';
 import { SOURCES, SOURCE_NAMES, PUBLIC_SOURCE_NAMES, sourceUsage, sourceFields } from './lang/sources.js';
 import YAML from 'yaml';
 import { INTENT_NAMES } from './lang/apparence.js';
@@ -31,10 +31,10 @@ Usage :
   sitec explain <composant> [dossier-projet] [--document]
                                              Fiche détaillée d'un composant (ou : explain site, explain langage, explain document) ; --document ajoute son exemple écrit en document
   sitec component new <dossier> <nom>        Squelette d'un composant de projet : components/<nom>/ (manifest.yaml, template.html, styles.css)
-  sitec component new <dossier> <nom> --describe "texte" | --from f.md [--format langage|html] [--model id] [--rounds n] [--force]
-                                             Génère le composant depuis une description en langage naturel (modèle Claude), vérifié et réparé jusqu'à passer ; --export p.json puis --import r.json sans clé d'API
-  sitec component edit <dossier> <nom> --ask "modification" [--package chemin]
-                                             Modifie un composant existant par une demande en langage naturel (même vérification ; ancienne version restaurée en cas d'échec)
+  sitec component new <dossier> <nom> --describe "texte" | --from f.md [--format langage|html] [--force] --export p.json
+                                             Écrit la consigne qui fait écrire le composant par un modèle depuis une description ; --import r.json écrit sa réponse et la vérifie (--export p2.json : consigne de réparation). Le compilateur n'appelle aucun modèle
+  sitec component edit <dossier> <nom> --ask "modification" [--package chemin] --export p.json | --import r.json
+                                             Consigne pour modifier un composant existant par une demande en langage naturel, puis import de la réponse (même vérification)
   sitec component preview <dossier> <nom> [--package chemin]
                                              Page d'aperçu de tous les cas de test, avec le thème du site (.devanture/preview/<nom>.html)
   sitec component show <dossier> <nom> [--php] [--json] [--package chemin]
@@ -43,18 +43,18 @@ Usage :
                                              Composants au format document (document.md) : ce que le compilateur comprend de chaque phrase ; --accepter fige cette lecture (lecture.yaml)
   sitec lire <dossier> [--accepter] [--tout] Site au format document (site.md, pages/<id>.md) : ce que vaut chaque document, section par section, et ce qui a changé depuis la lecture acceptée (lecture/)
   sitec rediger <dossier> [--dry-run]        Récrit un site YAML en documents (site.md, pages/<id>.md) ; chaque document est relu et doit rendre les données d'origine, sinon rien n'est écrit
-  sitec lire <dossier> [composant] --recrire [--dry-run] [--model id] [--rounds n] [--export p.json] [--import r.json]
-                                             Fait récrire par un modèle (Claude) les phrases refusées d'un document.md ; le lecteur relit chaque réécriture et reste seul juge, la lecture reste à accepter
+  sitec lire <dossier> [composant] --recrire [--dry-run] --export p.json | --import r.json
+                                             Consigne pour faire récrire par un modèle les phrases refusées d'un document.md, puis import de sa réponse ; le lecteur relit chaque réécriture et reste seul juge, la lecture reste à accepter
   sitec schema <dossier> [--no-vscode]       Schémas JSON du site pour l'éditeur (.devanture/schema) et réglages VS Code : complétion des composants, props, assets et routes
   sitec migrate <dossier> [--dry-run] [--to N]
                                              Fait passer le site à la dernière version du langage (texte modifié, commentaires conservés) et suggère ce qu'elle permet d'écrire mieux
   sitec test <dossier> [--update] [--catalog] [--only nom]
                                              Rend chaque cas components/*/fixtures/*.yaml (projet et paquets) par PHP et le compare à son instantané .html
-  sitec review   <dossier-projet> [--llm] [--export f.json] [--import f.json]
+  sitec review   <dossier-projet> [--export f.json] [--import f.json]
                                              Relecture éditoriale : textes à compléter, faits absents du brief (brief.md), engagements à valider
   sitec build … --draft                      Compile malgré des textes à compléter
-  sitec keywords <dossier-projet> [--all] [--dry-run] [--export f.json] [--import f.json] [--model id]
-                                             Fait proposer par un LLM les mots-clés de recherche de chaque section et les fige dans le YAML
+  sitec keywords <dossier-projet> [--all] [--dry-run] --export f.json | --import f.json
+                                             Consigne pour faire proposer par un modèle les mots-clés de recherche de chaque section, puis import de sa réponse, figée dans la source du site
   sitec init  <dossier> [--name "Nom du site"] [--repo github:compte/depot#tag | --local] [--no-git]
                                              Crée un dépôt de site sans PHP : squelette YAML, brief, README, CLAUDE.md, .gitignore, flux GitHub Actions (vérifier, déployer), premier commit (--no-git : sans dépôt ni commit)
   sitec host  <dossier-hôte> [--draft]        Compile les sites listés dans hosts.yaml en un seul dist/ routé par domaine
@@ -105,14 +105,14 @@ export async function run(argv) {
         console.log('\nJamais devinés : un nombre, une négation, un destinataire. Une phrase dont un mot n\'a pas de rôle est refusée.');
         return 0;
       }
-      if (!dir) { console.error('Usage : sitec lire <dossier-projet> [composant] [--accepter] [--json] | sitec lire <dossier-projet> [composant] --recrire [--dry-run] [--model id] [--rounds n] [--export p.json] [--import r.json] | sitec lire --tournures'); return 2; }
+      if (!dir) { console.error('Usage : sitec lire <dossier-projet> [composant] [--accepter] [--json] | sitec lire <dossier-projet> [composant] --recrire [--dry-run] --export p.json | --import r.json | sitec lire --tournures'); return 2; }
       const opt = k => { const i = rest.indexOf(k); return i >= 0 ? rest[i + 1] : null; };
-      const valued = new Set(['--model', '--rounds', '--export', '--import'].map(k => rest.indexOf(k)).filter(i => i >= 0).map(i => i + 1));
+      const valued = new Set(['--export', '--import'].map(k => rest.indexOf(k)).filter(i => i >= 0).map(i => i + 1));
       const positional = rest.filter((a, i) => !a.startsWith('--') && !valued.has(i));
       const root = path.resolve(dir), only = positional[1] || null, accept = flags.has('--accepter'), json = flags.has('--json');
       const project = await loadProject(root);
       const sources = [...(project.componentSources || []), ...(project.packages || []).flatMap(p => p.componentSources || [])].filter(x => x.documentText !== undefined && (!only || x.name === only));
-      const siteDocs = only ? [] : [project.documents?.site, ...(project.documents?.pages || [])].filter(Boolean);
+      const siteDocs = only ? [] : [project.documents?.site, ...(project.documents?.pages || []), ...(project.documents?.data || [])].filter(Boolean);
       if (!sources.length && !siteDocs.length) { console.error(only ? `Aucun composant au format document nommé ${only} (components/${only}/document.md).` : 'Aucun document dans ce site (site.md, pages/<id>.md, components/<nom>/document.md).'); return only ? 1 : 0; }
       // Documents du site et des pages : ce que vaut chaque document (section par section), ce qui a changé depuis la lecture acceptée.
       let siteBad = 0; const siteReport = [];
@@ -158,15 +158,10 @@ export async function run(argv) {
           console.log(JSON.stringify({ ok: true, exported: exp, sentences: todo.length, hint: `Soumettez system + user à un modèle, enregistrez sa réponse (le tableau JSON), puis : sitec lire ${dir}${only ? ' ' + only : ''} --recrire --import reponse.json` }));
           return 0;
         }
+        if (!imp) { console.error('sitec lire <dossier> --recrire --export p.json écrit la consigne à soumettre à un modèle ; --recrire --import r.json applique sa réponse, que le lecteur relit (le compilateur n\'appelle aucun modèle).'); return 2; }
         let run;
-        try {
-          if (imp) run = await rw.rewriteRun({ docs, answerText: await fs.readFile(path.resolve(imp), 'utf8') });
-          else {
-            const { askModel, DEFAULT_MODEL } = await import('./keywords.js');
-            const model = opt('--model') || DEFAULT_MODEL;
-            run = await rw.rewriteRun({ docs, rounds: Math.max(1, Number(opt('--rounds')) || 2), ask: ({ system, user, round, count }) => { console.error(`Appel du modèle ${model} : ${count} phrase${count > 1 ? 's' : ''} à récrire${round > 1 ? ' (tour ' + round + ', avec le refus du lecteur)' : ''}…`); return askModel({ system, user, model }); } });
-          }
-        } catch (e) { console.error('Erreur : ' + e.message + (/api.?key|auth/i.test(e.message) ? ' (définissez ANTHROPIC_API_KEY, ou utilisez --export puis --import)' : '')); return 1; }
+        try { run = await rw.rewriteRun({ docs, answerText: await fs.readFile(path.resolve(imp), 'utf8') }); }
+        catch (e) { console.error('Erreur : ' + e.message); return 1; }
         const done = run.results.filter(r => r.status === 'récrite'), left = run.results.length - done.length;
         const out = [];
         for (const s of sources) {
@@ -228,16 +223,31 @@ export async function run(argv) {
       if (!dir) { console.error('Usage : sitec rediger <dossier-projet> [--dry-run]'); return 2; }
       const root = path.resolve(dir), dry = flags.has('--dry-run');
       const project = await loadProject(root, { catalog });
-      if (project.documents?.site || project.documents?.pages.length) { console.error('Ce site est déjà écrit en documents (site.md, pages/<id>.md).'); return 1; }
+      if (project.documents?.site || project.documents?.pages.length || project.documents?.data.length) { console.error('Ce site est déjà écrit en documents (site.md, pages/<id>.md).'); return 1; }
       if (project.loadErrors.length) { for (const e of project.loadErrors) console.log(JSON.stringify(e)); console.error('Corrigez d\'abord le YAML (sitec check).'); return 1; }
-      const tokens = Object.keys(THEME_PRESETS.clair), schemas = componentSchemas(project, catalog);
+      const tokens = Object.keys(THEME_PRESETS.clair), groups = SITE_SCHEMA.properties.site.properties, schemas = componentSchemas(project, catalog);
       const out = [], failed = [];
-      const s = writeSiteDocument(project.site, { tokens });
-      if (s.error) failed.push(`site.yaml : ${s.error}`); else out.push({ from: project.siteFile, to: path.join(root, 'site.md'), text: s.text, frozen: path.join(root, 'lecture', 'site.yaml'), yaml: readSiteDocument(s.text, { tokens }).yaml });
+      const s = writeSiteDocument(project.site, { tokens, groups });
+      if (s.error) failed.push(`site.yaml : ${s.error}`); else out.push({ from: project.siteFile, to: path.join(root, 'site.md'), text: s.text, frozen: path.join(root, 'lecture', 'site.yaml'), yaml: readSiteDocument(s.text, { tokens, groups }).yaml });
       for (const p of project.pages) {
-        const r = writePageDocument(p.data, { schemas });
+        const pageOf = id => project.pages.find(x => x.id === id)?.data || null;
+        const r = writePageDocument(p.data, { schemas, pageOf });
         if (r.error) failed.push(`pages/${path.basename(p.file)} : ${r.error}`);
-        else out.push({ from: p.file, to: path.join(root, 'pages', p.id + '.md'), text: r.text, frozen: path.join(root, 'lecture', 'pages', p.id + '.page.yaml'), yaml: readPageDocument(r.text, { schemas }).yaml });
+        else out.push({ from: p.file, to: path.join(root, 'pages', p.id + '.md'), text: r.text, frozen: path.join(root, 'lecture', 'pages', p.id + '.page.yaml'), yaml: readPageDocument(r.text, { schemas, pageOf }).yaml });
+      }
+      // Données : les produits de la boutique et les éléments de chaque collection.
+      const datas = [];
+      if (project.productsRaw) datas.push({ name: 'products', file: project.productsFile, items: Array.isArray(project.productsRaw) ? project.productsRaw : project.productsRaw.products, kind: PRODUCTS, heading: 'Produits' });
+      for (const [name, col] of Object.entries(project.collections || {})) if (col.raw) datas.push({ name, file: col.file, items: Array.isArray(col.raw) ? col.raw : col.raw[name], kind: collectionData(name, project.site.collections?.[name]), heading: project.site.collections?.[name]?.label || name });
+      for (const d of datas) {
+        const w = writeDataDocument(d.items, d.kind, d.heading);
+        if (w.error) failed.push(`data/${d.name}.yaml : ${w.error}`);
+        else out.push({ from: d.file, to: path.join(root, 'data', d.name + '.md'), text: w.text, frozen: path.join(root, 'lecture', 'data', d.name + '.yaml'), yaml: readDataDocument(w.text, d.kind).yaml });
+      }
+      if (project.segmentsRaw) {
+        const w = writeSegmentsDocument(project.segmentsRaw, { events: EVENTS });
+        if (w.error) failed.push(`segments.yaml : ${w.error}`);
+        else out.push({ from: project.segmentsFile, to: path.join(root, 'segments.md'), text: w.text, frozen: path.join(root, 'lecture', 'segments.yaml'), yaml: readSegmentsDocument(w.text, { events: EVENTS }).yaml });
       }
       if (failed.length) { for (const m of failed) console.error('Ne s\'écrit pas en document : ' + m); console.error('Rien n\'est écrit.'); return 1; }
       for (const o of out) {
@@ -306,7 +316,7 @@ export async function run(argv) {
 
     case 'component': {
       const [sub, dir, name] = args;
-      const usage = 'Usage : sitec component new|edit|preview|show <dossier-projet> <nom> [--describe "…" | --from f.md | --ask "…"] [--package chemin] [--model id] [--rounds n] [--export p.json] [--import r.json] [--force] [--php] [--json]';
+      const usage = 'Usage : sitec component new|edit|preview|show <dossier-projet> <nom> [--describe "…" | --from f.md | --ask "…"] [--package chemin] [--export p.json] [--import r.json] [--force] [--php] [--json]';
       if (!['new', 'edit', 'preview', 'show'].includes(sub) || !dir || !name) { console.error(usage); return 2; }
       if (!/^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*$/.test(name)) { console.error(`Nom de composant mal formé : ${name} (minuscules, chiffres, tirets ; points pour une famille).`); return 2; }
       const opt = k => { const i = rest.indexOf(k); return i >= 0 ? rest[i + 1] : null; };
@@ -349,9 +359,10 @@ export async function run(argv) {
         if (!description) { console.error('Description manquante : --describe "…" ou --from description.md.'); return 2; }
         const history = existing?.history || [];
         const promptArgs = extra => ({ name: target.name, description, project, target, current: request ? existing.files : null, request, ...extra });
+        if (opt('--format') && !['langage', 'html'].includes(opt('--format'))) { console.error('--format langage (données, forme, apparence ; défaut) ou --format html (gabarit et feuille)'); return 2; }
         if (opt('--export') && !opt('--import')) {
           const fmt = request ? existing.format : (opt('--format') || 'langage');
-          await fs.writeFile(path.resolve(opt('--export')), JSON.stringify({ name: target.name, description, request, format: fmt, model: opt('--model') || gen.DEFAULT_MODEL, system: await gen.buildSystemPrompt(fmt), user: gen.buildUserPrompt(promptArgs({})), output_schema: gen.schemaFor(fmt) }, null, 2));
+          await fs.writeFile(path.resolve(opt('--export')), JSON.stringify({ name: target.name, description, request, format: fmt, system: await gen.buildSystemPrompt(fmt), user: gen.buildUserPrompt(promptArgs({})), output_schema: gen.schemaFor(fmt) }, null, 2));
           console.log(JSON.stringify({ ok: true, exported: opt('--export'), hint: `Soumettez system + user à un modèle (sortie JSON conforme à output_schema), enregistrez la réponse, puis : sitec component ${sub} ${dir} ${name}${request ? ' --ask "…"' : ''} --import reponse.json [--export reparation.json]` }));
           return 0;
         }
@@ -370,18 +381,8 @@ export async function run(argv) {
           console.log(JSON.stringify({ ok: !v.problems.length, component: target.name, problems: v.problems.length, warnings: v.warnings.length, cases: v.tests?.length ?? null }));
           return v.problems.length ? 1 : 0;
         }
-        const model = opt('--model') || gen.DEFAULT_MODEL;
-        console.error(`${sub === 'edit' ? 'Modification' : 'Génération'} de ${target.name} par ${model} (sortie structurée, repli automatique en cas de refus), vérification et réparation jusqu'à ${opt('--rounds') || 3} tours…`);
-        let r;
-        const format = opt('--format') || 'langage';
-        if (!['langage', 'html'].includes(format)) { console.error('--format langage (données, forme, apparence ; défaut) ou --format html (gabarit et feuille)'); return 2; }
-        const common = { root, name: target.name, catalog, model, rounds: Number(opt('--rounds') || 3), onRound: show, pkg: opt('--package'), format };
-        try { r = sub === 'edit' ? await gen.editComponent({ ...common, request }) : await gen.generateComponent({ ...common, description }); }
-        catch (e) { console.error('Erreur : ' + e.message + (/api.?key|auth/i.test(e.message) ? ' (définissez ANTHROPIC_API_KEY, ou utilisez --export puis --import)' : '')); return 1; }
-        if (r.restored) console.log('      échec : la version précédente du composant est restaurée');
-        if (r.ok) await preview();
-        console.log(JSON.stringify({ ok: r.ok, component: target.name, rounds: r.rounds, problems: r.problems.length, warnings: r.warnings.length, dir: relDir, restored: !!r.restored }));
-        return r.ok ? 0 : 1;
+        console.error(`sitec component ${sub} … --export p.json écrit la consigne à soumettre à un modèle ; --import r.json écrit et vérifie sa réponse (le compilateur n\'appelle aucun modèle).`);
+        return 2;
       }
       if (sub !== 'new') { console.error(usage); return 2; }
       try { await fs.access(cdir); console.error(`${cdir} existe déjà.`); return 2; } catch { /* libre */ }
@@ -526,7 +527,8 @@ intents: [mots, que, tapent, les, visiteurs]
 
     case 'review': {
       const dir = args[0];
-      if (!dir) { console.error('Usage : sitec review <dossier-projet> [--llm] [--export f.json] [--import f.json] [--model id]'); return 2; }
+      if (!dir) { console.error('Usage : sitec review <dossier-projet> [--export f.json] [--import f.json]'); return 2; }
+      if (flags.has('--llm')) { console.error('--llm n\'existe plus : le compilateur n\'appelle aucun modèle. sitec review <dossier> --export f.json écrit la consigne, --import r.json applique la réponse d\'un modèle.'); return 2; }
       const root = path.resolve(dir);
       const project = await loadProject(root);
       const errors = validateProject(project, catalog);
@@ -536,14 +538,12 @@ intents: [mots, que, tapent, les, visiteurs]
       const rel = f => ({ ...f, file: path.relative(root, f.file).replaceAll('\\', '/') });
       const opt = name => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : null; };
       let verdicts = null;
-      if (flags.has('--llm') || opt('--export') || opt('--import')) {
+      if (opt('--export') || opt('--import')) {
         const toReview = findings.filter(f => f.code !== 'E_PLACEHOLDER');
         const user = buildReviewPrompt(project.brief, toReview);
         const fsp = await import('node:fs/promises');
         if (opt('--export')) { await fsp.writeFile(path.resolve(opt('--export')), JSON.stringify({ system: REVIEW_SYSTEM, user, count: toReview.length }, null, 2)); console.log(JSON.stringify({ ok: true, exported: opt('--export'), passages: toReview.length })); return 0; }
-        let text;
-        if (opt('--import')) text = await fsp.readFile(path.resolve(opt('--import')), 'utf8');
-        else { const { askModel, DEFAULT_MODEL } = await import('./keywords.js'); console.error(`Relecture par ${opt('--model') || DEFAULT_MODEL} de ${toReview.length} passages…`); text = await askModel({ system: REVIEW_SYSTEM, user, model: opt('--model') || DEFAULT_MODEL }); }
+        const text = await fsp.readFile(path.resolve(opt('--import')), 'utf8');
         const m = /\{[\s\S]*\}/.exec(text); verdicts = m ? JSON.parse(m[0]) : {};
         toReview.forEach((f, i) => { const v = verdicts[String(i + 1)]; if (v) { f.llm = v.verdict; f.reason = v.raison; } });
       }
@@ -556,12 +556,13 @@ intents: [mots, que, tapent, les, visiteurs]
 
     case 'keywords': {
       const dir = args[0];
-      if (!dir) { console.error('Usage : sitec keywords <dossier-projet> [--all] [--dry-run] [--export fichier.json] [--import fichier.json] [--model id]'); return 2; }
+      if (!dir) { console.error('Usage : sitec keywords <dossier-projet> [--all] [--dry-run] --export fichier.json | --import fichier.json'); return 2; }
+      if (!rest.includes('--export') && !rest.includes('--import')) { console.error('sitec keywords <dossier> --export f.json écrit la consigne à soumettre à un modèle ; --import r.json applique sa réponse (le compilateur n\'appelle aucun modèle).'); return 2; }
       const root = path.resolve(dir);
       const project = await loadProject(root);
       const errors = validateProject(project, catalog);
       if (errors.length) { process.stdout.write(formatErrors(errors, { json: true, root })); return 1; }
-      const { collectSections, buildUserPrompt, askModel, parseProposals, applyProposals, DEFAULT_MODEL } = await import('./keywords.js');
+      const { collectSections, buildUserPrompt, parseProposals, applyProposals } = await import('./keywords.js');
       const { SYSTEM_PROMPT } = await import('./keywords-system.js');
       const sections = collectSections(project, catalog, { all: flags.has('--all') });
       if (!sections.length) { console.log(JSON.stringify({ ok: true, message: 'Toutes les sections ont déjà des keywords (utilisez --all pour régénérer).' })); return 0; }
@@ -573,13 +574,7 @@ intents: [mots, que, tapent, les, visiteurs]
         console.log(JSON.stringify({ ok: true, exported: opt('--export'), sections: sections.length, hint: 'Soumettez system + user à un modèle, enregistrez sa réponse JSON, puis sitec keywords <dossier> --import reponse.json' }));
         return 0;
       }
-      let text;
-      if (opt('--import')) text = await (await import('node:fs/promises')).readFile(path.resolve(opt('--import')), 'utf8');
-      else {
-        const model = opt('--model') || DEFAULT_MODEL;
-        console.error(`Appel du modèle ${model} pour ${sections.length} sections…`);
-        text = await askModel({ system: SYSTEM_PROMPT, user, model });
-      }
+      const text = await (await import('node:fs/promises')).readFile(path.resolve(opt('--import')), 'utf8');
       const { result, report } = parseProposals(text, sections);
       if (flags.has('--dry-run')) {
         for (const [key, list] of result) console.log(`${key}: ${list.join(' | ')}`);
@@ -887,15 +882,16 @@ function explain(catalog, name, words = null, asDocument = false) {
       }
     }
   }
-  if (m.example) console.log(`\nExemple :\n${m.example.split('\n').map(l => '  ' + l).join('\n')}`);
+  let shown = false;
   if (m.example && asDocument) {
     // Le même exemple, écrit comme dans une page au format document (pages/<id>.md) : produit par le rédacteur, relu par le lecteur.
     let sections = null; try { sections = YAML.parse(m.example); } catch { /* exemple illisible : dit par le banc du catalogue */ }
     const schemas = new Map(catalog.list().map(x => [x.name, x.manifest.props || { properties: {} }]));
     const out = [];
     for (const s of Array.isArray(sections) ? sections : []) { const w = writeSectionDocument(s, { schemas }); if (w.lines) out.push(...w.lines, ''); }
-    if (out.length) console.log(`\nEn document (pages/<id>.md) :\n${out.map(l => '  ' + l).join('\n').trimEnd()}`);
+    if (out.length) { console.log(`\nExemple, en document (pages/<id>.md) :\n${out.map(l => '  ' + l).join('\n').trimEnd()}`); shown = true; }
   }
+  if (m.example && !shown) console.log(`\nExemple :\n${m.example.split('\n').map(l => '  ' + l).join('\n')}`);
   return 0;
 }
 
@@ -923,7 +919,16 @@ site.md
   - Contact → /contact
   Liens du pied de page :
   - Mentions légales → /mentions-legales
-  Paquets : ./paquets/vitrine          s'il y en a ; le reste (constants, collections, site: { shop, agents… }) dans un bloc \`\`\`yaml
+  Paquets : ./paquets/vitrine          s'il y en a
+  Constantes :                         puis une puce « nom | valeur » par constante
+  - delai | 48 h
+
+  ## Boutique                          un réglage du site par section : ${Object.values(GROUP_NAMES).join(', ')} ; ses données en « Nom : valeur »
+  Devise : €                           (sitec explain site les liste ; un groupe dans le groupe prend un nom pointé : shipping.flat : 4.9)
+  ## Collection realisations : Réalisations
+  Tri : -date
+  Champs :                             une puce « nom | type » par champ, « | oui » s'il est obligatoire
+  - title | string | oui
 
 pages/<id>.md
   # Titre de la page                   la balise title
@@ -936,13 +941,42 @@ pages/<id>.md
   Libellé → /cible                     un lien seul sur sa ligne remplit le premier lien libre du composant ; cible : /route, #ancre, https://…, mailto:…, tel:…
   - valeur | valeur | valeur           un élément de la liste du composant : les valeurs remplissent ses champs dans l'ordre de la fiche (sitec explain <composant>)
     - valeur | valeur                  puces en retrait : la liste d'un élément (les lignes d'un groupe de tarifs)
-  Nom :                                seul sur sa ligne, annonce la liste qui suit (si le composant en a plusieurs) ou un texte de plusieurs paragraphes
-  \`\`\`yaml … \`\`\`                      ce qui ne se dit pas en lignes (variants, groupes libres), en YAML
+  Nom :                                seul sur sa ligne, annonce la liste qui suit (si le composant en a plusieurs), ou un texte, lu alors tel quel jusqu'à la fin de la section
+  Champs :                             les champs d'un formulaire, une puce chacun : un nom connu (name, email, phone, subject, message),
+  - societe : facultatif — Entreprise  ou « nom : type, précisions — Libellé (ex. exemple) » ; types texte, texte long, e-mail, téléphone, nombre, date ;
+                                       précisions facultatif, si champ vaut valeur, un parmi a, b, c (en dernier)
+  Filtre : category = savons           un groupe de données sur une ligne, « nom = valeur, nom = valeur » ; ou « Filtre : » puis une puce « nom | valeur » par donnée
+  Variantes :                          les variantes de la section : une puce « segment | donnée : valeur | … », avec les données du composant
+  - mobile | titre : Appelez-nous | Appeler → tel:+33400000000
+    suite d'une puce                   des lignes en retrait sous une puce prolongent son dernier texte (une ligne vide fait un paragraphe)
+  Dérive de : accueil                  page dérivée : « Retire : ancre, ancre », « Remplace : » puis « - ancre | donnée : valeur | … » ; ses sections s'ajoutent à la fin
+  \`\`\`yaml … \`\`\`                      en dernier recours, pour une donnée trop imbriquée pour une ligne
+
+data/products.md, data/<collection>.md    (à la place de data/<nom>.yaml)
+  # Produits
+  ## savon-lavande : Savon à la lavande   un élément par section : son identifiant, puis son nom (ou le champ de titre de la collection)
+  Savon surgras à 8 %.                 sa description (le premier champ « text » d'une collection), en texte libre
+  Prix : 6.5                           ses autres champs : Prix, Catégorie, Image, Stock, Mention, Vedette, Unité ; ou les champs de la collection
+
+segments.md                            (à la place de segments.yaml)
+  Priorité : devis_abandonne, recurrent
+  Segments :
+  - recurrent | visites >= 2           conditions : visites = 1, visites >= 2, sur mobile, sur ordinateur,
+  - fan | section_view où section = services, au moins 2 fois      un événement suivi de « où clé = valeur », « au moins 2 fois », « depuis 7d »,
+  - devis_abandonne | tout             « pas … », et « tout » ou « un parmi » avec une puce en retrait par condition
+    - form_start depuis 7d
+    - pas form_submit depuis 7d
+  Objectifs :
+  - appel | click_cta | to = tel:+33400000000
+  Expériences :
+  - accroche | appel | prix_annonce    objectif, puis les bras ; ou « - relance | devis | segment : devis_abandonne | témoin : 20 »
 
 Dans une puce, un champ dont le type ne convient pas à la valeur est sauté : un nom d'icône va au champ icône, un fichier image au champ image,
 un « Libellé → /cible » au champ lien. « rien » saute un champ ; « nom : valeur » vise un champ par son nom.
 Rien à protéger : « : », « , », « # », « {{ … }} » et les nombres s'écrivent tels quels, sans guillemets ni indentation.
 Une ligne qui ne trouve pas sa place est refusée (E_DOCUMENT, à sa ligne) ; un document modifié sans relecture arrête check et build (E_READING).
+Une ligne « nom : suite » d'un à trois mots avant les deux-points est toujours une donnée : un nom inconnu est refusé, jamais rangé dans le texte.
+Un texte dont une phrase commence ainsi (« Téléphone : 05 56… ») s'annonce : « Texte : » seul sur sa ligne, puis le texte.
 
 Noms français des composants : ${fr}.
 Noms français des données : ${props}.
@@ -955,7 +989,7 @@ function describeSchema(s) {
   if (s.enum) return s.enum.join(' | ');
   if (Array.isArray(s.type)) return s.type.join(' ou ');
   if (s.type === 'array' && s.items?.enum) return `liste parmi : ${s.items.enum.join(' | ')}`;
-  if (s.type === 'array' && s.items && !Object.keys(s.items).length) return 'liste (voir description)';
+  if (s.type === 'array' && s.items && (!Object.keys(s.items).length || s.items.$comment)) return 'liste (voir description)';
   if (s.type === 'array') return `liste de ${s.items?.type === 'object' ? 'objets' : (s.items?.type || 'valeurs')}${s.minItems ? ` (min ${s.minItems})` : ''}`;
   if (s.type === 'object') return 'objet';
   if (s.format === 'email') return 'email';

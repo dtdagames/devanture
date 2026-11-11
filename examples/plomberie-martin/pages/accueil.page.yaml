@@ -23,10 +23,7 @@ sections:
           subtitle: Déplacement et première heure compris. Devis gratuit, intervention sous 1 h à Lyon, 7j/7 de 7 h à 22 h.
         mobile:
           cta: { label: Appeler maintenant, to: "tel:0472001122" }
-  - custom:
-      php: custom/promo.php
-      css: custom/promo.css
-      props: { text: "-15 % sur l'entretien annuel de chaudière", code: ENTRETIEN15, until: 30 novembre }
+  - promo: { text: "-15 % sur l'entretien annuel de chaudière", code: ENTRETIEN15, until: 30 novembre }
   - features:
       id: services
       keywords: [ urgence, fuite, nuit, week-end, chaudière en panne, chauffe-eau, robinet qui goutte, tuyau cassé, tuyau percé, canalisation bouchée, wc bouché, évier bouché, plus d'eau chaude, ballon d'eau chaude, pompe à chaleur, radiateur froid, installation chaudière, rénovation salle de bain, dégât des eaux ]

@@ -20,6 +20,7 @@ import { loadCatalog } from '../src/catalog.js';
 import { loadProject } from '../src/load.js';
 import { componentSchemas, writePageDocument, writeSiteDocument } from '../src/lang/site-document.js';
 import { THEME_PRESETS } from '../src/emit/php/css.js';
+import { SITE_SCHEMA } from '../src/validate.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const detail = process.argv.includes('--detail'), json = process.argv.includes('--json');
@@ -35,11 +36,11 @@ async function both(dir) {
   if (project.documents?.site) throw new Error(`${dir} est déjà en documents : la mesure part du YAML`);
   const schemas = componentSchemas(project, catalog);
   const yaml = new Map(), md = new Map();
-  const s = writeSiteDocument(project.site, { tokens });
+  const s = writeSiteDocument(project.site, { tokens, groups: SITE_SCHEMA.properties.site.properties });
   if (s.error) throw new Error(`${dir} site.yaml : ${s.error}`);
   yaml.set('site', bare(fs.readFileSync(project.siteFile, 'utf8'))); md.set('site', s.text);
   for (const p of project.pages) {
-    const r = writePageDocument(p.data, { schemas });
+    const r = writePageDocument(p.data, { schemas, pageOf: id => project.pages.find(x => x.id === id)?.data || null });
     if (r.error) throw new Error(`${dir} ${p.id} : ${r.error}`);
     yaml.set(p.id, bare(fs.readFileSync(p.file, 'utf8'))); md.set(p.id, r.text);
   }

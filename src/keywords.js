@@ -1,12 +1,11 @@
 // Génération des mots-clés de recherche par LLM, à la compilation, figés dans le YAML.
-// Trois modes : appel direct au modèle (SDK Anthropic), export du prompt (--export) pour un autre outil,
-// import d'une réponse (--import). Dans tous les cas, la validation et l'écriture sont les mêmes.
+// Le compilateur n'appelle aucun modèle : il écrit la consigne (--export) à soumettre par un autre outil,
+// puis applique la réponse (--import), qu'il valide avant de l'écrire.
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import YAML from 'yaml';
 import { normalize } from './emit/php/twin.js';
 
-export const DEFAULT_MODEL = 'claude-opus-5-5';
 const MAX_PER_SECTION = 14;
 const MAX_LEN = 60;
 
@@ -19,7 +18,6 @@ export function collectSections(project, catalog, { all = false } = {}) {
     (page.data.sections || []).forEach((s, i) => {
       const name = Object.keys(s)[0];
       const props = s[name] || {};
-      if (name === 'custom') return;
       const existing = Array.isArray(props.keywords) ? props.keywords : [];
       if (!all && existing.length) return;
       const texts = [];
@@ -47,21 +45,6 @@ export function buildUserPrompt(site, sections) {
   const head = `Site : ${site.name}${site.tagline ? ' — ' + site.tagline : ''}.\nSections (id, page, composant, titre, mots-clés déjà connus, extrait) :\n`;
   const body = sections.map(s => `\n[${s.key}] page « ${s.pageTitle} », composant ${s.component}${s.title ? `, titre « ${s.title} »` : ''}\n  déjà connus : ${[...s.intents, ...s.existing].join(', ') || 'aucun'}\n  extrait : ${s.excerpt || '(vide)'}`).join('\n');
   return head + body + '\n\nRéponds avec le JSON demandé, une clé par id de section.';
-}
-
-/** Appel au modèle via le SDK officiel. Nécessite ANTHROPIC_API_KEY ou un profil `ant auth login`. */
-export async function askModel({ system, user, model = DEFAULT_MODEL }) {
-  const { default: Anthropic } = await import('@anthropic-ai/sdk');
-  const client = new Anthropic();
-  const response = await client.messages.create({
-    model,
-    max_tokens: 16000,
-    output_config: { effort: 'low' },
-    system,
-    messages: [{ role: 'user', content: user }],
-  });
-  if (response.stop_reason === 'refusal') throw new Error(`Le modèle a refusé la demande (${response.stop_details?.category ?? 'sans catégorie'}).`);
-  return response.content.filter(b => b.type === 'text').map(b => b.text).join('');
 }
 
 /** Extrait et nettoie la réponse : JSON strict, expressions courtes, sans doublon ni redite du titre. */

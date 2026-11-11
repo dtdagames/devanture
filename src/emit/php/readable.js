@@ -23,7 +23,7 @@ function sectionHtml(name, p, ctx) {
     case 'cart.page': return `<h2>Panier</h2><p>Le panier est disponible sur la <a href="${esc(ctx.route)}">version complète</a>.</p>`;
     case 'checkout.page': return `<h2>Commande</h2><p>La commande se passe sur la <a href="${esc(ctx.route)}">version complète</a>.</p>`;
     case 'collection.list': return `${h(2, p.title)}${p.intro ? `<p>${esc(p.intro)}</p>` : ''}<ul>${(p._items || []).map(it => { const t = esc(String(it[p._fields?.title] ?? it.id)); const u = p._route ? p._route.replace('[id]', it.id) : null; return `<li>${u ? `<a href="${esc(u)}">${t}</a>` : t}</li>`; }).join('')}</ul>`;
-    case 'recent': case 'custom': return '';
+    case 'recent': return '';
     default: return `${h(2, p.title)}${p.text ? paras(p.text) : ''}`;
   }
 }

@@ -22,11 +22,11 @@ export async function emit(project, catalogBase, out) {
   try { keep.set('.env', await fs.readFile(path.join(out, '.env'))); } catch { /* absent */ }
   try { for (const f of await fs.readdir(path.join(out, 'data'))) if (!['products.json', '.htaccess', '.gitkeep'].includes(f) && !(project.collections && f.endsWith('.json') && project.collections[f.slice(0, -5)])) keep.set('data/' + f, await fs.readFile(path.join(out, 'data', f))); } catch { /* absent */ }
   await fs.rm(out, { recursive: true, force: true });
-  await Promise.all(['lib', 'lib/data', 'pages', 'components', 'assets', 'data', 'custom', 'cache'].map(d => fs.mkdir(path.join(out, d), { recursive: true })));
+  await Promise.all(['lib', 'lib/data', 'pages', 'components', 'assets', 'data', 'cache'].map(d => fs.mkdir(path.join(out, d), { recursive: true })));
   const stores = new Set();
   const registers = {};
   // Statique d'abord : une page sans état (ni formulaire, ni panier, ni horaires calculés, ni bloc libre) peut être servie telle quelle à un visiteur sans cookie.
-  const DYNAMIC = new Set(['contact.form', 'cart.page', 'checkout.page', 'order.confirmation', 'products.grid', 'product.hero', 'products.related', 'hours', 'recent', 'custom']);
+  const DYNAMIC = new Set(['contact.form', 'cart.page', 'checkout.page', 'order.confirmation', 'products.grid', 'product.hero', 'products.related', 'hours', 'recent']);
   // Composants écrits dans le langage : ce qu'ils lisent à la visite (fonctionnement › lit) dit ce que la page exige.
   const reads = name => (catalog.get(name)?.manifest?.sources || []).map(x => x.id);
   const posts = name => /csrf_token\(\)|sl_fn_csrf\(\)/.test(catalog.get(name)?.compiled?.php || '');
@@ -36,7 +36,6 @@ export async function emit(project, catalogBase, out) {
   const used = new Map();
   const routes = {};
   const dynamic = [];
-  const customCss = [], customJs = [];
   for (const page of project.pages) {
     let contact = null;
     const forms = {};
@@ -85,15 +84,6 @@ export async function emit(project, catalogBase, out) {
         // Registre du site : ses règles et, quand les places se comptent par un champ à choix, les valeurs de ce champ.
         const byField = efForm.rules?.capacity?.by ? (efForm._fields || []).find(x => x.name === efForm.rules.capacity.by) : null;
         registers[efForm.store] = { form: name, rules: efForm.rules || {}, options: byField?.options || [], fields: (efForm._fields || []).map(x => ({ name: x.name, label: x.label })) }; }
-      if (name === 'custom') {
-        const rel = props.php.replace(/^\.?\//, '');
-        await fs.mkdir(path.dirname(path.join(out, 'custom', rel)), { recursive: true });
-        await fs.copyFile(path.join(project.root, rel), path.join(out, 'custom', rel));
-        if (props.css) customCss.push(`/* custom: ${props.css} */\n${await fs.readFile(path.join(project.root, props.css), 'utf8')}`);
-        if (props.js) customJs.push(`/* custom: ${props.js} */\n${await fs.readFile(path.join(project.root, props.js), 'utf8')}`);
-        const id = props.id;
-        s[name] = { _file: rel, ...(props.props || {}), ...(id ? { id } : {}) };
-      }
     }
     const entry = {
       file: page.id + '.php',
@@ -135,8 +125,8 @@ export async function emit(project, catalogBase, out) {
   const staticEnabled = site.static?.enabled !== false;
   await fs.writeFile(path.join(out, 'index.php'), indexPhp(site, routes, { jsonld: buildJsonLd(twin), agents: agentsOn, shop: shopCfg, dynamic, staticEnabled, stores: [...stores], registers, collections: Object.keys(project.collections || {}) }));
   // Assets versionnés par empreinte (cache long, Subresource Integrity) : calculés avant le layout qui les référence.
-  const cssText = buildCss(site, usedList) + (customCss.length ? '\n' + customCss.join('\n\n') + '\n' : '');
-  const jsText = buildJs(usedList) + (customJs.length ? '\n' + customJs.join('\n\n') + '\n' : '');
+  const cssText = buildCss(site, usedList);
+  const jsText = buildJs(usedList);
   const sha = (t) => crypto.createHash('sha256').update(t).digest();
   const cssSha = sha(cssText), jsSha = sha(jsText);
   const version = crypto.createHash('sha256').update(cssSha).update(jsSha).update(JSON.stringify(project.pages.map(pg => pg.data))).digest('hex').slice(0, 10);
@@ -196,7 +186,6 @@ export async function emit(project, catalogBase, out) {
     await fs.writeFile(path.join(out, 'offline.html'), buildOfflinePage(site, staticPages.map(pg => ({ route: pg.data.route, title: pg.data.seo?.title || pg.id }))));
     await fs.writeFile(path.join(out, 'manifest.webmanifest'), buildWebManifest(site, themeColor));
   }
-  await fs.writeFile(path.join(out, 'custom', '.htaccess'), DENY_HTACCESS);
   // Images : copie des assets, variantes WebP redimensionnées (site.images), manifeste des dimensions pour l'aide PHP img().
   const images = await processAssets(path.join(project.root, 'assets'), path.join(out, 'assets'), site.images || {});
   await fs.writeFile(path.join(out, 'assets', '.htaccess'), ASSETS_HTACCESS);

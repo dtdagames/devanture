@@ -1,7 +1,7 @@
 // Générateur de composants : une description en langage naturel devient un composant de projet en formats neutres (manifeste,
 // gabarit, feuille de style, cas de test), vérifié par le compilateur et réparé jusqu'à passer. Le résultat est figé dans le projet ;
-// la compilation ne rappelle jamais le modèle. Trois modes, comme sitec keywords : appel direct (SDK Anthropic), export du prompt,
-// import d'une réponse.
+// la compilation ne rappelle jamais le modèle. Comme sitec keywords, le compilateur n'appelle rien : il écrit la consigne (--export)
+// et applique une réponse (--import).
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
@@ -16,7 +16,6 @@ import { cssPrefixes } from './lang/css-lint.js';
 import { wordUsage } from './lang/vocabulaire.js';
 import { SOURCES, PUBLIC_SOURCE_NAMES, sourceUsage, sourceFields } from './lang/sources.js';
 
-export const DEFAULT_MODEL = 'claude-opus-5-5';
 
 /** Réponse attendue du modèle (sortie structurée). */
 export const OUTPUT_SCHEMA = {
@@ -287,24 +286,6 @@ export function buildUserPrompt({ name, description, project, previous = null, p
   return msg;
 }
 
-/** Appel au modèle : sortie structurée, effort élevé, repli serveur automatique en cas de refus. */
-export async function askModel({ system, user, model = DEFAULT_MODEL, client = null, format = 'langage', onUsage = null }) {
-  if (!client) { const { default: Anthropic } = await import('@anthropic-ai/sdk'); client = new Anthropic(); }
-  const response = await client.beta.messages.stream({
-    model,
-    max_tokens: 32000,
-    betas: ['server-side-fallback-2026-07-01'],
-    fallbacks: 'default',
-    output_config: { effort: 'high', format: { type: 'json_schema', schema: schemaFor(format) } },
-    system,
-    messages: [{ role: 'user', content: user }],
-  }).finalMessage();
-  if (response.stop_reason === 'refusal') throw new Error(`Le modèle a refusé la demande (${response.stop_details?.category ?? 'sans catégorie'}).`);
-  if (response.stop_reason === 'max_tokens') throw new Error('Réponse tronquée (limite de longueur atteinte) : simplifiez la description.');
-  if (onUsage) onUsage(response.usage);
-  return response.content.filter(b => b.type === 'text').map(b => b.text).join('');
-}
-
 /** Lit une réponse (JSON brut, ou réponse d'API, ou texte contenant un objet JSON). */
 export function parseResponse(text) {
   let raw = text;
@@ -375,14 +356,15 @@ export async function verifyComponent(root, target, catalog, { render = true } =
  * Génère (ou modifie, avec current + request), vérifie, répare. opts : { root, name, description, catalog, model, client, rounds, onRound, ask, pkg, request, current, history } ;
  * ask(system, user, round) peut remplacer l'appel au modèle (tests). Renvoie { ok, rounds, problems, warnings, files, notes, target }.
  */
-export async function generateComponent({ root, name, description, catalog, model = DEFAULT_MODEL, client = null, rounds = 3, onRound = () => {}, ask = null, pkg = null, request = null, current = null, history = [], format = 'langage', onUsage = null }) {
+export async function generateComponent({ root, name, description, catalog, rounds = 3, onRound = () => {}, ask = null, pkg = null, request = null, current = null, history = [], format = 'langage', onUsage = null }) {
   const system = await buildSystemPrompt(format);
   const project = await loadProject(root); validateProject(project, catalog);
   const target = resolveTarget(project, name, pkg);
   let previous = null, problems = [], warnings = [], files = null;
   for (let r = 1; r <= rounds; r++) {
     const user = buildUserPrompt({ name: target.name, description, project, previous, problems: [...problems, ...warnings], target, current, request });
-    const text = ask ? await ask(system, user, r) : await askModel({ system, user, model, client, format, onUsage });
+    if (!ask) throw new Error('generateComponent attend ask(system, user, tour) : le compilateur n\'appelle aucun modèle (en ligne de commande : --export puis --import).');
+    const text = await ask(system, user, r);
     try { files = parseResponse(text); }
     catch (e) { problems = [{ code: 'E_RESPONSE', file: '(réponse)', path: '', message: e.message + ' Renvoie uniquement l\'objet JSON demandé.' }]; warnings = []; onRound({ round: r, problems, warnings }); continue; }
     await writeComponent(target.dir, target.name, files, description, request ? [...history, request.trim()] : history);

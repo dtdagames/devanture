@@ -1,0 +1,22 @@
+name: promo
+description: "Bandeau d'offre du moment : le texte de l'offre, un code à donner et une date de fin. Composant propre au site ; il remplace l'ancien bloc écrit en PHP."
+données:
+  text: texte — l'offre du moment
+  code: texte, facultatif — code à donner au téléphone
+  until: texte, facultatif — date de fin (ex. 30 novembre)
+forme:
+  section, conteneur « promo-inner »:
+    - texte: "**Offre du moment :** {{ text }}"
+    - si code:
+        - texte « promo-code »: "Code **{{ code }}**"
+    - si until:
+        - texte discret: "jusqu'au {{ until }}"
+apparence:
+  promo-inner: fond d'accent, coins arrondis, en ligne, compactes
+  promo-code: gras
+example: |
+  - promo:
+      text: "-15 % sur l'entretien annuel de chaudière"
+      code: ENTRETIEN15
+      until: 30 novembre
+intents: [offre, promotion, réduction, code promo]

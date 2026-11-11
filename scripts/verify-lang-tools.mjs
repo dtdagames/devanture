@@ -229,8 +229,8 @@ try {
   ok('component show --php : le PHP exécuté par le serveur', r.code === 0 && /== PHP compilé/.test(r.out) && /<\?php \/\* comptoir — compilé depuis template\.html par sitec \*\//.test(r.out));
   r = run('component', 'show', lf, 'team');
   ok('component show : natif écrit dans le langage (portrait : photo ronde ou initiale)', r.code === 0 && /composant natif/.test(r.out) && /\{% if it1\.photo %\}<div class="team-avatar">/.test(r.out) && /team-avatar-initiale" aria-hidden="true">\{\{ it1\.name \| trim \| first \| upper \}\}/.test(r.out), r.out.slice(0, 200));
-  r = run('component', 'show', lf, 'custom');
-  ok('component show : la porte de sortie custom reste au format php, rien de produit pour la structure', r.code === 0 && /format php, composant natif/.test(r.out) && /le fichier est la source/.test(r.out));
+  r = run('explain', 'custom');
+  ok('la porte de sortie custom n\'est plus un composant du catalogue', r.code === 1 && /Composant inconnu : custom/.test(r.out));
   r = run('component', 'show', lf, 'products.grid');
   ok('component show : un natif de boutique montre ce qu\'il lit à la visite et ce que la cible reçoit', r.code === 0 && /lectures à la visite/.test(r.out) && /produits ← produits de la boutique \(category: p\.filter\.category, featured: p\.filter\.featured, sort: p\.sort, limit: p\.limit\)/.test(r.out) && /sl_source\(\$p, 'produits', 'products'/.test(r.out) && /n'est pas servie depuis le cache statique/.test(r.out), r.out.slice(0, 300));
   r = run('component', 'show', path.join(ROOT, 'examples', 'garnier-associes'), 'vitrine.encart');
@@ -439,7 +439,7 @@ try {
     const has = async (n, f) => fs.access(path.join(ROOT, 'components', n, f)).then(() => true, () => false);
     const html = [], php = [];
     for (const n of natives) { if (await has(n, 'template.html')) html.push(n); if (await has(n, 'template.php')) php.push(n); }
-    ok('catalogue natif : plus aucun gabarit HTML ; seul custom (la porte de sortie) reste en PHP', html.length === 0 && php.join(' ') === 'custom', JSON.stringify({ html, php }));
+    ok('catalogue natif : plus aucun gabarit HTML ni PHP', html.length === 0 && php.length === 0, JSON.stringify({ html, php }));
 
     // --- lectures à la visite : fonctionnement › lit, sources de la cible, cas de test « à la visite »
     const sav = await copy('examples/savonnerie', 'sav');
