@@ -498,7 +498,12 @@ try {
 
     // --- registre à règles : places, liste d'attente, une fois par (fonctionnement › formulaire) et lecture de son état
     const rg = await copy('examples/le-fournil', 'reg');
-    const am = path.join(rg, 'components', 'atelier', 'manifest.yaml'), am0 = await fs.readFile(am, 'utf8');
+    // L'exemple écrit ce composant au format document ; ces contrôles portent sur les règles au format langage : on remet ici
+    // le manifeste écrit à la main que le document remplace (scripts/reference), le même que celui dont verify-document prouve l'identité.
+    const am = path.join(rg, 'components', 'atelier', 'manifest.yaml');
+    await fs.rm(path.join(rg, 'components', 'atelier', 'document.md'), { force: true }); await fs.rm(path.join(rg, 'components', 'atelier', 'lecture.yaml'), { force: true });
+    await fs.copyFile(path.join(ROOT, 'scripts', 'reference', 'atelier.manifest.yaml'), am);
+    const am0 = await fs.readFile(am, 'utf8');
     const withAt = async (from, to) => { if (!am0.includes(from)) throw new Error('ancre absente de atelier : ' + from); await fs.writeFile(am, am0.replace(from, to)); const x = chk(rg); await fs.writeFile(am, am0); return x; };
     v = chk(rg);
     ok('registre : composant à places limitées, liste d\'attente et unicité valide', v.code === 0 && v.errs.length === 0, v.out.slice(0, 500));

@@ -9,6 +9,7 @@ import { compileFonctionnement } from './lang/fonctionnement.js';
 import { parseWithLines } from './lang/lines.js';
 import { compileVocabulaire } from './lang/vocabulaire.js';
 import { compileLit, sourceSchema } from './lang/sources.js';
+import { readDocument, readingDiff } from './lang/document.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const COMPONENTS_DIR = path.join(ROOT, 'components');
@@ -46,11 +47,26 @@ function lintManifest(name, schema, errors, p = 'props') {
  * rapporte), précédées de « ligne N : » quand la ligne du manifeste est connue ; details : [{ line, message }], même ordre.
  * words : mots du vocabulaire visibles depuis ce composant (Map), employés dans sa forme comme des primitives.
  */
-export function buildComponent({ name, shortName = null, pkg = null, dir, manifestText, files, project = false, words = null }) {
+export function buildComponent({ name, shortName = null, pkg = null, dir, manifestText, files, project = false, words = null, documentText, lectureText }) {
   const details = [];
+  // Format document (prototype) : document.md est la source ; sa lecture est un manifeste au format langage, figé dans lecture.yaml.
+  let document = null;
+  if (documentText !== undefined) {
+    if (manifestText !== undefined) { details.push({ line: null, file: 'document.md', code: 'E_DOCUMENT', message: 'document.md et manifest.yaml à la fois : un composant n\'a qu\'une source' }); return { entry: null, errors: [details[0].message], details }; }
+    const r = readDocument(documentText, { name: shortName || name });
+    document = { text: documentText, trace: r.trace, yaml: r.yaml, errors: r.errors, frozen: lectureText ?? null };
+    for (const e of r.errors) details.push({ line: e.line, file: 'document.md', code: 'E_DOCUMENT', message: e.message, hint: e.hint });
+    if (r.errors.length) return { entry: null, errors: details.map(d => `ligne ${d.line} : ${d.message}`), details, document };
+    // Garde-fou n° 3 : ce que le compilateur comprend aujourd'hui doit être ce qui a été relu et accepté.
+    const fix = 'sitec lire <dossier> montre ce qui est compris phrase par phrase ; --accepter fige cette lecture';
+    if (lectureText === undefined) details.push({ line: null, file: 'lecture.yaml', code: 'E_READING', message: 'lecture absente : le document n\'a pas encore été relu', hint: fix });
+    else { const d = readingDiff(lectureText, r.yaml); if (d) details.push({ line: null, file: 'lecture.yaml', code: 'E_READING', message: `la lecture du document a changé depuis qu'elle a été acceptée : « ${d.was} » est maintenant lu « ${d.now} »`, hint: fix }); }
+    document.stale = details.some(d => d.code === 'E_READING');
+    manifestText = r.yaml;
+  }
   let manifest, lineOf = () => null;
   // Une erreur garde la ligne du manifeste quand on la connaît (ref : objet lu, ou { in: conteneur, at: clé ou indice }).
-  const errors = { push: (message, ref, fallback) => details.push({ line: (ref ? lineOf(ref) : null) ?? (fallback ? lineOf(fallback) : null), message }) };
+  const errors = { push: (message, ref, fallback) => details.push({ line: (ref ? lineOf(ref) : null) ?? (fallback ? lineOf(fallback) : null), message, ...(document ? { file: 'lecture.yaml' } : {}) }) };
   const done = entry => ({ entry, errors: details.map(d => (d.line ? `ligne ${d.line} : ${d.message}` : d.message)), details });
   try { ({ value: manifest, lineOf } = parseWithLines(manifestText)); } catch (e) { errors.push(`manifest.yaml illisible : ${e.message.split('\n')[0]}`); return done(null); }
   if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) { errors.push('manifest.yaml doit décrire un objet (name, description, données, forme)'); return done(null); }
@@ -149,18 +165,22 @@ export function buildComponent({ name, shortName = null, pkg = null, dir, manife
   }
   if (!/^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*$/.test(name)) errors.push(`nom de composant mal formé : ${name} (minuscules, chiffres et tirets, points pour les familles : produit.carte)`);
   // produced : ce que chaque bloc du langage a donné (gabarit, feuille de la forme, feuille de l'apparence), pour sitec component show.
-  return done({ name, dir, manifest, files, project, package: pkg, produced, wordsCss });
+  return done({ name, dir, manifest, files, project, package: pkg, produced, wordsCss, ...(document ? { document } : {}) });
 }
 
 const COMPONENT_FILES = ['template.php', 'template.html', 'styles.css', 'module.js'];
 
 /** Lit un dossier de composant (manifest + fichiers) ; renvoie { name, dir, manifestText, files } ou null sans manifeste. */
 export async function readComponentDir(dir) {
-  let manifestText;
-  try { manifestText = await fs.readFile(path.join(dir, 'manifest.yaml'), 'utf8'); } catch { return null; }
+  let manifestText, documentText, lectureText;
+  try { manifestText = await fs.readFile(path.join(dir, 'manifest.yaml'), 'utf8'); } catch { /* peut-être un document */ }
+  // Format document : document.md (la source) et lecture.yaml (ce que le compilateur en a compris, relu et accepté).
+  try { documentText = await fs.readFile(path.join(dir, 'document.md'), 'utf8'); } catch { /* format langage ou html */ }
+  if (manifestText === undefined && documentText === undefined) return null;
+  if (documentText !== undefined) { try { lectureText = await fs.readFile(path.join(dir, 'lecture.yaml'), 'utf8'); } catch { /* pas encore relu */ } }
   const files = {};
   for (const f of COMPONENT_FILES) { try { files[f] = await fs.readFile(path.join(dir, f), 'utf8'); } catch { /* optionnel */ } }
-  return { name: path.basename(dir), dir, manifestText, files };
+  return { name: path.basename(dir), dir, manifestText, files, ...(documentText !== undefined ? { documentText, lectureText } : {}) };
 }
 
 function makeCatalog(components, words = new Map()) {

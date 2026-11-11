@@ -23,13 +23,15 @@ function blockSource(lines, starts, key) {
 
 /** Données de l'affichage : { name, file, format, blocks: [{ key, target, source, output, notes }], php }. */
 export async function describeComponent(entry, { php = false } = {}) {
-  const file = path.join(entry.dir, 'manifest.yaml');
-  const text = await fs.readFile(file, 'utf8');
+  const file = path.join(entry.dir, entry.document ? 'document.md' : 'manifest.yaml');
+  const text = entry.document ? entry.document.yaml : await fs.readFile(file, 'utf8');
   const lines = text.split(/\r?\n/);
   const { value, lineOf } = parseWithLines(text);
   const starts = new Map(Object.keys(value || {}).map(k => [k, lineOf({ in: value, at: k })]));
   const m = entry.manifest, made = entry.produced || {};
   const blocks = [];
+  // Format document : la première transformation est la lecture, phrase par phrase ; les blocs suivants montrent ce que devient cette lecture.
+  if (entry.document) blocks.push({ key: 'document.md', target: 'lecture.yaml : ce que le compilateur comprend, phrase par phrase (manifeste au format langage, figé à côté du document)', source: null, output: entry.document.trace.map(t => `ligne ${t.line} : ${t.text}\n  → ${t.said}${t.corrected ? `\n  (${t.corrected.join(' ; ')})` : ''}`).join('\n'), notes: [entry.document.stale ? 'cette lecture n\'est pas celle qui a été acceptée : sitec lire <dossier> --accepter' : 'lecture identique à celle qui a été acceptée (lecture.yaml)'] });
   const own = Object.fromEntries(Object.entries(m.props?.properties || {}).filter(([k]) => !COMMON_PROPS.has(k)));
   const propsOut = [
     ...(m.props?.required?.length ? [`required: ${flow(m.props.required)}`] : []),
@@ -74,7 +76,7 @@ export async function describeComponent(entry, { php = false } = {}) {
     const r = entry.compiled || compileTemplate(entry.files['template.html'], { name: entry.name, props: m.props, effects: m.effects || null, sources: m.sources || null });
     compiled = r.php ?? `(gabarit en erreur : ${r.errors.map(e => `ligne ${e.line} : ${e.message}`).join(' ; ')})`;
   }
-  return { name: entry.name, file, format: value.forme !== undefined ? 'langage' : entry.files['template.html'] === undefined && entry.files['template.php'] !== undefined ? 'php' : 'html', native: !entry.project, package: entry.package || null, blocks, php: compiled };
+  return { name: entry.name, file, format: entry.document ? 'document' : value.forme !== undefined ? 'langage' : entry.files['template.html'] === undefined && entry.files['template.php'] !== undefined ? 'php' : 'html', native: !entry.project, package: entry.package || null, blocks, php: compiled };
 }
 
 const indent = (t, n = 4) => String(t).split('\n').map(l => ' '.repeat(n) + l).join('\n');
@@ -85,7 +87,7 @@ export function formatDescription(d, { cwd = process.cwd() } = {}) {
   const out = [`${d.name} — ${rel} (format ${d.format}${d.native ? ', composant natif' : d.package ? `, paquet ${d.package}` : ''})`, 'Chaque bloc du manifeste, puis ce que le compilateur en tire. Rien d\'autre n\'entre dans le site.'];
   for (const b of d.blocks) {
     out.push('', `== ${b.key} → ${b.target}`);
-    if (b.source) out.push(`  manifest.yaml, ligne${b.source.to > b.source.from ? `s ${b.source.from} à ${b.source.to}` : ` ${b.source.from}`} :`, indent(b.source.text));
+    if (b.source) out.push(`  ${d.format === 'document' ? 'lecture.yaml' : 'manifest.yaml'}, ligne${b.source.to > b.source.from ? `s ${b.source.from} à ${b.source.to}` : ` ${b.source.from}`} :`, indent(b.source.text));
     if (b.output !== null && b.output !== undefined) out.push('  devient :', indent(b.output));
     if (b.extra) out.push(`  ${b.extra.title} :`, indent(b.extra.text));
     for (const n of b.notes) out.push(`  (${n})`);
