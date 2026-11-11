@@ -11,7 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import YAML from 'yaml';
 import { encode } from 'gpt-tokenizer';
-import { parseComponentOutline } from '../src/lang/outline.js';
+import { parseComponentOutline, parseVocabularyOutline } from '../src/lang/outline.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 // Un composant écrit en plan (composant.md) : ses blocs sont ceux d'un manifeste, rendus en YAML pour être mesurés à l'identique.
@@ -41,7 +41,8 @@ for (const name of want) {
     A += tok(a); B += tok(b); AL += lin(a); BL += lin(b); tplA += tpl(st.before); tplB += tpl(st.after);
   }
   const vA = at(st.before, 'components/vocabulaire.yaml'), vB = at(st.after, 'components/vocabulaire.yaml');
-  const words = t => Object.values(YAML.parse(t || 'mots: {}')?.mots || {});
+  // Le vocabulaire se lit en YAML (anciennes étiquettes) ou en document (vocabulaire.md, sans clé « mots: »).
+  const words = t => Object.values((/^motss*:/m.test(t || 'mots: {}') ? YAML.parse(t || 'mots: {}') : parseVocabularyOutline(t).value)?.mots || {});
   const gab = t => words(t).reduce((s, w) => s + (w.gabarit ? lin(w.gabarit) : 0), 0);
   const out = { etape: name, de: st.before, a: st.after || 'arbre de travail', composants: st.natives.length, tokens_avant: A, tokens_apres: B + tok(vB) - tok(vA), dont_vocabulaire: tok(vB) - tok(vA), mots_ajoutes: words(vB).length - words(vA).length, lignes_avant: AL, lignes_apres: BL + lin(vB) - lin(vA), gabarit_lignes_avant: tplA, gabarit_lignes_apres: tplB + gab(vB) - gab(vA) };
   out.reduction_pct = Math.round((1 - out.tokens_apres / out.tokens_avant) * 100);

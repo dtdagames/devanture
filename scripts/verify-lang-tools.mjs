@@ -18,8 +18,8 @@ const copy = async (rel, name) => { const d = path.join(tmp, name); await fs.cp(
 
 try {
   // --- Paquets
-  const paquets = await copy('examples/paquets', 'paquets');
-  const garnier = await copy('examples/garnier-associes', 'garnier');
+  const paquets = await copy('scripts/reference/exemples-yaml/paquets', 'paquets');
+  const garnier = await copy('scripts/reference/exemples-yaml/garnier-associes', 'garnier');
   let r = run('check', garnier);
   const sum = lines(r.out).find(x => x.ok);
   ok('paquets : site avec paquet local valide', r.code === 0 && sum?.components?.packages?.includes('vitrine'), r.out.slice(-300));
@@ -66,7 +66,7 @@ try {
   await fs.writeFile(path.join(paquets, 'vitrine', 'components', 'encart', 'fixtures', 'neuf.yaml'), 'title: Nouveau cas\n');
   r = run('test', garnier);
   ok('test : nouveau cas → instantané créé', r.code === 0 && /^NEW  vitrine\.encart › neuf/m.test(r.out) && (await fs.readFile(path.join(paquets, 'vitrine', 'components', 'encart', 'fixtures', 'neuf.html'), 'utf8')).includes('Nouveau cas'));
-  const plomberie = await copy('examples/plomberie-martin', 'plomberie');
+  const plomberie = await copy('scripts/reference/exemples-yaml/plomberie-martin', 'plomberie');
   r = run('test', plomberie, '--catalog');
   s = lines(r.out).find(x => 'cases' in x);
   ok('test : exemples de tous les composants natifs à gabarit et composant de projet à formulaire', r.code === 0 && s?.components >= 15 && s.failed === 0, r.out.slice(-400));
@@ -92,7 +92,7 @@ try {
   ok('schema : réglages VS Code existants conservés', JSON.parse(await fs.readFile(path.join(plomberie, '.vscode', 'settings.json'), 'utf8'))['editor.tabSize'] === 2);
 
   // --- CSS encadré, comportements déclarés, gabarit sans script
-  const fournil0 = await copy('examples/le-fournil', 'fournil-composants');
+  const fournil0 = await copy('scripts/reference/exemples-yaml/le-fournil', 'fournil-composants');
   // Format html (porte de sortie) : gabarit et feuille écrits à la main, toujours vérifiés.
   const cdir = path.join(fournil0, 'components', 'avis-html');
   await fs.mkdir(path.join(cdir, 'fixtures'), { recursive: true });
@@ -127,14 +127,14 @@ try {
   const gen = await import(pathToFileURL(path.join(ROOT, 'src', 'component-gen.js')).href);
   const { loadCatalog } = await import(pathToFileURL(path.join(ROOT, 'src', 'catalog.js')).href);
   const catalog = await loadCatalog();
-  const ldir = path.join(ROOT, 'examples', 'le-fournil', 'components', 'avis-defilants');
+  const ldir = path.join(ROOT, 'scripts', 'reference', 'exemples-yaml', 'le-fournil', 'components', 'avis-defilants');
   const manL = await fs.readFile(path.join(ldir, 'manifest.yaml'), 'utf8');
   const good = { manifest: manL, fixtures: [{ name: 'complet', yaml: await fs.readFile(path.join(ldir, 'fixtures', 'complet.yaml'), 'utf8') }, { name: 'minimal', yaml: await fs.readFile(path.join(ldir, 'fixtures', 'minimal.yaml'), 'utf8') }], notes: 'ok' };
   // Mauvais jet typique : un champ mal nommé dans la forme, une intention mal orthographiée dans l'apparence.
   const bad = { ...good, manifest: manL.replace('          - signature: author, date, en toutes lettres', '          - signature: auteur, date, en toutes lettres').replace("étoiles: couleur d'accent", "étoiles: couleur d'acent"), notes: 'premier jet' };
-  const site2 = await copy('examples/le-fournil', 'fournil-gen');
+  const site2 = await copy('scripts/reference/exemples-yaml/le-fournil', 'fournil-gen');
   await fs.rm(path.join(site2, 'components', 'avis-defilants'), { recursive: true });
-  await fs.writeFile(path.join(site2, 'pages', 'accueil.page.yaml'), (await fs.readFile(path.join(ROOT, 'examples', 'le-fournil', 'pages', 'accueil.page.yaml'), 'utf8')).replace('  - avis-defilants:', '  - testimonials:').replace(/        - text: /g, '        - quote: '));
+  await fs.writeFile(path.join(site2, 'pages', 'accueil.page.yaml'), (await fs.readFile(path.join(ROOT, 'scripts', 'reference', 'exemples-yaml', 'le-fournil', 'pages', 'accueil.page.yaml'), 'utf8')).replace('  - avis-defilants:', '  - testimonials:').replace(/        - text: /g, '        - quote: '));
   const prompts = [];
   let res = await gen.generateComponent({ root: site2, name: 'avis-defilants', description: 'Un carrousel d\'avis clients.', catalog, rounds: 3, ask: async (system, user, round) => { prompts.push({ system, user }); return JSON.stringify(round === 1 ? bad : good); } });
   ok('générateur : premier jet refusé, réparé au deuxième tour', res.ok && res.rounds === 2, JSON.stringify({ ok: res.ok, rounds: res.rounds, problems: res.problems }));
@@ -159,7 +159,7 @@ try {
   ok('générateur sans clé : --import d\'une réponse fautive → code 1 et prompt de réparation', r.code === 1 && /prompt de réparation écrit/.test(r.out) && /Ta proposition précédente/.test(JSON.parse(await fs.readFile(path.join(tmp, 'rep.json'), 'utf8')).user));
 
   // --- Modification en langage naturel, génération dans un paquet, aperçu
-  const site3 = await copy('examples/le-fournil', 'fournil-edit');
+  const site3 = await copy('scripts/reference/exemples-yaml/le-fournil', 'fournil-edit');
   const before3 = await fs.readFile(path.join(site3, 'components', 'avis-defilants', 'manifest.yaml'), 'utf8');
   const edited = { ...good, manifest: manL.replace("  étoiles: couleur d'accent", "  étoiles: couleur d'accent\n  citations: italique"), notes: 'texte en italique' };
   const editPrompts = [];
@@ -171,8 +171,8 @@ try {
   res = await gen.editComponent({ root: site3, name: 'avis-defilants', request: 'Casse tout.', catalog, rounds: 2, ask: async () => JSON.stringify(bad) });
   const after3 = await fs.readFile(path.join(site3, 'components', 'avis-defilants', 'manifest.yaml'), 'utf8');
   ok('edit : échec après tous les tours → version précédente restaurée', !res.ok && res.restored && after3.includes('citations: italique') && after3 !== before3 && !(await fs.readdir(path.join(site3, 'components'))).some(f => f.startsWith('.sauvegarde-')));
-  const garnier3 = await copy('examples/garnier-associes', 'garnier-gen');
-  await copy('examples/paquets', 'paquets-gen');
+  const garnier3 = await copy('scripts/reference/exemples-yaml/garnier-associes', 'garnier-gen');
+  await copy('scripts/reference/exemples-yaml/paquets', 'paquets-gen');
   await fs.writeFile(path.join(garnier3, 'site.yaml'), (await fs.readFile(path.join(garnier3, 'site.yaml'), 'utf8')).replace('../paquets/vitrine', '../paquets-gen/vitrine'));
   const pkgGood = { manifest: 'name: alerte\ndescription: "Bandeau d\'alerte : un titre et un texte."\nprops:\n  type: object\n  required: [title]\n  properties:\n    title: { type: string }\n    text: { type: string }\nexample: |\n  - vitrine.alerte:\n      title: Fermé le 15 août\nintents: [alerte, fermeture]\n', template: '<section class="section alerte">\n  <div class="container"><div class="alerte-box"><strong>{{ p.title }}</strong>{% if p.text %} {{ p.text }}{% endif %}</div></div>\n</section>\n', styles: '.alerte-box{padding:14px 18px;border-radius:var(--radius);background:var(--color-surface);border-left:5px solid var(--color-warning)}\n', fixtures: [{ name: 'simple', yaml: 'title: Fermé le 15 août\ntext: Réouverture le 16.\n' }], notes: '' };
   const pkgPrompts = [];
@@ -186,7 +186,7 @@ try {
   ok('preview : composant de paquet', r.code === 0 && /vitrine\.alerte\.html \(1 cas\)/.test(r.out), r.out.slice(0, 300));
 
   // --- Fonctionnement en français, primitives à comportement, erreurs à la ligne du manifeste, component show
-  const pm = await copy('examples/plomberie-martin', 'pm-fonct');
+  const pm = await copy('scripts/reference/exemples-yaml/plomberie-martin', 'pm-fonct');
   const devis = path.join(pm, 'components', 'devis-express', 'manifest.yaml');
   const devis0 = await fs.readFile(devis, 'utf8');
   const lineIn = (text, needle) => text.split(/\r?\n/).findIndex(l => l.includes(needle)) + 1;
@@ -218,7 +218,7 @@ try {
   const devisPhp = await fs.readFile(path.join(tmp, 'pm-dist', 'components', 'devis-express.php'), 'utf8').catch(() => '');
   ok('fonctionnement : compilation, formulaire rendu par le gabarit produit', r.code === 0 && /sl_form_open|sl_fn_field|sl_field/.test(devisPhp) && /Demander un devis/.test(devisPhp), r.out.slice(-300) + devisPhp.slice(0, 200));
 
-  const lf = await copy('examples/le-fournil', 'lf-prim');
+  const lf = await copy('scripts/reference/exemples-yaml/le-fournil', 'lf-prim');
   const comptoir = path.join(lf, 'components', 'comptoir', 'manifest.yaml');
   const comptoir0 = await fs.readFile(comptoir, 'utf8');
   const withComptoir = async (from, to) => { await fs.writeFile(comptoir, comptoir0.replace(from, to)); const y = run('check', lf); await fs.writeFile(comptoir, comptoir0); return { ...y, errs: lines(y.out).filter(e => e.code && !e.level) }; };
@@ -233,7 +233,7 @@ try {
   ok('la porte de sortie custom n\'est plus un composant du catalogue', r.code === 1 && /Composant inconnu : custom/.test(r.out));
   r = run('component', 'show', lf, 'products.grid');
   ok('component show : un natif de boutique montre ce qu\'il lit à la visite et ce que la cible reçoit', r.code === 0 && /lectures à la visite/.test(r.out) && /produits ← produits de la boutique \(category: p\.filter\.category, featured: p\.filter\.featured, sort: p\.sort, limit: p\.limit\)/.test(r.out) && /sl_source\(\$p, 'produits', 'products'/.test(r.out) && /n'est pas servie depuis le cache statique/.test(r.out), r.out.slice(0, 300));
-  r = run('component', 'show', path.join(ROOT, 'examples', 'garnier-associes'), 'vitrine.encart');
+  r = run('component', 'show', path.join(ROOT, 'scripts', 'reference', 'exemples-yaml', 'garnier-associes'), 'vitrine.encart');
   ok('component show : composant au format html, rien de produit pour la structure', r.code === 0 && /format html, paquet/.test(r.out) && /le fichier est la source/.test(r.out), r.out.slice(0, 200));
   r = run('component', 'show', lf, 'inconnu');
   ok('component show : composant introuvable → code 1', r.code === 1 && /Composant introuvable ou en erreur : inconnu/.test(r.out));
@@ -254,7 +254,7 @@ try {
 
   // --- expériences : objectifs, bras, groupe témoin (segments.yaml)
   {
-    const xp = await copy('examples/plomberie-martin', 'xp');
+    const xp = await copy('scripts/reference/exemples-yaml/plomberie-martin', 'xp');
     const segFile = path.join(xp, 'segments.yaml'); const seg0 = await fs.readFile(segFile, 'utf8');
     const withSeg = async (from, to) => { if (!seg0.includes(from)) return { code: -1, errs: [], out: 'introuvable : ' + from }; await fs.writeFile(segFile, seg0.replace(from, () => to)); const y = run('check', xp); await fs.writeFile(segFile, seg0); return { ...y, errs: lines(y.out).filter(e => e.code && !e.level) }; };
     const has = (y, code, at) => y.code === 1 && y.errs.some(e => e.code === code && (!at || e.path === at));
@@ -302,7 +302,7 @@ try {
 
   // --- vocabulaire : des mots nouveaux pour la forme, définis hors du compilateur (site, paquet, natif)
   {
-    const voc = await copy('examples/le-fournil', 'voc');
+    const voc = await copy('scripts/reference/exemples-yaml/le-fournil', 'voc');
     const vf = path.join(voc, 'vocabulaire.yaml'), v0 = await fs.readFile(vf, 'utf8');
     const mf = path.join(voc, 'components', 'comptoir', 'manifest.yaml'), m0 = await fs.readFile(mf, 'utf8');
     const chk = dir => { const x = run('check', dir); return { code: x.code, out: x.out, errs: lines(x.out).filter(e => e.code && !e.code.startsWith('W_')) }; };
@@ -400,8 +400,8 @@ try {
     await fs.writeFile(mf, m0);
 
     // mot de paquet : sans préfixe dans le paquet, « préfixe.mot » depuis le site
-    const vg = await copy('examples/garnier-associes', path.join('vp', 'garnier-associes'));
-    const vpk = path.join(await copy('examples/paquets', path.join('vp', 'paquets')), 'vitrine');
+    const vg = await copy('scripts/reference/exemples-yaml/garnier-associes', path.join('vp', 'garnier-associes'));
+    const vpk = path.join(await copy('scripts/reference/exemples-yaml/paquets', path.join('vp', 'paquets')), 'vitrine');
     const pvf = path.join(vpk, 'vocabulaire.yaml');
     const mention = d => `mots:\n  mention:\n    description: Une ligne discrète, pour une mention légale ou une précision.\n    données:\n      texte: texte\n    forme:\n      - texte discret « mention »: ${d}\n`;
     await fs.writeFile(pvf, mention('texte'));
@@ -431,7 +431,7 @@ try {
     r = run('component', 'show', voc, 'map');
     ok('map : le mot « carte à la demande » pose le comportement map, sans script dans le composant', r.out.includes('data-sl-map="{{ p.lat }},{{ p.lon }},') && /comportements ajoutés : map/.test(r.out) && /mots du vocabulaire employés : adresse, itinéraire, carte à la demande/.test(r.out), r.out.slice(0, 300));
     const pmDist = path.join(tmp, 'pm-dist');
-    r = run('build', await copy('examples/plomberie-martin', 'pm'), '--out', pmDist);
+    r = run('build', await copy('scripts/reference/exemples-yaml/plomberie-martin', 'pm'), '--out', pmDist);
     const pjs = await fs.readFile(path.join(pmDist, 'assets', 'site.js'), 'utf8').catch(() => '');
     const pcss = await fs.readFile(path.join(pmDist, 'assets', 'site.css'), 'utf8').catch(() => '');
     ok('map : compilation, comportement dans le script du site, feuilles des mots natifs employés', r.code === 0 && pjs.includes('data-sl-map') && pjs.includes('openstreetmap.org/export/embed.html') && pcss.includes('/* mot : carte à la demande */') && pcss.includes('/* mot : carte de collection */'), r.out.slice(-300));
@@ -442,7 +442,7 @@ try {
     ok('catalogue natif : plus aucun gabarit HTML ni PHP', html.length === 0 && php.length === 0, JSON.stringify({ html, php }));
 
     // --- lectures à la visite : fonctionnement › lit, sources de la cible, cas de test « à la visite »
-    const sav = await copy('examples/savonnerie', 'sav');
+    const sav = await copy('scripts/reference/exemples-yaml/savonnerie', 'sav');
     const sm = path.join(sav, 'components', 'selection', 'manifest.yaml'), sm0 = await fs.readFile(sm, 'utf8');
     const withSel = async (from, to) => { if (!sm0.includes(from)) throw new Error('ancre absente de selection : ' + from); await fs.writeFile(sm, sm0.replace(from, to)); const x = chk(sav); await fs.writeFile(sm, sm0); return x; };
     v = chk(sav);
@@ -497,7 +497,7 @@ try {
     ok('lit : le schéma d\'éditeur propose « lit » et ses sources', /`panier du visiteur`/.test(ms2?.properties?.fonctionnement?.properties?.lit?.markdownDescription || ''), '');
 
     // --- registre à règles : places, liste d'attente, une fois par (fonctionnement › formulaire) et lecture de son état
-    const rg = await copy('examples/le-fournil', 'reg');
+    const rg = await copy('scripts/reference/exemples-yaml/le-fournil', 'reg');
     // L'exemple écrit ce composant au format document ; ces contrôles portent sur les règles au format langage : on remet ici
     // le manifeste écrit à la main que le document remplace (scripts/reference), le même que celui dont verify-document prouve l'identité.
     const am = path.join(rg, 'components', 'atelier', 'manifest.yaml');
@@ -570,7 +570,7 @@ try {
   }
 
   // --- migrate
-  const fournil = await copy('examples/le-fournil', 'fournil');
+  const fournil = await copy('scripts/reference/exemples-yaml/le-fournil', 'fournil');
   const before = await fs.readFile(path.join(fournil, 'site.yaml'), 'utf8');
   await fs.writeFile(path.join(fournil, 'site.yaml'), before.replace(/^language: 1\n\n/m, ''));
   r = run('check', fournil);

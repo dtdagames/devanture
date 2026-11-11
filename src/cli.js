@@ -12,6 +12,7 @@ import { TYPE_WORDS } from './lang/donnees.js';
 import { PRIMITIVE_HELP, nearest } from './lang/forme.js';
 import { wordUsage, WORD_KEYS } from './lang/vocabulaire.js';
 import { readDocument, readingDiff, TOURNURES } from './lang/document.js';
+import { lineDiff } from './reading.js';
 import { writeSiteDocument, writePageDocument, writeSectionDocument, componentSchemas, readSiteDocument, readPageDocument, COMPONENT_NAMES, PROP_NAMES, GROUP_NAMES, writeDataDocument, readDataDocument, PRODUCTS, collectionData, writeSegmentsDocument, readSegmentsDocument, writeFixtureDocument, writePackageDocument, writeHostsDocument } from './lang/site-document.js';
 import { SOURCES, SOURCE_NAMES, PUBLIC_SOURCE_NAMES, sourceUsage, sourceFields } from './lang/sources.js';
 import YAML from 'yaml';
@@ -1068,21 +1069,6 @@ function describeSchema(s) {
   if (s.format === 'route') return 'route (/page) ou URL';
   if (s.format === 'asset') return 'fichier dans assets/';
   return s.type || 'valeur';
-}
-
-/** Lignes retirées (-) et ajoutées (+) entre deux lectures YAML, dans l'ordre du document. */
-function lineDiff(before, after) {
-  const clean = s => String(s).replace(/\r\n/g, '\n').split('\n').map(l => l.trimEnd()).filter(l => l && !l.startsWith('#'));
-  const a = clean(before), b = clean(after), n = a.length, m = b.length;
-  const L = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
-  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = a[i] === b[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
-  const out = []; let i = 0, j = 0;
-  while (i < n || j < m) {
-    if (i < n && j < m && a[i] === b[j]) { i++; j++; }
-    else if (i < n && (j >= m || L[i + 1][j] >= L[i][j + 1])) out.push('- ' + a[i++].trim());
-    else out.push('+ ' + b[j++].trim());
-  }
-  return out;
 }
 
 /** Ce que vaut un document jamais accepté, sans redire son contenu : chaque section, ses données, la taille de ses listes. */

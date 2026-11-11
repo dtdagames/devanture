@@ -78,7 +78,7 @@ Colonnes : 3
 ## Appel : Parlons de votre dossier
 Prendre rendez-vous → /contact</code></pre>
 <p>Les garde-fous du format sont repris : une ligne qui ne trouve pas sa place est refusée à sa ligne, et la lecture de chaque document (le YAML qu'il vaut) est figée dans <code>lecture/</code> ; tout changement arrête la compilation jusqu'à <code>sitec lire &lt;dossier&gt; --accepter</code>. Ce qui ne se dit pas en lignes (variantes, champs de formulaire libres, collections, boutique) reste du YAML, dans un bloc du document.</p>
-<p>Commandes nouvelles : <code>sitec rediger</code> (du YAML aux documents, chaque document relu), <code>sitec lire</code> étendu au site, <code>sitec explain document</code>, <code>sitec explain &lt;composant&gt; --document</code>. Exemple : <code>examples/garnier-document</code>. Détail : <code>docs/LANGAGE.md</code>, section 6 sexies.</p>
+<p>Commandes nouvelles : <code>sitec rediger</code> (du YAML aux documents, chaque document relu), <code>sitec lire</code> étendu au site, <code>sitec explain document</code>, <code>sitec explain &lt;composant&gt; --document</code>. Exemple : <code>examples/garnier-document</code> (depuis la v0.16.0, les exemples du dépôt sont eux-mêmes en documents : <code>examples/garnier-associes</code>, et leur YAML d'origine est dans <code>scripts/reference/exemples-yaml/</code>). Détail : <code>docs/LANGAGE.md</code>, section 6 sexies.</p>
 
 <h2>3. Même site</h2>
 <div class="table-wrap"><table>
@@ -177,7 +177,7 @@ Dans le troisième site créé en documents, l'agent a écrit <code>Image côté
 <pre><code>node scripts/verify-site-document.mjs            # même site, règles de lecture, refus, lecture figée (55 contrôles)
 node scripts/measure-site-document.mjs           # texte à écrire : création et éditions
 node scripts/measure-site-document-agents.mjs    # les douze sites laissés par les agents : check, build, bancs, écarts
-node bin/sitec.js lire examples/garnier-document --tout
+node bin/sitec.js lire examples/garnier-associes --tout
 node bin/sitec.js explain document</code></pre>
 <p>Les douze sites, les consignes et les relevés sont dans <code>mesure-document/</code>. Les journaux des agents ne sont pas au dépôt ; <code>usage.json</code> en est le relevé.</p>
 

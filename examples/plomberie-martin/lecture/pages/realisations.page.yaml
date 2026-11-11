@@ -1,0 +1,49 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+route: /realisations
+seo:
+  title: Réalisations · Plomberie Martin
+  description: Quelques chantiers récents à Lyon et dans la métropole.
+sections:
+  - hero:
+      title: Nos réalisations
+      subtitle: Un aperçu de chantiers récents, du dépannage à la rénovation complète.
+      keywords:
+        - exemples de chantiers
+        - travaux réalisés
+        - avant après
+        - nos chantiers
+        - références
+  - collection.list:
+      source: realisations
+      title: "{{ collections.realisations | count }} chantiers récents"
+      intro: Chaque fiche détaille le besoin, la solution et la durée des travaux, sur {{ const.zone }}.
+      columns: 3
+      id: chantiers
+      keywords:
+        - photos salle de bain
+        - douche italienne
+        - chaudière à condensation
+        - chauffe-eau thermodynamique
+        - wc suspendu
+        - cuisine
+        - rénovation complète
+        - chantier récent
+        - voir des exemples
+  - collection.list:
+      source: realisations
+      title: Salles de bain
+      filter:
+        category: salle-de-bain
+      columns: 3
+      id: salles-de-bain
+  - cta:
+      title: Votre projet mérite le même soin
+      button:
+        label: Parlons-en
+        to: /contact
+      keywords:
+        - lancer mon projet
+        - discuter de mon projet
+        - me faire conseiller
+        - étude de projet

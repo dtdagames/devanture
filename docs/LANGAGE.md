@@ -958,7 +958,7 @@ Dans une puce, un champ dont le type ne convient pas à la valeur est sauté : u
 
 `site.md` suit les mêmes règles, avec ses propres noms :
 
-<!-- sitec: aucun — le site d'essai de ce document est écrit en YAML ; examples/garnier-document porte un site.md compilé par le banc -->
+<!-- sitec: aucun — le site d'essai de ce document est écrit en YAML ; examples/garnier-associes porte un site.md compilé par le banc -->
 ```markdown
 # Garnier & Associés
 
@@ -1039,7 +1039,7 @@ Hors du format à ce jour : `sitec migrate`, `sitec keywords --import`, les sch�
 
 ### Ce qui est mesuré
 
-- **Même site.** `examples/garnier-document` est `examples/garnier-associes` écrit en documents : mêmes données, mêmes fichiers compilés à l'octet hors pages PHP (qui gardent l'ordre des données de leur source), même HTML rendu sur toutes les pages. `scripts/verify-site-document.mjs` le vérifie. Les quatre sites d'exemple (29 pages) s'écrivent en documents sans aucun bloc `yaml` et se relisent à l'identique, à ceci près qu'un nombre y devient son écriture (`1999` et « 1999 ») là où le composant accepte les deux.
+- **Même site.** Les exemples du dépôt sont écrits en documents ; leur écriture YAML d'origine est gardée dans `scripts/reference/exemples-yaml/`. `examples/garnier-associes` vaut sa référence YAML : mêmes données, mêmes fichiers compilés à l'octet hors pages PHP (qui gardent l'ordre des données de leur source), même HTML rendu sur toutes les pages. `scripts/verify-site-document.mjs` le vérifie. Les quatre sites d'exemple (29 pages) s'écrivent en documents sans aucun bloc `yaml` et se relisent à l'identique, à ceci près qu'un nombre y devient son écriture (`1999` et « 1999 ») là où le composant accepte les deux.
 - **Texte à écrire.** `scripts/measure-site-document.mjs` : la source des quatre sites d'exemple pèse 17 079 tokens en YAML (hors commentaires) et 13 686 en documents, soit 20 % de moins (de 18 à 23 % selon le site). Les quatre modifications du test de maintenance demandent 916 tokens écrits en YAML et 734 en documents, 20 % de moins.
 - **Travail d'un agent.** Douze agents Sonnet sans contexte, trois par case, tous réussis (`mesure-document/`, `scripts/measure-site-document-agents.mjs`). Création d'un site depuis un brief : 58 % de tokens produits en moins et 52 % de tokens traités en moins en documents. Cet écart tient pour partie à un seuil : les trois sites YAML dépassaient la longueur d'une commande sous Windows, leur écriture groupée a échoué et ils ont été écrits deux fois ; les trois sites en documents tenaient dessous. Éditions (quatre modifications) : aucun gain, 31 % de tokens produits en plus et 25 % de tokens traités en plus en documents (10 % et 4 % sans l'essai où le script de l'agent n'avait rien écrit), parce que la relecture ajoute une commande et que le champ de formulaire libre retombe en YAML. Trois essais par case, un seul modèle, un seul site : des ordres de grandeur.
 - **Une lecture fausse passée.** Sur les trois créations en documents, une portait une ligne de réglage mal nommée, lue comme du texte et affichée sur la page ; `check` et le banc ne la voyaient pas, l'agent l'a vue dans la lecture redite. Depuis la v0.15.0, le lecteur refuse toute ligne « nom : suite » courte dont le nom n'est pas une donnée ; cinq des six sites en documents laissés par les agents, écrits avant cette règle, ne passent plus `check` (leurs mentions légales commencent par « Éditeur du site : … ») et gardent leurs mesures d'alors.

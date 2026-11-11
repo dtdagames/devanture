@@ -1,0 +1,40 @@
+# selection
+
+Quelques produits d'une catégorie en cartes compactes, lus dans la boutique à chaque visite : prix et stock du moment, ajout au panier. Rien si la sélection est vide.
+
+Mots-clés : sélection, nouveautés, produits, acheter
+
+## Données
+- title : texte, facultatif — titre de la section
+- category : texte, facultatif — ne montrer qu'une catégorie de products.yaml
+- limit : nombre entier, facultatif, de 1 à 6, par défaut 3 — combien de produits
+
+## Fonctionnement
+> Ce que le composant lit à chaque visite. Le stock change entre deux visites : la cible le relit, la page n'est pas mise en cache.
+- lit :
+  - produits : produits de la boutique, catégorie category, limite limit
+
+## Forme
+section, seulement si produits :
+- en-tête : title
+- grille de produits, 3 colonnes :
+  - carte :
+    - image : image, name
+    - titre : name
+    - texte « selection-prix » : price_text
+    - texte discret : stock_text
+    - si in_stock :
+      - ajout au panier : id, category, « Ajouter au panier »
+    - sinon :
+      - texte discret : « Épuisé »
+
+## Apparence
+- cartes : compactes
+- selection-prix : gras, couleur d'accent
+
+## Exemple
+```
+## selection : Pour la salle de bain
+soins
+Limite : 3
+```

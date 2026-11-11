@@ -171,7 +171,7 @@ const group = (rep, exp, g) => rep?.[exp]?.groups?.find(x => x.name === g) ?? {}
 const TEL = 'tel:0472001122';
 // Vérité du banc : exposés (n) et conversions (c) par groupe, comptés ici au fil de la simulation.
 const truth = { accroche: { temoin: { n: 0, c: 0 }, prix_annonce: { n: 0, c: 0 } }, relance: { temoin: { n: 0, c: 0 }, devis_abandonne: { n: 0, c: 0 } } };
-// Répartition attendue d'après segments.yaml : arms: [prix_annonce] = moitié-moitié ; holdout: 20 = 20 % de témoins dans le segment.
+// Répartition attendue d'après les segments du site (segments.md) : arms: [prix_annonce] = moitié-moitié ; holdout: 20 = 20 % de témoins dans le segment.
 const armOf = d => (d < 5000 ? 'prix_annonce' : 'temoin');
 const heldOf = d => (d < 2000 ? 'temoin' : 'devis_abandonne');
 const sameCounts = (rep, exp) => Object.entries(truth[exp]).every(([g, t]) => group(rep, exp, g).exposed === t.n && group(rep, exp, g).conversions === t.c);
@@ -344,10 +344,14 @@ try {
   {
     const project = path.resolve(root, '..'); const site = path.join(work, 'site');
     await fs.cp(project, site, { recursive: true, filter: src => { const rel = path.relative(project, src).replaceAll('\\', '/'); return rel !== 'dist' && !rel.startsWith('dist/') && !rel.startsWith('node_modules') && !rel.startsWith('.devanture'); } });
-    const pageFile = path.join(site, 'pages', 'accueil.page.yaml'); const src = await fs.readFile(pageFile, 'utf8');
-    const changed = src.replace('title: Dépannage à Lyon à partir de 95 € TTC', 'title: Votre dépannage à Lyon à partir de 95 € TTC');
+    // La page est écrite en document (pages/accueil.md) ou en YAML : le titre du bras se change dans l'écriture du site, et la
+    // lecture d'un document modifié s'accepte avant de compiler.
+    const docFile = path.join(site, 'pages', 'accueil.md'); const isDoc = await fs.access(docFile).then(() => true, () => false);
+    const pageFile = isDoc ? docFile : path.join(site, 'pages', 'accueil.page.yaml'); const src = await fs.readFile(pageFile, 'utf8');
+    const changed = isDoc ? src.replace('- prix_annonce | Dépannage à Lyon à partir de 95 € TTC', '- prix_annonce | Votre dépannage à Lyon à partir de 95 € TTC') : src.replace('title: Dépannage à Lyon à partir de 95 € TTC', 'title: Votre dépannage à Lyon à partir de 95 € TTC');
     await fs.writeFile(pageFile, changed);
-    let built = src !== changed; let buildErr = built ? '' : 'titre du bras introuvable dans accueil.page.yaml';
+    let built = src !== changed; let buildErr = built ? '' : 'titre du bras introuvable dans ' + path.basename(pageFile);
+    if (built && isDoc) try { execFileSync(process.execPath, [path.join(ROOT, 'bin', 'sitec.js'), 'lire', site, '--accepter'], { encoding: 'utf8', stdio: 'pipe' }); } catch (e) { built = false; buildErr = String(e.stdout || e.message).slice(0, 300); }
     if (built) try { execFileSync(process.execPath, [path.join(ROOT, 'bin', 'sitec.js'), 'build', site], { encoding: 'utf8', stdio: 'pipe' }); } catch (e) { built = false; buildErr = String(e.stdout || e.message).slice(0, 300); }
     ok('recompilation avec un titre de bras modifié', built, buildErr);
     if (built) {

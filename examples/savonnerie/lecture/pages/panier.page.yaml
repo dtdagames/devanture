@@ -1,0 +1,12 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+route: /panier
+seo:
+  title: Panier · Maison Dubois
+  description: Votre panier Maison Dubois.
+sections:
+  - cart.page:
+      empty_text: Votre panier est vide. Nos savons n'attendent que vous.
+      continue:
+        label: Continuer mes achats
+        to: /boutique

@@ -1,0 +1,21 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+route: /produit/[id]
+source: products
+seo:
+  title: "{{ product.name }} · Maison Dubois"
+  description: "{{ product.name }} fabriqué à la main à Marseille. Saponification à froid, ingrédients naturels."
+sections:
+  - product.hero:
+      back:
+        label: ← Retour à la boutique
+        to: /boutique
+  - products.related:
+      title: Dans la même gamme
+  - cta:
+      title: Besoin d'un conseil ?
+      text: Dites-nous votre type de peau, nous vous orientons.
+      button:
+        label: Nous écrire
+        to: /contact
+      style: surface

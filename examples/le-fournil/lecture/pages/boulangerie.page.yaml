@@ -1,0 +1,90 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+route: /la-boulangerie
+seo:
+  title: La boulangerie — Anne et Marc Lefèvre, artisans boulangers à Nantes | Le Fournil
+  description: L'histoire du Fournil, boulangerie artisanale fondée en 2009 rue de la Juiverie à Nantes par Anne et Marc Lefèvre. L'équipe, le fournil, les engagements.
+sections:
+  - hero:
+      title: La boulangerie
+      subtitle: Une maison de quartier, un fournil visible depuis la boutique, et deux boulangers qui ont choisi le temps long.
+      image: boutique.svg
+  - richtext:
+      title: Notre histoire
+      text: |-
+        Anne et Marc Lefèvre ont ouvert Le Fournil en mars 2009, dans une ancienne boutique de la rue de la Juiverie, au cœur du quartier Bouffay. Marc, formé en boulangerie à Angers puis passé par plusieurs fournils de la région, voulait revenir au levain naturel et aux cuissons sur sole. Anne, pâtissière de formation, a pris en charge la vitrine sucrée et la relation avec les clients.
+
+        Les premières années, ils étaient seuls : Marc au four dès 4 h, Anne en boutique à l'ouverture. L'équipe a grandi avec le quartier. Aujourd'hui trois salariés les accompagnent, dont deux formés au Fournil.
+
+        En 2024, la baguette tradition de la maison a reçu la médaille d'argent du concours de Loire-Atlantique. Nous l'avons prise comme un encouragement à continuer exactement ce que nous faisons depuis le début.
+      image: fournil.svg
+      image_position: right
+  - features:
+      title: Nos engagements
+      columns: 3
+      items:
+        - icon: leaf
+          title: Farines régionales
+          text: Blés de Loire-Atlantique et de Vendée, moulus par deux meuneries indépendantes situées à moins de 80 km.
+        - icon: clock
+          title: Fermentation longue
+          text: Nos pains au levain fermentent 18 heures. Le goût et la digestibilité viennent de ce temps, pas d'un additif.
+        - icon: heart
+          title: Tout fait maison
+          text: Pains, viennoiseries, pâtisseries, sandwichs. Rien n'est acheté surgelé ni préparé ailleurs.
+        - icon: check
+          title: Anti-gaspillage
+          text: Les invendus du soir sont vendus en paniers à prix réduit à partir de 18 h 30, et le reste est donné à une association du quartier.
+        - icon: home
+          title: Un commerce de quartier
+          text: Nous connaissons nos clients par leur prénom. La boutique sert aussi de relais pour des producteurs voisins.
+        - icon: tools
+          title: Transmission
+          text: Nous accueillons chaque année un apprenti en CAP boulanger, en partenariat avec le CFA de Nantes.
+  - team:
+      title: L'équipe
+      intro: Cinq personnes, du fournil au comptoir.
+      members:
+        - name: Marc Lefèvre
+          role: Boulanger, cofondateur
+          photo: marc.svg
+          bio: Au pétrin et au four depuis 2009. Responsable des pains et du levain.
+        - name: Anne Lefèvre
+          role: Pâtissière, cofondatrice
+          photo: anne.svg
+          bio: Crée la carte des pâtisseries de saison et gère la boutique.
+        - name: Nadia
+          role: Boulangère
+          bio: Arrivée en 2016 comme apprentie, elle assure aujourd'hui les fournées du matin.
+        - name: Théo
+          role: Tourier
+          bio: En charge des viennoiseries et du feuilletage depuis 2021.
+        - name: Lucie
+          role: Vendeuse
+          bio: Au comptoir et aux sandwichs du midi. Elle connaît la carte des allergènes par cœur.
+  - stats:
+      items:
+        - value: "2009"
+          label: ouverture rue de la Juiverie
+        - value: "5"
+          label: personnes dans l'équipe
+        - value: "3"
+          label: fournées de tradition par jour
+        - value: "1"
+          label: médaille d'argent départementale (2024)
+  - gallery:
+      title: Le fournil et la boutique
+      columns: 2
+      images:
+        - src: fournil.svg
+          alt: Le four et le pétrin du Fournil
+          caption: Le four à sole
+        - src: boutique.svg
+          alt: Intérieur de la boutique
+          caption: La boutique
+  - cta:
+      title: Venez nous voir
+      text: 8 rue de la Juiverie, à deux pas de la place du Bouffay. Du mardi au dimanche, 6 h 30 à 19 h 30.
+      button:
+        label: Horaires et accès
+        to: /contact

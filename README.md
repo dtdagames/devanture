@@ -85,8 +85,8 @@ src/images/     pipeline d'images : dimensions, variantes WebP (sharp sous Node,
 src/studio/     remplaçants Node pour l'atelier navigateur (fichiers en mémoire, chemins, sha256, canvas)
 components/     un dossier par composant natif : composant.md (format langage, écrit en plan) et styles.css, aucun fichier PHP ni YAML ; vocabulaire.md : les mots natifs
 studio/         atelier navigateur (index.html, app.js ; sitec-browser.js est produit par npm run build:studio)
-examples/       sites de démonstration (plomberie, boutique savonnerie, cabinet, fournil, hôte multi-sites) et paquets/vitrine (paquet de composants partagé)
-scripts/        bancs de vérification (sites produits, outillage, expériences, documentation) et scripts de mesure
+examples/       sites de démonstration (plomberie, boutique savonnerie, cabinet, fournil, hôte multi-sites) et paquets/vitrine (paquet de composants partagé), écrits en documents
+scripts/        bancs de vérification (sites produits, outillage, expériences, documentation) et scripts de mesure ; reference/exemples-yaml/ : les mêmes exemples dans leur écriture YAML d'origine, pour les bancs
 docs/LANGAGE.md spécification du langage (version 1 : expressions, collections, segments et expériences, composants composés et de projet, effets)
 docs/CIBLES.md  contrat que tout émetteur doit respecter (routes, formulaires, boutique, exploitation)
 docs/rapports/  proposition initiale et rapports de test (création, baseline, maintenance, Haiku, variance, exploitation)

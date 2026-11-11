@@ -1,6 +1,7 @@
 // Banc du format document du site (prototype) : site.md et pages/<id>.md à la place du YAML, lus sans modèle d'après les
 // données que chaque composant déclare.
-//   - identité : examples/garnier-document (documents) vaut examples/garnier-associes (YAML) : mêmes données, mêmes fichiers
+//   - identité : examples/garnier-associes (documents) vaut scripts/reference/exemples-yaml/garnier-associes (son écriture YAML
+//     d'origine) : mêmes données, mêmes fichiers
 //     servis tels quels, même HTML rendu page par page ;
 //   - aller-retour : chaque site d'exemple écrit en documents par le rédacteur se relit à l'identique ;
 //   - règles de lecture : titre, texte libre, « Nom : valeur », lien seul, puces et leurs champs dans l'ordre, puces en retrait ;
@@ -23,6 +24,8 @@ import { THEME_PRESETS } from '../src/emit/php/css.js';
 import { SITE_SCHEMA } from '../src/validate.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+// Les exemples du dépôt sont écrits en documents ; les mêmes, dans leur écriture YAML d'origine, servent de référence.
+const YAML_EXAMPLES = path.join(ROOT, 'scripts', 'reference', 'exemples-yaml');
 const SITEC = path.join(ROOT, 'bin', 'sitec.js');
 const port = Number(process.argv[2]) || 8976;
 const checks = [];
@@ -43,15 +46,15 @@ const refused = (r, re, line) => r.errors.some(e => re.test(e.message) && (line 
 
 try {
   // --- identité : l'exemple en documents vaut l'exemple en YAML
-  const yamlSite = await loadProject(path.join(ROOT, 'examples', 'garnier-associes')), docSite = await loadProject(path.join(ROOT, 'examples', 'garnier-document'));
+  const yamlSite = await loadProject(path.join(YAML_EXAMPLES, 'garnier-associes')), docSite = await loadProject(path.join(ROOT, 'examples', 'garnier-associes'));
   ok('identité : l\'exemple en documents est lu sans erreur, lecture à jour', docSite.documents.site && docSite.documents.pages.length === 6 && !docSite.loadErrors.length, JSON.stringify(docSite.loadErrors).slice(0, 400));
   ok('identité : le site lu de site.md vaut site.yaml', same(docSite.site, yamlSite.site), JSON.stringify(canon(docSite.site)).slice(0, 300));
   const strip = d => { const { page: _p, ...rest } = d; return rest; };
   const diffPages = yamlSite.pages.filter((p, i) => docSite.pages[i]?.id !== p.id || !same(strip(p.data), docSite.pages[i].data)).map(p => p.id);
   ok('identité : chaque page lue de pages/<id>.md vaut son .page.yaml, dans le même ordre', yamlSite.pages.length === 6 && !diffPages.length, diffPages.join(', '));
   const a = path.join(tmp, 'dist-yaml'), b = path.join(tmp, 'dist-documents');
-  let r = run('build', path.join(ROOT, 'examples', 'garnier-associes'), '--out', a);
-  const r2 = run('build', path.join(ROOT, 'examples', 'garnier-document'), '--out', b);
+  let r = run('build', path.join(YAML_EXAMPLES, 'garnier-associes'), '--out', a);
+  const r2 = run('build', path.join(ROOT, 'examples', 'garnier-associes'), '--out', b);
   ok('identité : les deux sites compilent', r.code === 0 && r2.code === 0, r.out + r2.out);
   const walk = async d => (await fs.readdir(d, { withFileTypes: true, recursive: true })).filter(e => e.isFile()).map(e => path.relative(d, path.join(e.parentPath ?? e.path, e.name)).split(path.sep).join('/')).sort();
   const fa = await walk(a), fb = await walk(b);
@@ -71,7 +74,7 @@ try {
 
   // --- aller-retour : tout site d'exemple s'écrit en documents et se relit à l'identique
   for (const site of ['garnier-associes', 'plomberie-martin', 'le-fournil', 'savonnerie']) {
-    const project = await loadProject(path.join(ROOT, 'examples', site));
+    const project = await loadProject(path.join(YAML_EXAMPLES, site));
     const sch = componentSchemas(project, catalog), bad = []; let blocs = 0;
     const pageOf = id => project.pages.find(x => x.id === id)?.data || null;
     const s = writeSiteDocument(project.site, { tokens, groups });
@@ -157,7 +160,7 @@ try {
 
   // --- en projet : erreurs à la ligne, lecture figée, commandes
   const site = path.join(tmp, 'site');
-  await fs.cp(path.join(ROOT, 'examples', 'garnier-document'), site, { recursive: true, filter: s => !/[\\/](dist|node_modules)([\\/]|$)/.test(s) });
+  await fs.cp(path.join(ROOT, 'examples', 'garnier-associes'), site, { recursive: true, filter: s => !/[\\/](dist|node_modules)([\\/]|$)/.test(s) });
   await fs.cp(path.join(ROOT, 'examples', 'paquets'), path.join(tmp, 'paquets'), { recursive: true });
   r = run('check', site);
   ok('projet : l\'exemple en documents passe check', r.code === 0 && /"ok":true/.test(r.out), r.out);
@@ -197,7 +200,7 @@ try {
 
   // --- commandes : rediger, explain
   const y = path.join(tmp, 'plomberie');
-  await fs.cp(path.join(ROOT, 'examples', 'plomberie-martin'), y, { recursive: true, filter: s => !/[\\/](dist|node_modules)([\\/]|$)/.test(s) });
+  await fs.cp(path.join(YAML_EXAMPLES, 'plomberie-martin'), y, { recursive: true, filter: s => !/[\\/](dist|node_modules)([\\/]|$)/.test(s) });
   r = run('rediger', y, '--dry-run');
   ok('rediger --dry-run : dit ce qui s\'écrirait sans rien modifier', r.code === 0 && /site\.yaml → site\.md/.test(r.out) && /rien n'est modifié/.test(r.out) && await fs.access(path.join(y, 'site.yaml')).then(() => true, () => false), r.out);
   r = run('rediger', y); const r5 = run('check', y); const r6 = run('lire', y);
@@ -218,7 +221,7 @@ try {
   const pe = t => parseComponentOutline(t).errors.map(e => `${e.line} ${e.message}`).join(' | ');
   ok('plan, refus : ligne sans rôle, section inconnue, clé dite deux fois, valeur et puces à la fois, plan sans nom', /ligne sans rôle sous « ## Données »/.test(pe('# a\n\n## Données\nun texte perdu\n')) && /section inconnue : « Style »/.test(pe('# a\n\n## Style\n- x : y\n')) && /« title » est dit deux fois/.test(pe('# a\n\n## Données\n- title : texte\n- title : texte\n')) && /une valeur sur sa ligne et des puces en dessous/.test(pe('# a\n\n## Forme\n- carte : x\n  - texte : y\n')) && /commence par son nom/.test(pe('## Données\n- a : texte\n')));
   const pc = path.join(tmp, 'plan');
-  await fs.cp(path.join(ROOT, 'examples', 'garnier-document'), pc, { recursive: true, filter: s => !/[\\/](dist|node_modules)([\\/]|$)/.test(s) });
+  await fs.cp(path.join(ROOT, 'examples', 'garnier-associes'), pc, { recursive: true, filter: s => !/[\\/](dist|node_modules)([\\/]|$)/.test(s) });
   await fs.mkdir(path.join(pc, 'components', 'essai'), { recursive: true });
   await fs.writeFile(path.join(pc, 'components', 'essai', 'composant.md'), PLAN);
   r = run('check', pc);
@@ -247,9 +250,17 @@ try {
   const fx = readFixtureDocument('> un cas avec des données de visite\n## features : Nos atouts\n- leaf | Naturel\n- Fait main\n\nÀ la visite :\n```yaml\nproduits: []\n```\n', { name: 'features', props: schemas.get('features') });
   ok('cas de test en document : le composant écrit comme une section, puis « À la visite : »', !fx.error && same(fx.props, { title: 'Nos atouts', items: [{ icon: 'leaf', title: 'Naturel' }, { title: 'Fait main' }], 'à la visite': { produits: [] } }) && /n'est pas un composant|une section du composant/.test(readFixtureDocument('## hero : A\n', { name: 'features', props: schemas.get('features') }).error || ''), JSON.stringify(fx));
 
-  // --- tout le dépôt d'exemples, converti dans une copie : il ne reste en YAML que les composés ; rien ne change à la compilation
+  // --- les exemples du dépôt : écrits en documents, sans autre YAML que les composés et la lecture figée
+  const repoYaml = (await fs.readdir(path.join(ROOT, 'examples'), { recursive: true })).map(x => String(x).replaceAll('\\', '/')).filter(x => /\.ya?ml$/.test(x) && !/(^|\/)(dist|lecture)\//.test(x) && !/(^|\/)lecture\.yaml$/.test(x)).sort();
+  ok('dépôt : les exemples sont écrits en documents ; seuls les composés restent en YAML', JSON.stringify(repoYaml) === JSON.stringify(['paquets/vitrine/components.yaml', 'plomberie-martin/components.yaml']), repoYaml.join(', '));
+  const repoPhp = (await fs.readdir(path.join(ROOT, 'examples'), { recursive: true })).map(x => String(x).replaceAll('\\', '/')).filter(x => /\.php$/.test(x) && !/(^|\/)dist\//.test(x));
+  ok('dépôt : aucun fichier PHP d\'auteur dans les exemples ni dans le catalogue', !repoPhp.length && !(await fs.readdir(path.join(ROOT, 'components'), { recursive: true })).some(x => /\.php$/.test(String(x))), repoPhp.join(', '));
+  const repoChecks = ['garnier-associes', 'plomberie-martin', 'le-fournil', 'savonnerie'].map(s => run('lire', path.join(ROOT, 'examples', s)));
+  ok('dépôt : la lecture de chaque document des exemples est à jour', repoChecks.every(c => c.code === 0 && !/à reprendre|a changé|pas encore acceptée/.test(c.out)), repoChecks.map(c => c.out.slice(0, 200)).join(' | '));
+
+  // --- la référence YAML des exemples, convertie dans une copie : il ne reste en YAML que les composés ; rien ne change à la compilation
   const exs = path.join(tmp, 'exemples');
-  await fs.cp(path.join(ROOT, 'examples'), exs, { recursive: true, filter: s => !/[\\/](dist|node_modules)([\\/]|$)/.test(s) });
+  await fs.cp(YAML_EXAMPLES, exs, { recursive: true, filter: s => !/[\\/](dist|node_modules)([\\/]|$)/.test(s) });
   const empreinte = (...a) => spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'empreinte-catalogue.mjs'), ...a], { encoding: 'utf8' });
   empreinte(path.join(tmp, 'avant.json'), '--exemples', exs);
   const SITES = ['garnier-associes', 'plomberie-martin', 'le-fournil', 'savonnerie'];

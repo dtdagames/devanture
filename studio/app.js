@@ -33,7 +33,7 @@ $('files').addEventListener('click', (ev) => {
 });
 $('text').addEventListener('input', () => { if (!state.current) return; S.vfs.write(ROOT + '/' + state.current, $('text').value); state.dirty.add(state.current); state.built = false; $('download').disabled = true; $('writeDist').disabled = true; renderFiles(); persist(); });
 $('text').addEventListener('keydown', (ev) => { if (ev.key === 'Tab') { ev.preventDefault(); const t = ev.target, s = t.selectionStart; t.setRangeText('  ', s, t.selectionEnd, 'end'); t.dispatchEvent(new Event('input')); } if ((ev.ctrlKey || ev.metaKey) && ev.key === 's') { ev.preventDefault(); if (state.dirHandle) saveToDir(); else runCheck(); } });
-$('addFile').addEventListener('click', () => { const f = prompt('Chemin du fichier (ex. pages/services.page.yaml)'); if (!f) return; const p = f.replace(/^\/+/, ''); if (!S.vfs.has(ROOT + '/' + p)) S.vfs.write(ROOT + '/' + p, p.endsWith('.page.yaml') ? `page: ${p.replace(/^pages\//, '').replace(/\.page\.yaml$/, '')}\nroute: /${p.replace(/^pages\//, '').replace(/\.page\.yaml$/, '')}\nseo: { title: Titre, description: Description de la page }\nsections:\n  - richtext: { title: Titre, text: Texte à compléter. }\n` : ''); state.dirty.add(p); renderFiles(); openFile(p); persist(); });
+$('addFile').addEventListener('click', () => { const f = prompt(S.vfs.has(ROOT + '/site.md') ? 'Chemin du fichier (ex. pages/services.md)' : 'Chemin du fichier (ex. pages/services.page.yaml)'); if (!f) return; const p = f.replace(/^\/+/, ''); if (!S.vfs.has(ROOT + '/' + p)) S.vfs.write(ROOT + '/' + p, p.endsWith('.page.yaml') ? `page: ${p.replace(/^pages\//, '').replace(/\.page\.yaml$/, '')}\nroute: /${p.replace(/^pages\//, '').replace(/\.page\.yaml$/, '')}\nseo: { title: Titre, description: Description de la page }\nsections:\n  - richtext: { title: Titre, text: Texte à compléter. }\n` : /^pages\/[^/]+\.md$/.test(p) ? `# Titre\n\nDescription de la page\n\nAdresse : /${p.replace(/^pages\//, '').replace(/\.md$/, '')}\n\n## Texte : Titre\nTexte à compléter.\n` : ''); state.dirty.add(p); renderFiles(); openFile(p); persist(); });
 
 // ---------- projets : exemples, dossier local, mémoire du navigateur ----------
 for (const ex of S.examples()) { const o = document.createElement('option'); o.value = ex; o.textContent = ex; $('example').appendChild(o); }
@@ -41,7 +41,7 @@ $('example').addEventListener('change', async () => { const ex = $('example').va
 function setProject(name, dirHandle) {
   state.name = name; state.dirHandle = dirHandle; state.dirty.clear(); state.current = null; state.built = false; state.handles.clear();
   $('projectName').textContent = name + (dirHandle ? ' (dossier local)' : ''); $('saveDir').hidden = !dirHandle; $('writeDist').hidden = !dirHandle; $('download').disabled = true; $('writeDist').disabled = true;
-  renderFiles(); const first = S.vfs.has(ROOT + '/site.yaml') ? 'site.yaml' : S.vfs.list(ROOT).find(f => S.vfs.isText(f)); if (first) openFile(first);
+  renderFiles(); const first = S.vfs.has(ROOT + '/site.yaml') ? 'site.yaml' : S.vfs.has(ROOT + '/site.md') ? 'site.md' : S.vfs.list(ROOT).find(f => S.vfs.isText(f)); if (first) openFile(first);
   $('tab-issues').innerHTML = '<p class="muted">Projet chargé. Cliquez sur « Vérifier ».</p>'; $('nIssues').textContent = '0'; $('nIssues').className = 'n'; setStatus('prêt'); persist();
 }
 const SKIP = new Set(['dist', 'node_modules', '.git', '.env']);
@@ -78,15 +78,28 @@ async function restore() {
 
 // ---------- vérifier, compiler ----------
 function issueHtml(e, cls = '') { return `<div class="issue ${cls}" data-file="${esc(e.file)}"><b>${esc(e.code)}</b> <span class="where">${esc(e.file)}${e.path ? ' · ' + esc(e.path) : ''}</span><div>${esc(e.message)}</div>${e.hint ? `<div class="hint">→ ${esc(e.hint)}</div>` : ''}${e.fix ? `<div class="hint mono">${esc(typeof e.fix === 'string' ? e.fix : JSON.stringify(e.fix))}</div>` : ''}</div>`; }
-$('tab-issues').addEventListener('click', (ev) => { const d = ev.target.closest('.issue[data-file]'); if (d && d.dataset.file) openFile(d.dataset.file); });
+$('tab-issues').addEventListener('click', async (ev) => {
+  // Accepter la lecture : même geste que « sitec lire --accepter » ; les fichiers de lecture écrits partent avec le projet.
+  if (ev.target.closest('#acceptReading')) { const done = await S.acceptReading(ROOT); for (const f of done) state.dirty.add(f); state.built = false; renderFiles(); persist(); await runCheck(); if (done.length) setStatus('lecture acceptée : ' + done.length + ' document(s)', 'ok'); return; }
+  const o = ev.target.closest('a[data-open]'); if (o) { ev.preventDefault(); openFile(o.dataset.open); return; }
+  const d = ev.target.closest('.issue[data-file]'); if (d && d.dataset.file) openFile(d.dataset.file);
+});
+// Un document modifié doit être relu avant de compiler : on montre ce que le compilateur en comprend maintenant, et un bouton l'accepte.
+async function readingHtml() {
+  const docs = (await S.reading(ROOT)).filter(d => d.status === 'à accepter'); if (!docs.length) return '';
+  const body = d => (d.absent ? d.yaml.split('\n').filter(l => l && !l.startsWith('#')) : d.changes).map(l => `<span class="${l.startsWith('- ') && !d.absent ? 'del' : l.startsWith('+ ') && !d.absent ? 'add' : ''}">${esc(l)}</span>`).join('\n');
+  return `<div class="reading"><p><b>Lecture à accepter</b> : ${docs.length} document${docs.length > 1 ? 's ont' : ' a'} changé depuis la dernière lecture acceptée. Voici ce que le compilateur en comprend maintenant ; si c'est bien ce que vous voulez dire, acceptez.</p>${docs.map(d => `<details open><summary><a href="#" data-open="${esc(d.file)}">${esc(d.file)}</a> — ${d.absent ? 'nouveau document, ce qu\'il vaut' : 'ce qui change'}</summary><pre>${body(d)}</pre></details>`).join('')}<button id="acceptReading" class="primary">Accepter cette lecture</button></div>`;
+}
 async function runCheck() {
   setStatus('vérification…');
   const r = await S.check(ROOT); state.lastCheck = r;
-  const all = [...r.errors.map(e => issueHtml(e)), ...r.placeholders.map(e => issueHtml({ ...e, code: 'W_PLACEHOLDER' }, 'warn')), ...r.warnings.map(e => issueHtml(e, 'warn'))];
+  const toAccept = r.errors.some(e => e.code === 'E_READING') ? await readingHtml() : '';
+  const shown = toAccept ? r.errors.filter(e => e.code !== 'E_READING') : r.errors;
+  const all = [...shown.map(e => issueHtml(e)), ...r.placeholders.map(e => issueHtml({ ...e, code: 'W_PLACEHOLDER' }, 'warn')), ...r.warnings.map(e => issueHtml(e, 'warn'))];
   const n = r.errors.length + r.placeholders.length + r.warnings.length;
   $('nIssues').textContent = String(n); $('nIssues').className = 'n' + (r.errors.length ? ' err' : '');
-  $('tab-issues').innerHTML = (r.ok ? `<p class="ok">Projet valide : ${r.pages} page(s), ${r.sections} section(s).${r.placeholders.length ? ' Des textes sont à compléter : la compilation se fera en brouillon.' : ''}</p>` : `<p>${r.errors.length} erreur(s) bloquante(s).</p>`) + all.join('');
-  setStatus(r.ok ? 'valide' : r.errors.length + ' erreur(s)', r.ok ? 'ok' : 'err'); showTab('issues');
+  $('tab-issues').innerHTML = (r.ok ? `<p class="ok">Projet valide : ${r.pages} page(s), ${r.sections} section(s).${r.placeholders.length ? ' Des textes sont à compléter : la compilation se fera en brouillon.' : ''}</p>` : shown.length ? `<p>${shown.length} erreur(s) bloquante(s).</p>` : '') + toAccept + all.join('');
+  setStatus(r.ok ? 'valide' : shown.length ? shown.length + ' erreur(s)' : 'lecture à accepter', r.ok ? 'ok' : 'err'); showTab('issues');
   return r;
 }
 $('check').addEventListener('click', runCheck);

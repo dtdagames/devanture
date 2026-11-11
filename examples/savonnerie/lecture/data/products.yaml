@@ -1,0 +1,50 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+products:
+  - id: savon-lavande
+    name: Savon à la lavande
+    price: 6.5
+    category: savons
+    description: |-
+      Savon surgras à 8 %, huile d'olive et huile essentielle de lavande fine de Provence. Pain de 100 g, séché quatre semaines.
+
+      Convient à tous les types de peau, y compris les peaux sensibles.
+    image: savon-lavande.svg
+    badge: Best-seller
+    featured: true
+  - id: savon-olive
+    name: Savon pur olive
+    price: 5.9
+    category: savons
+    description: Le savon de Marseille tel qu'on le faisait, 72 % d'huile d'olive, sans parfum ni colorant. Pain de 150 g.
+    image: savon-olive.svg
+    featured: true
+  - id: savon-miel
+    name: Savon miel et avoine
+    price: 6.9
+    category: savons
+    description: Miel de lavande d'un apiculteur des Alpilles et flocons d'avoine exfoliants. Pain de 100 g.
+    image: savon-miel.svg
+    stock: 4
+  - id: shampoing-solide
+    name: Shampoing solide à l'argile verte
+    price: 9.5
+    category: cheveux
+    description: Pour cheveux normaux à gras, équivaut à deux flacons de 250 ml. Sans sulfates, sans silicones. Galet de 70 g.
+    image: shampoing-solide.svg
+    featured: true
+  - id: baume-levres
+    name: Baume à lèvres cire d'abeille
+    price: 4.5
+    category: soins
+    description: Cire d'abeille, beurre de karité et huile d'amande douce. Stick de 5 g.
+    image: baume-levres.svg
+  - id: coffret-decouverte
+    name: Coffret découverte
+    price: 24
+    category: coffrets
+    description: Trois savons de 50 g, un baume à lèvres et un porte-savon en bois d'olivier, dans une boîte en carton recyclé.
+    image: coffret-decouverte.jpg
+    stock: 0
+    badge: Idée cadeau
+    featured: true

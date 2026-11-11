@@ -1,0 +1,140 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+route: /
+seo:
+  title: Plomberie Martin · Plombier chauffagiste à Lyon
+  description: Dépannage plomberie 7j/7, installation sanitaire et chauffage à Lyon et environs. Devis gratuit, intervention en 1 h.
+sections:
+  - hero:
+      title: Plombier chauffagiste à Lyon
+      subtitle: Dépannage 7j/7, intervention en moins d'une heure. Devis gratuit et prix annoncés avant travaux.
+      image: hero.svg
+      cta:
+        label: Appeler le 04 72 00 11 22
+        to: tel:0472001122
+      secondary:
+        label: Demander un devis
+        to: /contact
+      keywords:
+        - plombier lyon
+        - chauffagiste lyon
+        - dépanneur plomberie
+        - numéro de téléphone
+        - appeler un plombier
+        - plombier pas cher lyon
+        - intervention rapide
+      variants:
+        devis_abandonne:
+          title: Votre demande de devis vous attend
+          subtitle: Vous aviez commencé une demande. Reprenez-la en deux minutes, nous répondons sous 2 h ouvrées.
+          cta:
+            label: Reprendre ma demande
+            to: /contact
+        recurrent:
+          subtitle: Content de vous revoir. Dépannage 7j/7, devis gratuit, et vos interventions précédentes en mémoire.
+        prix_annonce:
+          title: Dépannage à Lyon à partir de 95 € TTC
+          subtitle: Déplacement et première heure compris. Devis gratuit, intervention sous 1 h à Lyon, 7j/7 de 7 h à 22 h.
+        mobile:
+          cta:
+            label: Appeler maintenant
+            to: tel:0472001122
+  - promo:
+      text: -15 % sur l'entretien annuel de chaudière
+      code: ENTRETIEN15
+      until: 30 novembre
+  - features:
+      title: Nos services
+      intro: Un seul interlocuteur pour toute votre plomberie et votre chauffage.
+      items:
+        - icon: clock
+          title: Dépannage urgent
+          text: Fuite, canalisation bouchée, chauffe-eau en panne. Nous intervenons sous 1 h à Lyon.
+          link:
+            label: En savoir plus
+            to: /services
+        - icon: tools
+          title: Installation sanitaire
+          text: Salle de bain, cuisine, WC. De la conception à la pose.
+        - icon: sun
+          title: Chauffage
+          text: Pose et entretien de chaudières gaz, pompes à chaleur, radiateurs.
+      id: services
+      keywords:
+        - urgence
+        - fuite
+        - nuit
+        - week-end
+        - chaudière en panne
+        - chauffe-eau
+        - robinet qui goutte
+        - tuyau cassé
+        - tuyau percé
+        - canalisation bouchée
+        - wc bouché
+        - évier bouché
+        - plus d'eau chaude
+        - ballon d'eau chaude
+        - pompe à chaleur
+        - radiateur froid
+        - installation chaudière
+        - rénovation salle de bain
+        - dégât des eaux
+  - stats:
+      items:
+        - value: 25 ans
+          label: d'expérience
+        - value: 1 h
+          label: délai d'intervention moyen
+        - value: 4 800+
+          label: interventions réalisées
+        - value: 4,9/5
+          label: note Google (312 avis)
+      keywords:
+        - nombre d'interventions
+        - avis google
+        - note clients
+        - délai moyen
+        - années d'expérience
+  - testimonials:
+      title: Ils nous font confiance
+      items:
+        - quote: Fuite réparée en 40 minutes un dimanche soir. Tarif annoncé respecté.
+          author: Marie L.
+          role: Lyon 4e
+          rating: 5
+        - quote: Salle de bain refaite entièrement, travail propre et dans les délais.
+          author: Karim B.
+          role: Villeurbanne
+          rating: 5
+        - quote: Entretien chaudière sérieux, explications claires. Je recommande.
+          author: Sophie R.
+          role: Caluire
+          rating: 4
+      keywords:
+        - avis clients
+        - retours clients
+        - recommandations
+        - satisfaction
+        - ce que disent les clients
+        - fiable
+        - sérieux
+  - cta:
+      title: Une urgence ou un projet ?
+      text: Appelez-nous ou décrivez votre besoin, nous répondons sous 2 h ouvrées.
+      button:
+        label: Nous contacter
+        to: /contact
+      keywords:
+        - nous joindre
+        - poser une question
+        - être rappelé
+        - délai de réponse
+        - demander une intervention
+      variants:
+        fan_services:
+          title: Vous hésitez sur une prestation ?
+          text: Décrivez votre besoin en deux lignes, nous vous disons ce qu'il faut faire et combien ça coûte.
+          button:
+            label: Poser ma question
+            to: /contact
