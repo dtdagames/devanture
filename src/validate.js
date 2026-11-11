@@ -470,7 +470,7 @@ export function validateProject(project, catalog) {
 
 /** Une erreur de validation sur un site ou une page écrits en document renvoie à la ligne du document, puis au chemin de la donnée. */
 function locateInDocuments(project, errors) {
-  const docs = [project.documents?.site, ...(project.documents?.pages || [])].filter(Boolean);
+  const docs = [project.documents?.site, ...(project.documents?.pages || []), ...(project.documents?.data || [])].filter(Boolean);
   if (!docs.length) return errors;
   // Un document refusé n'a pas de lecture sûre : ses erreurs de validation seraient des redites trompeuses.
   const refused = new Set(docs.filter(d => d.errors.length).map(d => d.file));

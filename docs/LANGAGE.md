@@ -889,6 +889,47 @@ Liens du pied de page :
 
 Le reste de `site.yaml` se dit de la même façon : `Constantes :` puis une puce `- delai | 48 h` par constante ; une section par réglage du site, `## Boutique`, `## Agents`, `## Recherche`, `## Images`, `## Hors ligne`, `## Atelier`, `## Personnalisation`, `## Statique`, avec ses données en « Nom : valeur » (un groupe dans le groupe prend un nom pointé, `shipping.flat : 4.9`, comme un jeton de thème) ; une section `## Collection realisations : Réalisations` par collection, avec `Tri : -date` et `Champs :` suivi d'une puce `- title | string | oui` par champ (nom, type, « oui » s'il est obligatoire).
 
+### Données et segments
+
+Les fichiers de données et les segments se lisent avec les mêmes règles. `data/products.md` remplace `data/products.yaml`, `data/<collection>.md` remplace `data/<collection>.yaml` : une section par élément, son identifiant puis son nom (ou le champ de titre de la collection) dans l'intitulé, sa description (ou le premier champ `text`) en texte libre, ses autres champs en « Nom : valeur ».
+
+<!-- sitec: aucun — le site d'essai de ce document garde ses données en YAML ; scripts/verify-site-document.mjs lit ces écritures -->
+```markdown
+# Produits
+
+## savon-lavande : Savon à la lavande
+Savon surgras à 8 %, huile d'olive et lavande fine. Pain de 100 g.
+
+Convient à tous les types de peau.
+Prix : 6.5
+Catégorie : savons
+Image : savon-lavande.svg
+Vedette : oui
+```
+
+`segments.md` remplace `segments.yaml`. Une condition se dit en clair : « visites = 1 », « visites >= 2 », « sur mobile », « sur ordinateur », un événement suivi de « où clé = valeur », « au moins 2 fois » (ou « au plus », « plus de », « moins de »), « depuis 7d » ; « pas … » la nie ; « tout » et « un parmi » prennent une puce en retrait par condition.
+
+<!-- sitec: aucun — le site d'essai de ce document garde ses segments en YAML ; scripts/verify-site-document.mjs lit ces écritures -->
+```markdown
+# Segments
+
+Priorité : devis_abandonne, recurrent, nouveau
+Segments :
+- nouveau | visites = 1
+- recurrent | visites >= 2
+- devis_abandonne | tout
+  - form_start depuis 7d
+  - pas form_submit depuis 7d
+- fan_services | section_view où section = services, au moins 2 fois
+Objectifs :
+- appel | click_cta | to = tel:0472001122
+Expériences :
+- accroche | appel | prix_annonce
+- relance | appel | segment : devis_abandonne | témoin : 20
+```
+
+La lecture de ces documents est figée comme les autres, dans `lecture/data/` et `lecture/segments.yaml`, et `sitec rediger` les écrit depuis le YAML.
+
 ### Les garde-fous
 
 1. **Toute ligne a un rôle.** Une ligne qui ne trouve pas sa place est refusée, à sa ligne (`E_DOCUMENT`) : un texte sous un composant qui n'a pas de texte libre, une valeur de puce sans champ, un lien de trop, un intertitre. Une ligne « nom : suite » d'un à trois mots avant les deux-points est toujours une donnée : si le nom n'en est pas une, elle est refusée, avec le nom le plus proche (« Image côté : left » pour « Côté de l'image »), jamais rangée dans le texte. Un texte dont une phrase commence ainsi (« Téléphone : 05 56 00 00 00 ») s'annonce par « Texte : » seul sur sa ligne et se lit alors tel quel.

@@ -12,7 +12,7 @@ import { TYPE_WORDS } from './lang/donnees.js';
 import { PRIMITIVE_HELP, nearest } from './lang/forme.js';
 import { wordUsage, WORD_KEYS } from './lang/vocabulaire.js';
 import { readDocument, readingDiff, TOURNURES } from './lang/document.js';
-import { writeSiteDocument, writePageDocument, writeSectionDocument, componentSchemas, readSiteDocument, readPageDocument, COMPONENT_NAMES, PROP_NAMES, GROUP_NAMES } from './lang/site-document.js';
+import { writeSiteDocument, writePageDocument, writeSectionDocument, componentSchemas, readSiteDocument, readPageDocument, COMPONENT_NAMES, PROP_NAMES, GROUP_NAMES, writeDataDocument, readDataDocument, PRODUCTS, collectionData, writeSegmentsDocument, readSegmentsDocument } from './lang/site-document.js';
 import { SOURCES, SOURCE_NAMES, PUBLIC_SOURCE_NAMES, sourceUsage, sourceFields } from './lang/sources.js';
 import YAML from 'yaml';
 import { INTENT_NAMES } from './lang/apparence.js';
@@ -112,7 +112,7 @@ export async function run(argv) {
       const root = path.resolve(dir), only = positional[1] || null, accept = flags.has('--accepter'), json = flags.has('--json');
       const project = await loadProject(root);
       const sources = [...(project.componentSources || []), ...(project.packages || []).flatMap(p => p.componentSources || [])].filter(x => x.documentText !== undefined && (!only || x.name === only));
-      const siteDocs = only ? [] : [project.documents?.site, ...(project.documents?.pages || [])].filter(Boolean);
+      const siteDocs = only ? [] : [project.documents?.site, ...(project.documents?.pages || []), ...(project.documents?.data || [])].filter(Boolean);
       if (!sources.length && !siteDocs.length) { console.error(only ? `Aucun composant au format document nommé ${only} (components/${only}/document.md).` : 'Aucun document dans ce site (site.md, pages/<id>.md, components/<nom>/document.md).'); return only ? 1 : 0; }
       // Documents du site et des pages : ce que vaut chaque document (section par section), ce qui a changé depuis la lecture acceptée.
       let siteBad = 0; const siteReport = [];
@@ -223,7 +223,7 @@ export async function run(argv) {
       if (!dir) { console.error('Usage : sitec rediger <dossier-projet> [--dry-run]'); return 2; }
       const root = path.resolve(dir), dry = flags.has('--dry-run');
       const project = await loadProject(root, { catalog });
-      if (project.documents?.site || project.documents?.pages.length) { console.error('Ce site est déjà écrit en documents (site.md, pages/<id>.md).'); return 1; }
+      if (project.documents?.site || project.documents?.pages.length || project.documents?.data.length) { console.error('Ce site est déjà écrit en documents (site.md, pages/<id>.md).'); return 1; }
       if (project.loadErrors.length) { for (const e of project.loadErrors) console.log(JSON.stringify(e)); console.error('Corrigez d\'abord le YAML (sitec check).'); return 1; }
       const tokens = Object.keys(THEME_PRESETS.clair), groups = SITE_SCHEMA.properties.site.properties, schemas = componentSchemas(project, catalog);
       const out = [], failed = [];
@@ -234,6 +234,20 @@ export async function run(argv) {
         const r = writePageDocument(p.data, { schemas, pageOf });
         if (r.error) failed.push(`pages/${path.basename(p.file)} : ${r.error}`);
         else out.push({ from: p.file, to: path.join(root, 'pages', p.id + '.md'), text: r.text, frozen: path.join(root, 'lecture', 'pages', p.id + '.page.yaml'), yaml: readPageDocument(r.text, { schemas, pageOf }).yaml });
+      }
+      // Données : les produits de la boutique et les éléments de chaque collection.
+      const datas = [];
+      if (project.productsRaw) datas.push({ name: 'products', file: project.productsFile, items: Array.isArray(project.productsRaw) ? project.productsRaw : project.productsRaw.products, kind: PRODUCTS, heading: 'Produits' });
+      for (const [name, col] of Object.entries(project.collections || {})) if (col.raw) datas.push({ name, file: col.file, items: Array.isArray(col.raw) ? col.raw : col.raw[name], kind: collectionData(name, project.site.collections?.[name]), heading: project.site.collections?.[name]?.label || name });
+      for (const d of datas) {
+        const w = writeDataDocument(d.items, d.kind, d.heading);
+        if (w.error) failed.push(`data/${d.name}.yaml : ${w.error}`);
+        else out.push({ from: d.file, to: path.join(root, 'data', d.name + '.md'), text: w.text, frozen: path.join(root, 'lecture', 'data', d.name + '.yaml'), yaml: readDataDocument(w.text, d.kind).yaml });
+      }
+      if (project.segmentsRaw) {
+        const w = writeSegmentsDocument(project.segmentsRaw, { events: EVENTS });
+        if (w.error) failed.push(`segments.yaml : ${w.error}`);
+        else out.push({ from: project.segmentsFile, to: path.join(root, 'segments.md'), text: w.text, frozen: path.join(root, 'lecture', 'segments.yaml'), yaml: readSegmentsDocument(w.text, { events: EVENTS }).yaml });
       }
       if (failed.length) { for (const m of failed) console.error('Ne s\'écrit pas en document : ' + m); console.error('Rien n\'est écrit.'); return 1; }
       for (const o of out) {
@@ -937,6 +951,25 @@ pages/<id>.md
     suite d'une puce                   des lignes en retrait sous une puce prolongent son dernier texte (une ligne vide fait un paragraphe)
   Dérive de : accueil                  page dérivée : « Retire : ancre, ancre », « Remplace : » puis « - ancre | donnée : valeur | … » ; ses sections s'ajoutent à la fin
   \`\`\`yaml … \`\`\`                      en dernier recours, pour une donnée trop imbriquée pour une ligne
+
+data/products.md, data/<collection>.md    (à la place de data/<nom>.yaml)
+  # Produits
+  ## savon-lavande : Savon à la lavande   un élément par section : son identifiant, puis son nom (ou le champ de titre de la collection)
+  Savon surgras à 8 %.                 sa description (le premier champ « text » d'une collection), en texte libre
+  Prix : 6.5                           ses autres champs : Prix, Catégorie, Image, Stock, Mention, Vedette, Unité ; ou les champs de la collection
+
+segments.md                            (à la place de segments.yaml)
+  Priorité : devis_abandonne, recurrent
+  Segments :
+  - recurrent | visites >= 2           conditions : visites = 1, visites >= 2, sur mobile, sur ordinateur,
+  - fan | section_view où section = services, au moins 2 fois      un événement suivi de « où clé = valeur », « au moins 2 fois », « depuis 7d »,
+  - devis_abandonne | tout             « pas … », et « tout » ou « un parmi » avec une puce en retrait par condition
+    - form_start depuis 7d
+    - pas form_submit depuis 7d
+  Objectifs :
+  - appel | click_cta | to = tel:+33400000000
+  Expériences :
+  - accroche | appel | prix_annonce    objectif, puis les bras ; ou « - relance | devis | segment : devis_abandonne | témoin : 20 »
 
 Dans une puce, un champ dont le type ne convient pas à la valeur est sauté : un nom d'icône va au champ icône, un fichier image au champ image,
 un « Libellé → /cible » au champ lien. « rien » saute un champ ; « nom : valeur » vise un champ par son nom.

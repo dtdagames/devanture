@@ -3,7 +3,8 @@ import path from 'node:path';
 import YAML from 'yaml';
 import { err } from './errors.js';
 import { readComponentDir, loadCatalog } from './catalog.js';
-import { readSiteDocument, readPageDocument, componentSchemas, baseOf } from './lang/site-document.js';
+import { readSiteDocument, readPageDocument, componentSchemas, baseOf, readDataDocument, PRODUCTS, collectionData, readSegmentsDocument } from './lang/site-document.js';
+import { EVENTS } from './segments.js';
 import { readingDiff } from './lang/document.js';
 import { THEME_PRESETS } from './emit/php/css.js';
 import { SITE_SCHEMA } from './validate.js';
@@ -28,7 +29,18 @@ export async function loadProject(root, { catalog = null } = {}) {
   const project = { root, site: null, siteFile: path.join(root, 'site.yaml'), pages: [], assets: new Set(), loadErrors: [] };
 
   const text = f => fs.readFile(f, 'utf8').then(t => t, () => undefined);
-  project.documents = { site: null, pages: [] };
+  project.documents = { site: null, pages: [], data: [] };
+  /** Un fichier de données écrit en document (data/<nom>.md) à la place de son YAML : lu, relu, sa lecture figée dans lecture/data/. */
+  const dataDocument = async (name, kind) => {
+    const file = path.join(root, 'data', name + '.md'), source = await text(file);
+    if (source === undefined) return undefined;
+    if (await text(path.join(root, 'data', name + '.yaml')) !== undefined) project.loadErrors.push(err('E_DOCUMENT', { file, path: '', message: `data/${name}.md et data/${name}.yaml à la fois : ces données n'ont qu'une source.` }));
+    const r = readDataDocument(source, kind);
+    const frozenFile = path.join(root, 'lecture', 'data', name + '.yaml');
+    const doc = { file, text: source, yaml: r.yaml, errors: r.errors, where: r.where, frozenFile, frozen: await text(frozenFile) };
+    project.documents.data.push(doc); documentErrors(doc, project.loadErrors);
+    return { file, raw: r.data };
+  };
   const siteMd = await text(path.join(root, 'site.md'));
   if (siteMd !== undefined) {
     // Le site écrit comme un document : sa lecture vaut un site.yaml.
@@ -73,16 +85,18 @@ export async function loadProject(root, { catalog = null } = {}) {
   // Produits (optionnel) : data/products.yaml.
   project.productsFile = path.join(root, 'data', 'products.yaml');
   project.productsRaw = null;
-  try { await fs.access(project.productsFile); project.productsRaw = await readYaml(project.productsFile, project.loadErrors) ?? null; } catch { /* pas de boutique */ }
+  { const d = await dataDocument('products', PRODUCTS); if (d) { project.productsFile = d.file; project.productsRaw = d.raw; } else { try { await fs.access(project.productsFile); project.productsRaw = await readYaml(project.productsFile, project.loadErrors) ?? null; } catch { /* pas de boutique */ } } }
 
   // Collections génériques (déclarées dans site.yaml, remplies dans data/<nom>.yaml) : lues ici, validées plus tard.
   project.collections = {};
   const declared = project.site && typeof project.site === 'object' && project.site.collections && typeof project.site.collections === 'object' ? Object.keys(project.site.collections) : [];
   for (const name of declared) {
     if (!/^[a-z][a-z0-9_]*$/.test(name)) continue;
-    const file = path.join(root, 'data', name + '.yaml');
+    let file = path.join(root, 'data', name + '.yaml');
     let raw = null;
-    try { await fs.access(file); raw = await readYaml(file, project.loadErrors) ?? null; } catch { /* absent : signalé par la validation */ }
+    const d = await dataDocument(name, collectionData(name, project.site.collections[name]));
+    if (d) { file = d.file; raw = d.raw; }
+    else { try { await fs.access(file); raw = await readYaml(file, project.loadErrors) ?? null; } catch { /* absent : signalé par la validation */ } }
     project.collections[name] = { file, raw, items: [], spec: null };
   }
 
@@ -119,7 +133,17 @@ export async function loadProject(root, { catalog = null } = {}) {
   // Segments de personnalisation (optionnel).
   project.segmentsFile = path.join(root, 'segments.yaml');
   project.segmentsRaw = null;
-  try { await fs.access(project.segmentsFile); project.segmentsRaw = await readYaml(project.segmentsFile, project.loadErrors) ?? null; } catch { /* pas de segments */ }
+  const segMd = await text(path.join(root, 'segments.md'));
+  if (segMd !== undefined) {
+    // Segments écrits en document : segments.md, lu, relu, sa lecture figée dans lecture/segments.yaml.
+    const file = path.join(root, 'segments.md');
+    if (await text(project.segmentsFile) !== undefined) project.loadErrors.push(err('E_DOCUMENT', { file, path: '', message: 'segments.md et segments.yaml à la fois : les segments n\'ont qu\'une source.' }));
+    const r = readSegmentsDocument(segMd, { events: EVENTS });
+    const frozenFile = path.join(root, 'lecture', 'segments.yaml');
+    const doc = { file, text: segMd, yaml: r.yaml, errors: r.errors, where: r.where, frozenFile, frozen: await text(frozenFile) };
+    project.documents.data.push(doc); documentErrors(doc, project.loadErrors);
+    project.segmentsFile = file; project.segmentsRaw = r.data;
+  } else { try { await fs.access(project.segmentsFile); project.segmentsRaw = await readYaml(project.segmentsFile, project.loadErrors) ?? null; } catch { /* pas de segments */ } }
 
   // Pages écrites comme des documents (pages/<id>.md) : lues d'après les données que chaque composant déclare, donc après
   // les composants du site et des paquets. Elles prennent le rang qu'aurait leur .page.yaml.

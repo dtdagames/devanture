@@ -15,7 +15,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadCatalog } from '../src/catalog.js';
 import { loadProject } from '../src/load.js';
-import { componentSchemas, readPageDocument, readSiteDocument, writePageDocument, writeSiteDocument, canon, parseLink, COMPONENT_NAMES, PROP_NAMES } from '../src/lang/site-document.js';
+import { componentSchemas, readPageDocument, readSiteDocument, writePageDocument, writeSiteDocument, canon, parseLink, COMPONENT_NAMES, PROP_NAMES, readDataDocument, writeDataDocument, PRODUCTS, collectionData, readSegmentsDocument, writeSegmentsDocument } from '../src/lang/site-document.js';
+import { EVENTS } from '../src/segments.js';
 import { THEME_PRESETS } from '../src/emit/php/css.js';
 import { SITE_SCHEMA } from '../src/validate.js';
 
@@ -119,6 +120,20 @@ try {
   ok('refus : section de site inconnue, réglage inconnu dans une section', readSiteDocument('# S\n\n## Boutiqu\nDevise : €\n', { tokens, groups }).errors.some(e => /n'est pas un réglage du site.*boutique/.test(e.message)) && readSiteDocument('# S\n\n## Boutique\nMonnaie : €\n', { tokens, groups }).errors.some(e => /« Monnaie » n'est pas une donnée/.test(e.message)));
   ok('lecture : site.md (nom, slogan, thème, jeton sans guillemets, menu, pied, bloc yaml fusionné)', !sd.errors.length && same(sd.data, { language: 1, constants: { delai: '1 h' }, site: { name: 'Mon site', tagline: 'Un slogan.', locale: 'fr-FR', theme: { preset: 'sombre', tokens: { 'color.primary': '#6b2d5c' } }, nav: [{ label: 'Accueil', to: '/' }, { label: 'Contact', to: '/contact' }], footer: { links: [{ label: 'Mentions', to: '/mentions' }] }, contact: { email: 'a@b.fr' }, agents: { enabled: true } } }), JSON.stringify(sd));
 
+  // --- données et segments
+  let dd = readDataDocument('# Produits\n\n## savon-lavande : Savon à la lavande\nSavon surgras à 8 %.\n\nConvient à tous.\nPrix : 6.5\nCatégorie : savons\nImage : savon.svg\nStock : 4\nVedette : oui\n\n## savon-olive : Savon pur olive\nPrix : 5.9\n', PRODUCTS);
+  ok('données : produits en document, une section « ## identifiant : nom » par produit', !dd.errors.length && same(dd.data, { products: [{ id: 'savon-lavande', name: 'Savon à la lavande', price: 6.5, category: 'savons', description: 'Savon surgras à 8 %.\n\nConvient à tous.', image: 'savon.svg', stock: 4, featured: true }, { id: 'savon-olive', name: 'Savon pur olive', price: 5.9 }] }), JSON.stringify(dd));
+  const ck = collectionData('realisations', { fields: { title: { type: 'string', required: true }, image: 'asset', date: 'date', category: 'string', text: 'text' } });
+  dd = readDataDocument('# Réalisations\n\n## salle-de-bain : Salle de bain, Lyon 3e\nDépose de la baignoire.\nImage : chantier.svg\nDate : 2026-09\nCatégorie : salle-de-bain\n', ck);
+  ok('données : éléments d\'une collection, lus d\'après sa déclaration (titre, texte libre, champs)', !dd.errors.length && same(dd.data, { realisations: [{ id: 'salle-de-bain', title: 'Salle de bain, Lyon 3e', image: 'chantier.svg', date: '2026-09', category: 'salle-de-bain', text: 'Dépose de la baignoire.' }] }), JSON.stringify(dd));
+  ok('refus : élément sans identifiant lisible, identifiant dit deux fois, champ inconnu, prix qui n\'est pas un nombre', refused(readDataDocument('## Savon Lavande\nPrix : 6\n', PRODUCTS), /s'ouvre par son identifiant/) && refused(readDataDocument('## a : A\nPrix : 1\n\n## a : B\nPrix : 2\n', PRODUCTS), /identifiant dit deux fois/) && refused(readDataDocument('## a : A\nTarif : 6\n', PRODUCTS), /« Tarif » n'est pas une donnée/) && refused(readDataDocument('## a : A\nPrix : six euros\n', PRODUCTS), /un nombre est attendu/));
+  const SEG = '# Segments\n\nPriorité : devis_abandonne, recurrent, nouveau\nSegments :\n- nouveau | visites = 1\n- recurrent | visites >= 2\n- devis_abandonne | tout\n  - form_start depuis 7d\n  - pas form_submit depuis 7d\n- fan | section_view où section = services, au moins 2 fois\n- mobile | sur mobile\n- l_un | un parmi\n  - sur ordinateur\n  - pas purchase\nObjectifs :\n- appel | click_cta | to = tel:0472001122\nExpériences :\n- accroche | appel | prix_annonce\n- relance | appel | segment : devis_abandonne | témoin : 20\n';
+  const sgm = readSegmentsDocument(SEG, { events: EVENTS });
+  ok('segments : conditions en clair, objectifs et expériences en puces', !sgm.errors.length && same(sgm.data, { segments: { nouveau: { visits: 1 }, recurrent: { visits: { gte: 2 } }, devis_abandonne: { all: [{ event: 'form_start', within: '7d' }, { not: { event: 'form_submit', within: '7d' } }] }, fan: { event: 'section_view', where: { section: 'services' }, count: { gte: 2 } }, mobile: { device: 'mobile' }, l_un: { any: [{ device: 'desktop' }, { not: { event: 'purchase' } }] } }, priority: ['devis_abandonne', 'recurrent', 'nouveau'], goals: { appel: { event: 'click_cta', where: { to: 'tel:0472001122' } } }, experiments: { accroche: { goal: 'appel', arms: ['prix_annonce'] }, relance: { goal: 'appel', segment: 'devis_abandonne', holdout: 20 } } }), JSON.stringify(sgm));
+  const sw = writeSegmentsDocument(sgm.data, { events: EVENTS });
+  ok('segments : ce qui est lu se récrit et se relit à l\'identique', !sw.error && same(readSegmentsDocument(sw.text, { events: EVENTS }).data, sgm.data), sw.error || sw.text);
+  ok('refus : condition non comprise, événement inconnu, « tout » sans conditions', refused(readSegmentsDocument('Segments :\n- a | revenu trois fois\n', { events: EVENTS }), /condition non comprise/) && refused(readSegmentsDocument('Segments :\n- a | form_start depuis hier\n', { events: EVENTS }), /condition non comprise après « form_start »/) && refused(readSegmentsDocument('Segments :\n- a | tout\n', { events: EVENTS }), /attend ses conditions en dessous/));
+
   // --- garde-fou 1 : toute ligne a un rôle, sinon elle est refusée à sa ligne
   ok('refus : ligne sans rôle (composant sans texte libre), à sa ligne', refused(page('## Chiffres\nUn texte sans place.\n- 3 | avocats\n- 2 | villes'), /ligne sans rôle/, 6));
   ok('refus : nom de réglage à une lettre près, pas rangé dans le texte', refused(page('## Bandeau : A\nAlignment : left'), /Alignment.*vouliez-vous dire « alignement »/));
@@ -184,6 +199,8 @@ try {
   r = run('rediger', y, '--dry-run');
   ok('rediger --dry-run : dit ce qui s\'écrirait sans rien modifier', r.code === 0 && /site\.yaml → site\.md/.test(r.out) && /rien n'est modifié/.test(r.out) && await fs.access(path.join(y, 'site.yaml')).then(() => true, () => false), r.out);
   r = run('rediger', y); const r5 = run('check', y); const r6 = run('lire', y);
+  const left = (await fs.readdir(y, { recursive: true })).map(x => String(x).replaceAll('\\', '/')).filter(x => /\.yaml$/.test(x) && !/^(lecture|components)\//.test(x) && x !== 'components.yaml');
+  ok('rediger : site, pages, données et segments passent en documents ; il ne reste de YAML que les composants', /data\/realisations\.yaml → data\/realisations\.md/.test(r.out) && /segments\.yaml → segments\.md/.test(r.out) && !left.length, left.join(', '));
   ok('rediger : écrit les documents et leur lecture, retire le YAML, sans garder de bloc yaml, et le site passe check', r.code === 0 && !/bloc/.test(r.out) && r5.code === 0 && /"ok":true/.test(r5.out) && !/à accepter|a changé/.test(r6.out) && await fs.access(path.join(y, 'site.yaml')).then(() => false, () => true) && await fs.access(path.join(y, 'lecture', 'site.yaml')).then(() => true, () => false), r.out + r5.out);
   r = run('rediger', y);
   ok('rediger : refuse un site déjà en documents', r.code === 1 && /déjà écrit en documents/.test(r.out), r.out);

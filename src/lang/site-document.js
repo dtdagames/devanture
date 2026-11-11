@@ -33,7 +33,7 @@ export const PROP_NAMES = {
   fields: 'champs', required: 'obligatoires', success: 'confirmation', members: 'membres', address: 'adresse', access: 'accès',
   limit: 'limite', sort: 'tri', days: 'jours', groups: 'groupes', icon: 'icône', tone: 'ton', label: 'libellé', value: 'valeur',
   q: 'question', a: 'réponse', name: 'nom', role: 'rôle', src: 'fichier', caption: 'légende', price: 'prix', badge: 'mention',
-  back: 'retour', unit: 'unité', variants: 'variantes', filter: 'filtre', constants: 'constantes', enabled: 'actif', currency: 'devise', payment: 'paiement', summary: 'résumé', quality: 'qualité', widths: 'largeurs', business_type: "type d'activité", manual_instructions: 'instructions de paiement', order_email: 'e-mail des commandes', short_name: 'nom court', theme_color: 'couleur du thème', requires_consent: 'consentement requis', consent_text: 'texte du consentement', title_field: 'champ du titre', placeholder: 'invite', timezone: 'fuseau', closed: 'fermé', slots: 'plages', day: 'jour', id: 'ancre', keywords: 'mots-clés', empty: 'vide',
+  back: 'retour', unit: 'unité', variants: 'variantes', filter: 'filtre', category: 'catégorie', featured: 'vedette', priority: 'priorité', goals: 'objectifs', experiments: 'expériences', goal: 'objectif', arms: 'bras', holdout: 'témoin', event: 'événement', where: 'où', constants: 'constantes', enabled: 'actif', currency: 'devise', payment: 'paiement', summary: 'résumé', quality: 'qualité', widths: 'largeurs', business_type: "type d'activité", manual_instructions: 'instructions de paiement', order_email: 'e-mail des commandes', short_name: 'nom court', theme_color: 'couleur du thème', requires_consent: 'consentement requis', consent_text: 'texte du consentement', title_field: 'champ du titre', placeholder: 'invite', timezone: 'fuseau', closed: 'fermé', slots: 'plages', day: 'jour', id: 'ancre', keywords: 'mots-clés', empty: 'vide',
 };
 /** Valeurs d'un choix dites en français. */
 const VALUE_NAMES = { gauche: 'left', droite: 'right', centre: 'center', 'centré': 'center' };
@@ -169,6 +169,7 @@ function readMap(nodes, map0, fail, where, base) {
     const parts = split(n.text), key = parts[0];
     if (!key || key in out) { fail(n.line, key ? `« ${key} » est dit deux fois` : 'nom manquant avant « | »'); continue; }
     where[`${base}.${key}`] = n.line;
+    if (map.parse) { const v = map.parse(parts.slice(1).join(' | '), n.children, fail, n.line); if (v !== undefined) out[key] = v; continue; }
     if (n.children.length || n.more?.length) { fail((n.children[0] || n).line, 'rien ne se met en retrait sous une donnée nommée'); continue; }
     if (map.group) {
       const GP = map.group.properties || {}, k = labelsOf(GP).get(norm(key));
@@ -685,6 +686,7 @@ function writeMap(v, map) {
   const lines = [];
   for (const [key, val] of Object.entries(v)) {
     if (!oneLine(key) || / \| /.test(key) || /^[-*]\s/.test(key)) return null;
+    if (map.write) { const w = map.write(val); if (!w) return null; lines.push(`- ${key} | ${w[0]}`, ...w.slice(1).map(l => '  ' + l)); continue; }
     if (map.group) { const GP = map.group.properties || {}; if (!(key in GP)) return null; const t = scalarText(kindOf(GP[key]), val); if (t === null || / \| /.test(t)) return null; lines.push(`- ${labelFor(key, GP).toLowerCase()} | ${t}`); continue; }
     const schema = map.schemaFor ? map.schemaFor(key) : map.schema;
     if (map.schemaFor && !schema) return null;
@@ -862,6 +864,148 @@ export function writeSiteDocument(data, { tokens = [], groups = {} } = {}) {
   const back = readSiteDocument(text, { tokens, groups });
   if (back.errors.length) return { error: `le document écrit ne se relit pas : ligne ${back.errors[0].line}, ${back.errors[0].message}` };
   if (!same(back.data, { language: 1, ...d })) return { error: 'le document écrit ne rend pas le site d\'origine' };
+  return { text };
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// Les données : produits de la boutique et éléments d'une collection. Un document par fichier de données, une section par
+// élément : « ## <id> : <titre> », puis ses champs lus comme les données d'un composant (texte libre, « Nom : valeur »).
+
+/** Champs d'un produit (data/products) : le nom dans l'intitulé, la description en texte libre. */
+export const PRODUCTS = { key: 'products', title: 'name', prose: 'description', what: 'un produit', schema: { properties: { name: { type: 'string' }, price: { type: 'number' }, unit: { type: 'string' }, category: { type: 'string' }, description: { type: 'string' }, image: { type: 'string', format: 'asset' }, stock: { type: 'integer' }, badge: { type: 'string' }, featured: { type: 'boolean' } } } };
+const FIELD_SCHEMAS = { string: { type: 'string' }, text: { type: 'string' }, date: { type: 'string' }, number: { type: 'number' }, boolean: { type: 'boolean' }, asset: { type: 'string', format: 'asset' }, list: { type: 'array', items: { type: 'string' } }, link: { $ref: '#/$defs/link' } };
+/** Champs d'une collection, d'après sa déclaration (site › collections) : le champ de titre dans l'intitulé, le premier champ « text » en texte libre. */
+export function collectionData(name, spec) {
+  const fields = spec && typeof spec === 'object' && spec.fields && typeof spec.fields === 'object' ? spec.fields : {};
+  const type = k => (typeof fields[k] === 'string' ? fields[k] : fields[k]?.type || 'string');
+  const keys = Object.keys(fields);
+  const title = spec?.title_field && keys.includes(spec.title_field) ? spec.title_field : keys.includes('title') ? 'title' : keys.includes('name') ? 'name' : keys.find(k => type(k) === 'string') || null;
+  const prose = keys.find(k => k !== title && type(k) === 'text') || null;
+  return { key: name, title, prose, what: `un élément de ${name}`, schema: { properties: Object.fromEntries(keys.map(k => [k, { ...(FIELD_SCHEMAS[type(k)] || FIELD_SCHEMAS.string) }])) } };
+}
+
+/**
+ * Lit un document de données. kind : PRODUCTS ou collectionData(nom, déclaration).
+ * Renvoie { data: { <clé>: [éléments] }, yaml, errors, where }.
+ */
+export function readDataDocument(text, kind) {
+  const blocks = splitBlocks(text), errors = [], where = {}, items = [];
+  const fail = (line, message, hint) => errors.push({ line, message, ...(hint ? { hint } : {}) });
+  const starts = blocks.map((b, i) => (b.kind === 'h2' ? i : -1)).filter(i => i >= 0);
+  for (const b of blocks.slice(0, starts[0] ?? blocks.length)) if (b.kind !== 'blank' && b.kind !== 'h1') fail(b.line, 'ligne sans rôle : un document de données a un titre, puis une section « ## identifiant : titre » par élément');
+  if (blocks.filter(b => b.kind === 'h1').length > 1) fail(blocks.filter(b => b.kind === 'h1')[1].line, 'un seul « # » par document : c\'est son titre');
+  const seen = new Set();
+  starts.forEach((s, n) => {
+    const h = blocks[s], body = blocks.slice(s + 1, starts[n + 1] ?? blocks.length), base = `${kind.key}[${n}]`;
+    where[base] = h.line;
+    const m = /^([a-z0-9][a-z0-9-]*)\s*(?::\s*(.*))?$/.exec(h.text);
+    if (!m) { fail(h.line, `« ${h.text} » : un élément s'ouvre par son identifiant (minuscules, chiffres, tirets), puis « : » et son titre`, 'Exemple : « ## savon-lavande : Savon à la lavande ».'); items.push({}); return; }
+    if (seen.has(m[1])) fail(h.line, `identifiant dit deux fois : ${m[1]}`); seen.add(m[1]);
+    const r = readBody(body, kind.schema, { title: null, prose: kind.prose, what: kind.what });
+    errors.push(...r.errors);
+    const title = (m[2] || '').trim();
+    if (title && !kind.title) fail(h.line, 'ces éléments n\'ont pas de champ de titre : rien après « : » dans l\'intitulé');
+    if (title && kind.title && kind.title in r.props) fail(r.where[kind.title], `le titre est déjà dans l'intitulé (ligne ${h.line})`);
+    const all = { ...(title && kind.title ? { [kind.title]: title } : {}), ...r.props };
+    const item = { id: m[1] }; for (const k of Object.keys(kind.schema.properties)) if (k in all) item[k] = all[k]; for (const k of Object.keys(all)) if (!(k in item)) item[k] = all[k];
+    for (const [k, l] of Object.entries(r.where)) where[`${base}.${k}`] = l;
+    items.push(item);
+  });
+  const data = { [kind.key]: items };
+  return { data, yaml: HEADER('ce document') + YAML.stringify(data, { lineWidth: 0 }), errors: errors.sort((a, b) => (a.line || 0) - (b.line || 0)), where };
+}
+
+/** Écrit un document de données. Renvoie { text } ou { error }. */
+export function writeDataDocument(items, kind, heading) {
+  if (!Array.isArray(items)) return { error: 'une liste d\'éléments est attendue' };
+  const out = [`# ${heading}`];
+  for (const it of items) {
+    if (!it || typeof it !== 'object' || Array.isArray(it) || !/^[a-z0-9][a-z0-9-]*$/.test(String(it.id ?? ''))) return { error: `élément sans identifiant lisible : ${JSON.stringify(it).slice(0, 60)}` };
+    const { id, ...rest } = it, inTitle = kind.title && oneLine(rest[kind.title]);
+    const opts = { title: null, prose: kind.prose, what: kind.what, skip: inTitle ? [kind.title] : [] };
+    const body = writeChecked(rest, kind.schema, opts, lines => readBody(splitBlocks(lines.join('\n')), kind.schema, { title: null, prose: kind.prose, what: kind.what }));
+    if (!body) return { error: `élément ${id} qui ne se relit pas` };
+    out.push('', `## ${id}${inTitle ? ' : ' + rest[kind.title] : ''}`, ...body);
+  }
+  const text = out.join('\n') + '\n';
+  const back = readDataDocument(text, kind);
+  if (back.errors.length) return { error: `le document écrit ne se relit pas : ligne ${back.errors[0].line}, ${back.errors[0].message}` };
+  if (!same(back.data[kind.key], items)) return { error: 'le document écrit ne rend pas les données d\'origine' };
+  return { text };
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// Les segments : segments.md. « Segments : » puis une puce « nom | condition » par segment ; « Objectifs : », « Expériences : ».
+//   visites = 1 · visites >= 2 · sur mobile · sur ordinateur
+//   form_start depuis 7d · section_view où section = services, au moins 2 fois
+//   pas form_submit depuis 7d · tout (ou : un parmi), puis une puce en retrait par condition
+
+const CMP = { '=': null, '>=': 'gte', '<=': 'lte', '>': 'gt', '<': 'lt' }, CMP_TEXT = { gte: '>=', lte: '<=', gt: '>', lt: '<', eq: '=' };
+const TIMES = { 'au moins': 'gte', 'au plus': 'lte', 'plus de': 'gt', 'moins de': 'lt' }, TIMES_TEXT = { gte: 'au moins', lte: 'au plus', gt: 'plus de', lt: 'moins de' };
+/** Lit une condition de segment. events : noms d'événements connus. */
+function parseCondition(text, children, fail, line, events) {
+  const s = String(text).trim(), n = norm(s);
+  const kids = () => children.map(c => parseCondition(c.text, c.children, fail, c.line, events)).filter(x => x !== undefined);
+  let m;
+  if (n === 'tout' || n === 'un parmi') { if (!children.length) { fail(line, `« ${s} » attend ses conditions en dessous, une puce en retrait chacune`); return undefined; } return { [n === 'tout' ? 'all' : 'any']: kids() }; }
+  if ((m = /^pas\s+(.+)$/i.exec(s))) { const inner = parseCondition(m[1], children, fail, line, events); return inner === undefined ? undefined : { not: inner }; }
+  if (children.length) { fail(children[0].line, 'des puces en retrait : seuls « tout » et « un parmi » en ont'); return undefined; }
+  if ((m = /^visites?\s*(>=|<=|=|>|<)\s*(\d+)$/i.exec(s))) return { visits: CMP[m[1]] ? { [CMP[m[1]]]: Number(m[2]) } : Number(m[2]) };
+  if ((m = /^sur\s+(mobile|ordinateur)$/i.exec(s))) return { device: m[1].toLowerCase() === 'mobile' ? 'mobile' : 'desktop' };
+  const ev = /^([a-z_]+)\b\s*(.*)$/.exec(s);
+  if (!ev || !events.includes(ev[1])) { fail(line, `condition non comprise : « ${s} »`, `Conditions : « visites >= 2 », « sur mobile », « sur ordinateur », un événement (${events.join(', ')}) suivi de « où clé = valeur », « au moins 2 fois », « depuis 7d », « pas … », « tout » ou « un parmi » avec des puces en retrait.`); return undefined; }
+  const out = { event: ev[1] }; let rest = ev[2];
+  if ((m = /\bdepuis\s+(\d+[hdm])\b/i.exec(rest))) { out.within = m[1]; rest = rest.replace(m[0], ''); }
+  if ((m = /(?:\b(au moins|au plus|plus de|moins de)\s+)?(\d+)\s+fois\b/i.exec(rest))) { out.count = m[1] ? { [TIMES[m[1].toLowerCase()]]: Number(m[2]) } : Number(m[2]); rest = rest.replace(m[0], ''); }
+  if ((m = /(?:^|\s)où\s+([a-z_]+)\s*=\s*([^,]+?)\s*(?:,|$)/i.exec(rest))) { out.where = { [m[1]]: m[2].trim() }; rest = rest.replace(m[0], ''); }
+  if (rest.replace(/[,\s]+/g, '') !== '') { fail(line, `condition non comprise après « ${ev[1]} » : « ${rest.trim()} »`, 'Après un événement : « où clé = valeur », « au moins 2 fois », « depuis 7d ».'); return undefined; }
+  const ordered = { event: out.event }; for (const k of ['where', 'within', 'count']) if (k in out) ordered[k] = out[k];
+  return ordered;
+}
+/** Écrit une condition : [ligne, ...puces en retrait], ou null si elle ne s'écrit pas ainsi. */
+function writeCondition(c) {
+  if (!c || typeof c !== 'object' || Array.isArray(c)) return null;
+  const keys = Object.keys(c), cmp = v => (typeof v === 'number' ? ['eq', v] : v && typeof v === 'object' && Object.keys(v).length === 1 && Object.keys(v)[0] in CMP_TEXT && typeof Object.values(v)[0] === 'number' ? [Object.keys(v)[0], Object.values(v)[0]] : null);
+  if (keys.length === 1 && (keys[0] === 'all' || keys[0] === 'any')) { if (!Array.isArray(c[keys[0]]) || !c[keys[0]].length) return null; const kids = c[keys[0]].map(writeCondition); if (kids.some(k => !k)) return null; return [keys[0] === 'all' ? 'tout' : 'un parmi', ...kids.flatMap(k => ['- ' + k[0], ...k.slice(1).map(l => '  ' + l)])]; }
+  if (keys.length === 1 && keys[0] === 'not') { const k = writeCondition(c.not); return k ? ['pas ' + k[0], ...k.slice(1)] : null; }
+  if (keys.length === 1 && keys[0] === 'visits') { const v = cmp(c.visits); return v && (typeof c.visits !== 'number' ? v[0] !== 'eq' : true) ? [`visites ${CMP_TEXT[v[0]]} ${v[1]}`] : null; }
+  if (keys.length === 1 && keys[0] === 'device') return c.device === 'mobile' ? ['sur mobile'] : c.device === 'desktop' ? ['sur ordinateur'] : null;
+  if (typeof c.event !== 'string' || keys.some(k => !['event', 'within', 'count', 'where'].includes(k))) return null;
+  let s = c.event;
+  if (c.where !== undefined) { const e = c.where && typeof c.where === 'object' ? Object.entries(c.where) : []; if (e.length !== 1 || typeof e[0][1] !== 'string' || /,/.test(e[0][1]) || !/^[a-z_]+$/.test(e[0][0])) return null; s += ` où ${e[0][0]} = ${e[0][1]}`; }
+  if (c.count !== undefined) { const v = cmp(c.count); if (!v || (typeof c.count !== 'number' && v[0] === 'eq')) return null; s += `, ${v[0] === 'eq' ? '' : TIMES_TEXT[v[0]] + ' '}${v[1]} fois`; }
+  if (c.within !== undefined) { if (!/^\d+[hdm]$/.test(String(c.within))) return null; s += ` depuis ${c.within}`; }
+  return [s];
+}
+const segmentsKind = events => ({
+  schema: { properties: { priority: { type: 'array', items: { type: 'string' } }, segments: { type: 'object' }, goals: { type: 'object' }, experiments: { type: 'object' } } },
+  opts: { title: null, prose: null, what: 'ce document', maps: {
+    segments: { parse: (text, children, fail, line) => parseCondition(text, children, fail, line, events), write: writeCondition },
+    goals: { schema: { properties: { event: { type: 'string' }, where: { type: 'object' } } } },
+    experiments: { schema: { properties: { goal: { type: 'string' }, arms: { type: 'array', items: { type: 'string' } }, segment: { type: 'string' }, holdout: { type: 'number' }, minimum: { type: 'integer' } } } },
+  } },
+});
+/** Lit segments.md. events : noms d'événements connus du compilateur. Renvoie { data (comme lue de segments.yaml), yaml, errors, where }. */
+export function readSegmentsDocument(text, { events }) {
+  const blocks = splitBlocks(text), kind = segmentsKind(events), errors = [];
+  for (const b of blocks) if (b.kind === 'h2') errors.push({ line: b.line, message: 'pas de section dans segments.md : « Segments : », « Objectifs : » et « Expériences : » annoncent leurs puces' });
+  if (blocks.filter(b => b.kind === 'h1').length > 1) errors.push({ line: blocks.filter(b => b.kind === 'h1')[1].line, message: 'un seul « # » par document : c\'est son titre' });
+  const h1 = blocks.findIndex(b => b.kind === 'h1');
+  const r = readBody(blocks.filter((b, i) => i !== h1 && b.kind !== 'h2'), kind.schema, kind.opts);
+  errors.push(...r.errors);
+  const data = {}; for (const k of ['segments', 'priority', 'goals', 'experiments']) if (k in r.props) data[k] = r.props[k];
+  return { data, yaml: HEADER('segments.md') + YAML.stringify(data, { lineWidth: 0 }), errors: errors.sort((a, b) => (a.line || 0) - (b.line || 0)), where: r.where };
+}
+/** Écrit segments.md. Renvoie { text } ou { error }. */
+export function writeSegmentsDocument(data, { events }) {
+  const kind = segmentsKind(events), d = data || {};
+  if (Object.keys(d).some(k => !(k in kind.schema.properties))) return { error: 'clé inconnue dans les segments' };
+  const body = writeChecked(d, kind.schema, kind.opts, lines => readBody(splitBlocks(lines.join('\n')), kind.schema, kind.opts));
+  if (!body || body.some(l => /^```/.test(l))) return { error: 'une condition ou une expérience ne s\'écrit pas en lignes' };
+  const text = ['# Segments', '', ...body].join('\n') + '\n';
+  const back = readSegmentsDocument(text, { events });
+  if (back.errors.length) return { error: `le document écrit ne se relit pas : ligne ${back.errors[0].line}, ${back.errors[0].message}` };
+  if (!same(back.data, d)) return { error: 'le document écrit ne rend pas les segments d\'origine' };
   return { text };
 }
 
