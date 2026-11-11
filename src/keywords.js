@@ -1,6 +1,6 @@
 // Génération des mots-clés de recherche par LLM, à la compilation, figés dans le YAML.
-// Trois modes : appel direct au modèle (SDK Anthropic), export du prompt (--export) pour un autre outil,
-// import d'une réponse (--import). Dans tous les cas, la validation et l'écriture sont les mêmes.
+// Le compilateur n'appelle aucun modèle : il écrit la consigne (--export) à soumettre par un autre outil,
+// puis applique la réponse (--import), qu'il valide avant de l'écrire.
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import YAML from 'yaml';

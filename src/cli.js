@@ -867,15 +867,16 @@ function explain(catalog, name, words = null, asDocument = false) {
       }
     }
   }
-  if (m.example) console.log(`\nExemple :\n${m.example.split('\n').map(l => '  ' + l).join('\n')}`);
+  let shown = false;
   if (m.example && asDocument) {
     // Le même exemple, écrit comme dans une page au format document (pages/<id>.md) : produit par le rédacteur, relu par le lecteur.
     let sections = null; try { sections = YAML.parse(m.example); } catch { /* exemple illisible : dit par le banc du catalogue */ }
     const schemas = new Map(catalog.list().map(x => [x.name, x.manifest.props || { properties: {} }]));
     const out = [];
     for (const s of Array.isArray(sections) ? sections : []) { const w = writeSectionDocument(s, { schemas }); if (w.lines) out.push(...w.lines, ''); }
-    if (out.length) console.log(`\nEn document (pages/<id>.md) :\n${out.map(l => '  ' + l).join('\n').trimEnd()}`);
+    if (out.length) { console.log(`\nExemple, en document (pages/<id>.md) :\n${out.map(l => '  ' + l).join('\n').trimEnd()}`); shown = true; }
   }
+  if (m.example && !shown) console.log(`\nExemple :\n${m.example.split('\n').map(l => '  ' + l).join('\n')}`);
   return 0;
 }
 
@@ -916,13 +917,18 @@ pages/<id>.md
   Libellé → /cible                     un lien seul sur sa ligne remplit le premier lien libre du composant ; cible : /route, #ancre, https://…, mailto:…, tel:…
   - valeur | valeur | valeur           un élément de la liste du composant : les valeurs remplissent ses champs dans l'ordre de la fiche (sitec explain <composant>)
     - valeur | valeur                  puces en retrait : la liste d'un élément (les lignes d'un groupe de tarifs)
-  Nom :                                seul sur sa ligne, annonce la liste qui suit (si le composant en a plusieurs) ou un texte de plusieurs paragraphes
+  Nom :                                seul sur sa ligne, annonce la liste qui suit (si le composant en a plusieurs), ou un texte, lu alors tel quel jusqu'à la fin de la section
+  Champs :                             les champs d'un formulaire, une puce chacun : un nom connu (name, email, phone, subject, message),
+  - societe : facultatif — Entreprise  ou « nom : type, précisions — Libellé (ex. exemple) » ; types texte, texte long, e-mail, téléphone, nombre, date ;
+                                       précisions facultatif, si champ vaut valeur, un parmi a, b, c (en dernier)
   \`\`\`yaml … \`\`\`                      ce qui ne se dit pas en lignes (variants, groupes libres), en YAML
 
 Dans une puce, un champ dont le type ne convient pas à la valeur est sauté : un nom d'icône va au champ icône, un fichier image au champ image,
 un « Libellé → /cible » au champ lien. « rien » saute un champ ; « nom : valeur » vise un champ par son nom.
 Rien à protéger : « : », « , », « # », « {{ … }} » et les nombres s'écrivent tels quels, sans guillemets ni indentation.
 Une ligne qui ne trouve pas sa place est refusée (E_DOCUMENT, à sa ligne) ; un document modifié sans relecture arrête check et build (E_READING).
+Une ligne « nom : suite » d'un à trois mots avant les deux-points est toujours une donnée : un nom inconnu est refusé, jamais rangé dans le texte.
+Un texte dont une phrase commence ainsi (« Téléphone : 05 56… ») s'annonce : « Texte : » seul sur sa ligne, puis le texte.
 
 Noms français des composants : ${fr}.
 Noms français des données : ${props}.
@@ -935,7 +941,7 @@ function describeSchema(s) {
   if (s.enum) return s.enum.join(' | ');
   if (Array.isArray(s.type)) return s.type.join(' ou ');
   if (s.type === 'array' && s.items?.enum) return `liste parmi : ${s.items.enum.join(' | ')}`;
-  if (s.type === 'array' && s.items && !Object.keys(s.items).length) return 'liste (voir description)';
+  if (s.type === 'array' && s.items && (!Object.keys(s.items).length || s.items.$comment)) return 'liste (voir description)';
   if (s.type === 'array') return `liste de ${s.items?.type === 'object' ? 'objets' : (s.items?.type || 'valeurs')}${s.minItems ? ` (min ${s.minItems})` : ''}`;
   if (s.type === 'object') return 'objet';
   if (s.format === 'email') return 'email';

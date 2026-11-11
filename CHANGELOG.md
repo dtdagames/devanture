@@ -1,6 +1,14 @@
 # Journal des versions
 
-Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.14.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.15.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+
+## v0.15.0 — 2026-11-11 — plus aucun appel à un modèle ; lecteur de site fermé aux réglages mal nommés
+
+- **Le compilateur n'appelle plus aucun modèle.** `keywords`, `review`, `component new --describe`, `component edit --ask` et `lire --recrire` écrivent une consigne (`--export`) et appliquent une réponse (`--import`). `--llm`, `--model` et `--rounds` sont retirés, ainsi que la dépendance `@anthropic-ai/sdk` et `scripts/measure-gen.mjs`. L'appel direct n'avait jamais été exercé.
+- **Site en documents, une ligne « nom : suite » est toujours une donnée** : d'un à trois mots avant les deux-points, un nom qui n'est pas une donnée du composant est refusé (`E_DOCUMENT`), avec le nom le plus proche, au lieu d'être rangé dans le texte. Un texte dont une phrase commence ainsi s'annonce par « Texte : » seul sur sa ligne et se lit alors tel quel. Changement de lecture : un document qui comptait sur l'ancienne tolérance est refusé jusqu'à ce qu'il annonce son texte.
+- **Champs de formulaire en lignes** : `Champs :` puis une puce par champ, un nom connu ou « nom : type, précisions — Libellé », l'écriture du bloc `fonctionnement`. Plus de bloc YAML pour un champ libre.
+- `sitec explain <composant> --document` ne montre plus que l'écriture en document.
+- Mesure du texte : 17 % de tokens en moins à la création, 20 % aux éditions (18 % avant les champs en lignes). Banc du site en documents à 59 contrôles.
 
 ## v0.14.0 — 2026-11-11 — un site écrit comme des documents (prototype)
 

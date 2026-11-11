@@ -86,8 +86,8 @@ try {
   ok('lecture : puces en retrait, la liste d\'un élément', !d.errors.length && first(d).groups.length === 2 && same(first(d).groups[0], { title: 'Dépannage', items: [{ name: 'Déplacement', price: 'à partir de 95 €', description: 'Lyon' }, { name: 'Recherche de fuite', price: '180 €', badge: 'Rapport inclus' }] }) && first(d).note === 'Prix TTC.', JSON.stringify(d));
   d = page('## Horaires\n- lundi | fermé : oui\n- mardi | 06:30-13:00, 15:00-19:30');
   ok('lecture : oui / non, liste de mots sur une ligne', !d.errors.length && same(first(d).days, [{ day: 'lundi', closed: true }, { day: 'mardi', slots: ['06:30-13:00', '15:00-19:30'] }]), JSON.stringify(d));
-  d = page('## Texte : Notre histoire\nPremier paragraphe : fondé en 1987, « à la main ».\n\nSecond paragraphe.\n\n- un point\n- un autre\nImage : atelier.jpg');
-  ok('lecture : paragraphes, deux-points et guillemets tels quels, puces gardées dans un texte sans liste', !d.errors.length && first(d).text === 'Premier paragraphe : fondé en 1987, « à la main ».\n\nSecond paragraphe.\n\n- un point\n- un autre' && first(d).image === 'atelier.jpg', JSON.stringify(d));
+  d = page('## Texte : Notre histoire\nNotre tout premier paragraphe : fondé en 1987, « à la main ».\n\nSecond paragraphe.\n\n- un point\n- un autre\nImage : atelier.jpg');
+  ok('lecture : paragraphes, deux-points et guillemets tels quels, puces gardées dans un texte sans liste', !d.errors.length && first(d).text === 'Notre tout premier paragraphe : fondé en 1987, « à la main ».\n\nSecond paragraphe.\n\n- un point\n- un autre' && first(d).image === 'atelier.jpg', JSON.stringify(d));
   d = page('## Chiffres\n- 2011 | année de fondation\n- 3 | associés\nMots-clés : chiffres, année, combien');
   ok('lecture : un nombre reste le texte qu\'on a écrit, mots-clés sur une ligne', !d.errors.length && same(first(d), { items: [{ value: '2011', label: 'année de fondation' }, { value: '3', label: 'associés' }], keywords: ['chiffres', 'année', 'combien'] }), JSON.stringify(d));
   d = page('## Accès : Venir\nlat : 45.7745\nlon : 4.832\nAccès :\nMétro C.\n\nParking à 200 m.');
@@ -101,7 +101,13 @@ try {
   // --- garde-fou 1 : toute ligne a un rôle, sinon elle est refusée à sa ligne
   ok('refus : ligne sans rôle (composant sans texte libre), à sa ligne', refused(page('## Chiffres\nUn texte sans place.\n- 3 | avocats\n- 2 | villes'), /ligne sans rôle/, 6));
   ok('refus : nom de réglage à une lettre près, pas rangé dans le texte', refused(page('## Bandeau : A\nAlignment : left'), /Alignment.*vouliez-vous dire « alignement »/));
-  ok('refus : nom de réglage qui reprend un mot d\'une donnée sans en être une ; un autre début de phrase reste du texte', refused(page('## Texte : A\nUn paragraphe.\nImage côté : left'), /Image côté.*vouliez-vous dire « côté de l'image »/) && !page('## Texte : A\nProfil : titulaire du CAPA.\nTéléphone : 05 56 00 00 00.').errors.length);
+  ok('refus : une ligne « nom : suite » d\'un à trois mots dont le nom n\'est pas une donnée, avec le nom le plus proche', refused(page('## Texte : A\nUn paragraphe.\nImage côté : left'), /Image côté.*vouliez-vous dire « côté de l'image »/) && refused(page('## Texte : A\nProfil : titulaire du CAPA.'), /« Profil » n'est pas une donnée de richtext$/, 6) && /annoncez le texte : « Texte : »/.test(page('## Texte : A\nProfil : titulaire du CAPA.').errors[0].hint) && refused(page('## Bandeau : A\nAccroche : Une longue phrase qui serait affichée telle quelle.'), /« Accroche » n'est pas une donnée de hero/));
+  d = page('## Texte : Mentions\nImage : a.jpg\nTexte :\nÉditeur du site : cabinet Garnier.\n\nTéléphone : 05 56 00 00 00.\nImage : crédit photo\n- un point\n### Un intertitre\nVoir → /contact');
+  ok('lecture : un texte annoncé par « Texte : » est lu tel quel jusqu\'à la fin de la section', !d.errors.length && first(d).image === 'a.jpg' && first(d).text === 'Éditeur du site : cabinet Garnier.\n\nTéléphone : 05 56 00 00 00.\nImage : crédit photo\n- un point\n### Un intertitre\nVoir → /contact', JSON.stringify(d));
+  ok('lecture : au-delà de trois mots avant les deux-points, c\'est une phrase du texte', !page('## Texte : A\nLe directeur de la publication : Me Garnier.').errors.length && first(page('## Texte : A\nLe directeur de la publication : Me Garnier.')).text === 'Le directeur de la publication : Me Garnier.');
+  d = page('## Formulaire de contact : Écrivez-nous\nDestinataire : a@b.fr\nChamps :\n- name\n- email\n- societe : facultatif — Entreprise\n- nature : un parmi Dépannage, Devis — Type de demande\n- date_souhaitee : date, facultatif, si nature vaut Devis — Date souhaitée (ex. 12/03)\n- message');
+  ok('lecture : champs de formulaire en lignes, dans l\'écriture du bloc fonctionnement', !d.errors.length && same(first(d).fields, ['name', 'email', { name: 'societe', label: 'Entreprise' }, { name: 'nature', label: 'Type de demande', type: 'select', required: true, options: ['Dépannage', 'Devis'] }, { name: 'date_souhaitee', label: 'Date souhaitée', type: 'date', placeholder: '12/03', when: { nature: 'Devis' } }, 'message']), JSON.stringify(d));
+  ok('refus : champ de formulaire mal dit (type inconnu, libellé manquant)', refused(page('## Formulaire de contact\nDestinataire : a@b.fr\nChamps :\n- societe : chiffre — Entreprise'), /champ societe : « chiffre » n'est ni un type de champ/) && refused(page('## Formulaire de contact\nDestinataire : a@b.fr\nChamps :\n- societe : texte'), /libellé manquant/));
   ok('refus : composant inconnu, avec le nom le plus proche', refused(page('## Formulaire : Écrivez-nous'), /n'est pas un composant.*formulaire de contact/) && refused(page('## Bandau : A'), /vouliez-vous dire « bandeau »/));
   ok('refus : un lien de trop', refused(page('## Appel : A\nUn → /a\nDeux → /b'), /un lien de trop/));
   ok('refus : valeur de puce sans champ', refused(page('## Galerie\n- a.jpg | Alt | Légende | en trop'), /ne trouve pas de champ/));
@@ -161,9 +167,9 @@ try {
   r = run('rediger', y);
   ok('rediger : refuse un site déjà en documents', r.code === 1 && /déjà écrit en documents/.test(r.out), r.out);
   r = run('explain', 'features', '--document');
-  ok('explain --document : l\'exemple du composant écrit en document', r.code === 0 && /En document/.test(r.out) && /## Points forts : Pourquoi nous choisir/.test(r.out) && /- leaf \| 100 % naturel \| Huiles bio et locales/.test(r.out), r.out);
+  ok('explain --document : l\'exemple du composant écrit en document, sans son écriture YAML', r.code === 0 && /Exemple, en document/.test(r.out) && !/- features:/.test(r.out) && /## Points forts : Pourquoi nous choisir/.test(r.out) && /- leaf \| 100 % naturel \| Huiles bio et locales/.test(r.out), r.out);
   r = run('explain', 'hero', site);
-  ok('explain <composant> <dossier> : la forme document est donnée d\'office pour un site en documents', r.code === 0 && /En document/.test(r.out), r.out);
+  ok('explain <composant> <dossier> : la forme document est donnée d\'office pour un site en documents', r.code === 0 && /Exemple, en document/.test(r.out), r.out);
   r = run('explain', 'document');
   const frOk = Object.entries(COMPONENT_NAMES).every(([k, v]) => r.out.toLowerCase().includes(`${v} = ${k}`)) && Object.entries(PROP_NAMES).every(([k, v]) => r.out.includes(`${v} = ${k}`));
   ok('explain document : le format en une page, noms français tirés du lecteur', r.code === 0 && frOk && /Adresse : \/contact/.test(r.out), r.out.slice(0, 300));

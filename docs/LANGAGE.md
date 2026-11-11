@@ -855,8 +855,9 @@ Prendre rendez-vous → /contact
 | `Libellé → /cible` seul sur sa ligne | le premier lien libre du composant ; cible : route, `#ancre`, `https://…`, `mailto:…`, `tel:…` |
 | `- valeur \| valeur \| valeur` | un élément de la liste du composant ; les valeurs remplissent ses champs dans l'ordre de leur déclaration |
 | puces en retrait | la liste d'un élément (les lignes d'un groupe de tarifs) |
-| `Nom :` seul sur sa ligne | annonce la liste qui suit, si le composant en a plusieurs, ou un texte de plusieurs paragraphes |
-| un bloc `yaml` | ce qui ne se dit pas en lignes : `variants`, groupes libres, champs de formulaire libres |
+| `Nom :` seul sur sa ligne | annonce la liste qui suit, si le composant en a plusieurs, ou un texte, lu alors tel quel jusqu'à la fin de la section |
+| `Champs :` puis des puces | les champs d'un formulaire : un nom connu, ou `societe : facultatif — Entreprise`, dans l'écriture du bloc `fonctionnement` (type, « facultatif », « si champ vaut valeur », « un parmi a, b ») |
+| un bloc `yaml` | ce qui ne se dit pas en lignes : `variants`, groupes libres |
 
 Dans une puce, un champ dont le type ne convient pas à la valeur est sauté : un nom d'icône va au champ icône, un fichier image au champ image, un « Libellé → /cible » au champ lien. « rien » saute un champ, « nom : valeur » en vise un. Rien ne se protège : « : », « , », « # », `{{ … }}` et les nombres s'écrivent tels quels, sans guillemets ni indentation. Les trois pièges YAML du mode d'emploi n'existent pas dans un document.
 
@@ -886,7 +887,7 @@ Le reste de `site.yaml` (constantes, collections, boutique, agents…) s'écrit 
 
 ### Les garde-fous
 
-1. **Toute ligne a un rôle.** Une ligne qui ne trouve pas sa place est refusée, à sa ligne (`E_DOCUMENT`) : un texte sous un composant qui n'a pas de texte libre, une valeur de puce sans champ, un lien de trop, un intertitre. Une ligne « nom : valeur » dont le nom est à une lettre d'une donnée, ou reprend un mot d'une donnée sans en être une (« Image côté : left » pour « Côté de l'image »), est refusée elle aussi au lieu d'être rangée dans le texte.
+1. **Toute ligne a un rôle.** Une ligne qui ne trouve pas sa place est refusée, à sa ligne (`E_DOCUMENT`) : un texte sous un composant qui n'a pas de texte libre, une valeur de puce sans champ, un lien de trop, un intertitre. Une ligne « nom : suite » d'un à trois mots avant les deux-points est toujours une donnée : si le nom n'en est pas une, elle est refusée, avec le nom le plus proche (« Image côté : left » pour « Côté de l'image »), jamais rangée dans le texte. Un texte dont une phrase commence ainsi (« Téléphone : 05 56 00 00 00 ») s'annonce par « Texte : » seul sur sa ligne et se lit alors tel quel.
 2. **Une seule lecture.** Les valeurs d'une puce suivent l'ordre des champs, et le type tranche. Il n'y a pas de seconde règle.
 3. **La lecture est redite et figée.** Ce que vaut chaque document est un YAML, gardé dans `lecture/` (`lecture/site.yaml`, `lecture/pages/<id>.page.yaml`). Un document modifié ou nouveau arrête `check` et `build` (`E_READING`) jusqu'à `sitec lire <dossier> --accepter`, qui dit, pour un document changé, les lignes de lecture retirées et ajoutées, et pour un document nouveau, chaque section avec ses données.
 
@@ -903,9 +904,9 @@ Hors du format à ce jour : `sitec migrate`, `sitec keywords --import`, les sch�
 ### Ce qui est mesuré
 
 - **Même site.** `examples/garnier-document` est `examples/garnier-associes` écrit en documents : mêmes données, mêmes fichiers compilés à l'octet hors pages PHP (qui gardent l'ordre des données de leur source), même HTML rendu sur toutes les pages. `scripts/verify-site-document.mjs` le vérifie. Les quatre sites d'exemple s'écrivent en documents et se relisent à l'identique.
-- **Texte à écrire.** `scripts/measure-site-document.mjs` : la source des quatre sites d'exemple pèse 17 079 tokens en YAML (hors commentaires) et 14 250 en documents, soit 17 % de moins (de 14 à 23 % selon le site ; le plus fort gain là où aucun bloc `yaml` ne reste). Les quatre modifications du test de maintenance demandent 916 tokens écrits en YAML et 751 en documents, 18 % de moins.
+- **Texte à écrire.** `scripts/measure-site-document.mjs` : la source des quatre sites d'exemple pèse 17 079 tokens en YAML (hors commentaires) et 14 193 en documents, soit 17 % de moins (de 14 à 23 % selon le site ; le plus fort gain là où aucun bloc `yaml` ne reste). Les quatre modifications du test de maintenance demandent 916 tokens écrits en YAML et 734 en documents, 20 % de moins.
 - **Travail d'un agent.** Douze agents Sonnet sans contexte, trois par case, tous réussis (`mesure-document/`, `scripts/measure-site-document-agents.mjs`). Création d'un site depuis un brief : 58 % de tokens produits en moins et 52 % de tokens traités en moins en documents. Cet écart tient pour partie à un seuil : les trois sites YAML dépassaient la longueur d'une commande sous Windows, leur écriture groupée a échoué et ils ont été écrits deux fois ; les trois sites en documents tenaient dessous. Éditions (quatre modifications) : aucun gain, 31 % de tokens produits en plus et 25 % de tokens traités en plus en documents (10 % et 4 % sans l'essai où le script de l'agent n'avait rien écrit), parce que la relecture ajoute une commande et que le champ de formulaire libre retombe en YAML. Trois essais par case, un seul modèle, un seul site : des ordres de grandeur.
-- **Une lecture fausse passée.** Sur les trois créations en documents, une portait une ligne de réglage mal nommée, lue comme du texte et affichée sur la page ; `check` et le banc ne la voyaient pas, l'agent l'a vue dans la lecture redite. Le lecteur refuse maintenant cette ligne.
+- **Une lecture fausse passée.** Sur les trois créations en documents, une portait une ligne de réglage mal nommée, lue comme du texte et affichée sur la page ; `check` et le banc ne la voyaient pas, l'agent l'a vue dans la lecture redite. Depuis la v0.15.0, le lecteur refuse toute ligne « nom : suite » courte dont le nom n'est pas une donnée ; cinq des six sites en documents laissés par les agents, écrits avant cette règle, ne passent plus `check` (leurs mentions légales commencent par « Éditeur du site : … ») et gardent leurs mesures d'alors.
 
 ## 6 ter. Éditeur
 

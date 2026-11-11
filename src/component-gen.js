@@ -1,7 +1,7 @@
 // Générateur de composants : une description en langage naturel devient un composant de projet en formats neutres (manifeste,
 // gabarit, feuille de style, cas de test), vérifié par le compilateur et réparé jusqu'à passer. Le résultat est figé dans le projet ;
-// la compilation ne rappelle jamais le modèle. Trois modes, comme sitec keywords : appel direct (SDK Anthropic), export du prompt,
-// import d'une réponse.
+// la compilation ne rappelle jamais le modèle. Comme sitec keywords, le compilateur n'appelle rien : il écrit la consigne (--export)
+// et applique une réponse (--import).
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';

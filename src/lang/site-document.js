@@ -14,6 +14,7 @@
 import YAML from 'yaml';
 import { compileDonnees } from './donnees.js';
 import { readDocument } from './document.js';
+import { parseFieldSpec } from './fonctionnement.js';
 
 const norm = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[’`]/g, "'").replace(/\s+/g, ' ').trim();
 function lev(a, b) { const d = Array.from({ length: a.length + 1 }, (_, i) => [i]); for (let j = 1; j <= b.length; j++) d[0][j] = j; for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[a.length][b.length]; }
@@ -37,6 +38,9 @@ export const PROP_NAMES = {
 /** Valeurs d'un choix dites en français. */
 const VALUE_NAMES = { gauche: 'left', droite: 'right', centre: 'center', 'centré': 'center' };
 const SKIP = 'rien';
+/** Marque, dans le schéma d'une liste, des éléments qui sont des champs de formulaire : un nom connu, ou « nom : type, précisions — Libellé ». */
+export const FIELD_MARK = 'champ de formulaire';
+const FIELD_WORDS = { textarea: 'texte long', number: 'nombre', tel: 'téléphone', email: 'e-mail', date: 'date' };
 const TARGET = /^(\/|#|https?:\/\/|mailto:|tel:|\{\{)/;
 const FILE = /^[\w./-]+\.(svg|png|jpe?g|webp|gif|avif)$/i;
 
@@ -46,6 +50,7 @@ const FILE = /^[\w./-]+\.(svg|png|jpe?g|webp|gif|avif)$/i;
 /** Genre d'une donnée : text, number, bool, enum, image, link, list (avec item), group, free. */
 export function kindOf(s) {
   if (!s || typeof s !== 'object') return { k: 'text' };
+  if (s.$comment === FIELD_MARK) return { k: 'field' };
   if (s.$ref && /\/link$/.test(s.$ref)) return { k: 'link' };
   if (Array.isArray(s.enum)) return { k: 'enum', values: s.enum };
   const t = Array.isArray(s.type) ? (s.type.includes('string') ? 'string' : s.type[0]) : s.type;
@@ -81,7 +86,7 @@ function parseValue(kind, raw) {
     case 'bool': return toBool(s) || { error: `oui ou non est attendu (lu : « ${s} »)` };
     case 'enum': return inEnum(kind.values, s) || { error: `une valeur parmi ${kind.values.join(', ')} est attendue (lu : « ${s} »)` };
     case 'list': {
-      if (kind.item.k === 'text' || kind.item.k === 'free' || kind.item.k === 'image') return { value: s.split(/\s*,\s*/).filter(Boolean) };
+      if (['text', 'free', 'image', 'field'].includes(kind.item.k)) return { value: s.split(/\s*,\s*/).filter(Boolean) };
       return { error: 'cette liste s\'écrit en dessous, une ligne « - » par élément' };
     }
     case 'group': case 'free': return { error: 'cette donnée ne se dit pas sur une ligne : écrivez-la dans un bloc ```yaml' };
@@ -153,6 +158,16 @@ function readItems(nodes, kind, fail, where, base) {
       out.push(r.value); return;
     }
     if (n.children.length) fail(n.children[0].line, 'des puces en retrait sous une valeur simple');
+    if (kind.k === 'field') {
+      // Un champ : son nom seul s'il est connu (name, email, phone, subject, message), sinon « nom : type, précisions — Libellé ».
+      const m = /^([a-z][a-z0-9_]*)\s*:\s*(.*)$/.exec(n.text);
+      if (!m) { if (!/^[a-z][a-z0-9_]*$/.test(n.text)) fail(n.line, `champ illisible : « ${n.text} »`, 'Un champ : son nom (name, email, phone, subject, message), ou « nom : type, précisions — Libellé » (ex. « societe : texte, facultatif — Entreprise »).'); out.push(n.text); return; }
+      const r = parseFieldSpec(m[1], m[2], out.map(x => (typeof x === 'string' ? { name: x } : x)));
+      for (const e of r.errors) fail(n.line, `champ ${m[1]} : ${e}`);
+      const f = r.field;
+      out.push({ name: f.name, label: f.label, ...(f.type !== 'text' ? { type: f.type } : {}), ...(f.required ? { required: true } : {}), ...(f.options ? { options: f.options } : {}), ...(f.placeholder ? { placeholder: f.placeholder } : {}), ...(f.when ? { when: f.when } : {}) });
+      return;
+    }
     if (kind.k === 'link') { const l = parseLink(n.text); if (!l) fail(n.line, 'un lien s\'écrit « Libellé → /cible »'); out.push(l || n.text); return; }
     const v = kind.k === 'text' || kind.k === 'free' || kind.k === 'image' ? { value: n.text } : parseValue(kind, n.text);
     if (v.error) fail(n.line, v.error);
@@ -176,9 +191,9 @@ export function splitBlocks(text) {
     }
     if (!l) { out.push({ kind: 'blank', line: n }); continue; }
     let m;
-    if ((m = /^(#{1,6})\s+(.*)$/.exec(l))) { out.push({ kind: 'h' + m[1].length, line: n, text: m[2].trim() }); continue; }
+    if ((m = /^(#{1,6})\s+(.*)$/.exec(l))) { out.push({ kind: 'h' + m[1].length, line: n, text: m[2].trim(), raw: l }); continue; }
     if ((m = /^(\s*)[-*]\s+(.*)$/.exec(raw))) { out.push({ kind: 'item', line: n, indent: m[1].replace(/\t/g, '  ').length, text: m[2].trim(), raw: l }); continue; }
-    out.push({ kind: 'text', line: n, text: l });
+    out.push({ kind: 'text', line: n, text: l, raw: l });
   }
   return out;
 }
@@ -203,6 +218,8 @@ export function readBody(blocks, schema, opts = {}) {
   const what = opts.what || 'ce composant';
   const paragraphs = {}; // donnée → [[lignes]]
   let target = null, open = false; // donnée texte ou liste choisie par « Nom : » ; paragraphe en cours
+  let verbatim = false; // un texte annoncé par « Nom : » se lit tel quel, jusqu'à l'annonce d'une autre donnée ou la fin du bloc
+  const proseShown = () => (proseProp ? ([...labels.shown.entries()].filter(([l]) => labels.get(l) === proseProp).map(([, s]) => s).pop() || proseProp) : null);
   const say = (k, line) => { if (!open || !paragraphs[k]) { (paragraphs[k] ||= []).push([]); open = true; where[k] ??= line; } return paragraphs[k][paragraphs[k].length - 1]; };
   const set = (k, value, line) => { if (k in props || paragraphs[k]) { fail(line, `« ${k} » est déjà dit ligne ${where[k]}`); return; } props[k] = value; where[k] = line; };
   for (let i = 0; i < blocks.length; i++) {
@@ -220,7 +237,11 @@ export function readBody(blocks, schema, opts = {}) {
       }
       continue;
     }
-    if (/^h[3-6]$/.test(b.kind)) { fail(b.line, 'intertitre non lu : une section s\'ouvre par « ## composant : titre », une liste par « Nom : »'); continue; }
+    if (verbatim) {
+      const an = b.kind === 'text' ? /^([^:]{1,48}?)\s*:$/.exec(b.text) : null, al = an ? labels.get(norm(an[1])) : null;
+      if (!(al && ['list', 'text'].includes(kinds[al].k))) { say(target, b.line).push(b.raw); continue; }
+    }
+    if (/^h[13-6]$/.test(b.kind)) { fail(b.line, b.kind === 'h1' ? 'un seul « # » par document : c\'est son titre' : 'intertitre non lu : une section s\'ouvre par « ## composant : titre », une liste par « Nom : »', 'Dans un texte, annoncez-le d\'abord : « Texte : » seul sur sa ligne.'); continue; }
     if (b.kind === 'item') {
       const list = target && kinds[target]?.k === 'list' ? target : (!target || kinds[target]?.k !== 'text') ? defaultList : null;
       if (!list) {
@@ -249,7 +270,7 @@ export function readBody(blocks, schema, opts = {}) {
       open = false;
       const value = (m[2] || '').trim(), kind = kinds[label];
       if (!value) {
-        if (kind.k === 'list' || kind.k === 'text') { target = label; if (kind.k === 'text') { if (label in props || paragraphs[label]) fail(b.line, `« ${label} » est déjà dit ligne ${where[label]}`); } continue; }
+        if (kind.k === 'list' || kind.k === 'text') { target = label; verbatim = kind.k === 'text'; if (kind.k === 'text') { if (label in props || paragraphs[label]) fail(b.line, `« ${label} » est déjà dit ligne ${where[label]}`); } continue; }
         fail(b.line, `« ${m[1].trim()} : » attend une valeur sur la même ligne`); continue;
       }
       target = null;
@@ -257,14 +278,15 @@ export function readBody(blocks, schema, opts = {}) {
       if (v.error) { fail(b.line, `${m[1].trim()} : ${v.error}`); continue; }
       set(label, v.value, b.line); continue;
     }
-    if (m && !label && m[1].trim().split(/\s+/).length <= 4 && m[2]) {
-      // Une ligne qui a tout d'un réglage sans en être un est refusée, pas rangée dans le texte : un nom à une lettre près d'une
-      // donnée (« Alignment »), ou qui reprend un mot d'une donnée du composant (« Image côté » pour « côté de l'image »).
+    if (m && !label && m[1].trim().split(/\s+/).length <= 3) {
+      // Une ligne « nom : suite » d'un à trois mots est toujours une donnée : si le nom n'en est pas une, elle est refusée, jamais
+      // rangée dans le texte. Le nom le plus proche est proposé (« Alignment », « Image côté » pour « côté de l'image »).
       const said = norm(m[1]), wordsOf = s => s.split(/[^a-z0-9]+/).filter(w => w.length >= 4);
       const close = [...labels.keys()].filter(l => l.length >= 5 && lev(l, said) === 1);
       const shared = [...labels.keys()].map(l => ({ l, n: wordsOf(l).filter(w => wordsOf(said).includes(w)).length })).filter(x => x.n).sort((x, y) => y.n - x.n || x.l.length - y.l.length);
-      const cand = close[0] || shared[0]?.l;
-      if (cand) { fail(b.line, `« ${m[1].trim()} » n'est pas une donnée de ${what} : vouliez-vous dire « ${labels.shown.get(cand) || cand} » ?`, 'Un texte qui commence ainsi se tourne autrement, ou s\'écrit dans un bloc ```yaml.'); continue; }
+      const cand = close[0] || shared[0]?.l, ps = proseShown();
+      fail(b.line, `« ${m[1].trim()} » n'est pas une donnée de ${what}${cand ? ` : vouliez-vous dire « ${labels.shown.get(cand) || cand} » ?` : ''}`, `Données : ${[...new Set(labels.shown.values())].filter(x => x !== 'variants').join(', ')}.${ps ? ` Si c'est une phrase du texte, annoncez le texte : « ${ps[0].toUpperCase() + ps.slice(1)} : » seul sur sa ligne, puis le texte, lu tel quel.` : ''}`);
+      continue;
     }
     const link = links.length ? parseLink(b.text) : null;
     if (link && !(target && kinds[target]?.k === 'text')) {
@@ -470,7 +492,7 @@ const scalarText = (kind, v) => {
   if (kind.k === 'bool') return typeof v === 'boolean' ? (v ? 'oui' : 'non') : null;
   if (kind.k === 'number') return typeof v === 'number' ? String(v) : null;
   if (kind.k === 'enum') return typeof v === 'string' || typeof v === 'number' ? String(v) : null;
-  if (kind.k === 'list') return Array.isArray(v) && v.length && v.every(x => oneLine(x) && !/[,|]/.test(x)) && ['text', 'free', 'image'].includes(kind.item.k) ? v.join(', ') : null;
+  if (kind.k === 'list') return Array.isArray(v) && v.length && v.every(x => oneLine(x) && !/[,|]/.test(x)) && ['text', 'free', 'image', 'field'].includes(kind.item.k) ? v.join(', ') : null;
   if (kind.k === 'text' || kind.k === 'image') return oneLine(v) ? v : null;
   return null;
 };
@@ -479,6 +501,19 @@ const labelFor = (k, P) => { const fr = PROP_NAMES[k]; return capital(fr && !(fr
 
 /** Écrit un élément de liste sur une ligne, ou null s'il ne s'y écrit pas. */
 function writeItem(item, kind) {
+  if (kind.k === 'field') {
+    if (typeof item === 'string') return /^[a-z][a-z0-9_]*$/.test(item) ? [item] : null;
+    if (!item || typeof item !== 'object' || Array.isArray(item) || Object.keys(item).some(k => !['name', 'label', 'type', 'required', 'options', 'placeholder', 'when'].includes(k))) return null;
+    if (!/^[a-z][a-z0-9_]*$/.test(item.name || '') || !oneLine(item.label) || /\s(—|–|--)\s|\(ex/.test(item.label) || item.type === 'text' || item.required === false) return null;
+    const parts = [];
+    if (item.type && item.type !== 'select') { if (!FIELD_WORDS[item.type]) return null; parts.push(FIELD_WORDS[item.type]); }
+    if (item.required !== true) parts.push('facultatif');
+    if (item.when !== undefined) { const ks = item.when && typeof item.when === 'object' ? Object.keys(item.when) : []; if (ks.length !== 1) return null; const v = item.when[ks[0]]; parts.push(`si ${ks[0]} vaut ${Array.isArray(v) ? v.join(' ou ') : v}`); }
+    if (item.options !== undefined) { if (!Array.isArray(item.options) || !item.options.length || item.options.some(o => !oneLine(o) || /,/.test(o))) return null; parts.push(`un parmi ${item.options.join(', ')}`); }
+    else if (item.type === 'select') return null;
+    if (item.placeholder !== undefined && (!oneLine(item.placeholder) || /[()]/.test(item.placeholder))) return null;
+    return [`${item.name} : ${parts.join(', ')}${parts.length ? ' ' : ''}— ${item.label}${item.placeholder ? ` (ex. ${item.placeholder})` : ''}`];
+  }
   if (kind.k !== 'group') { const t = kind.k === 'link' ? scalarText(kind, item) : oneLine(item) ? item : null; return t === null || / \| /.test(t) ? null : [t]; }
   if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
   const P = kind.schema.properties || {}, keys = Object.keys(P);
@@ -510,7 +545,7 @@ function writeItem(item, kind) {
 }
 
 /** Écrit les lignes d'un bloc d'après son schéma. fenced : données à écrire dans le bloc yaml. Renvoie { lines, fence }. */
-function writeBody(props, schema, opts, fenced) {
+function writeBody(props, schema, opts, fenced, announced = new Set()) {
   const P = schema.properties || {}, keys = Object.keys(P), kinds = Object.fromEntries(keys.map(k => [k, kindOf(P[k])]));
   const titleProp = opts.title !== undefined ? opts.title : ['title', 'titre'].find(k => kinds[k]?.k === 'text') || null;
   const proseProp = opts.prose !== undefined ? opts.prose : keys.slice(titleProp ? keys.indexOf(titleProp) + 1 : 0).find(k => kinds[k].k === 'text' && kinds[k].plain) || null;
@@ -524,11 +559,11 @@ function writeBody(props, schema, opts, fenced) {
     if (!(k in props) || (opts.skip || []).includes(k)) continue;
     const v = props[k], kind = kinds[k] || { k: 'free' };
     if (fenced.has(k)) { fence[k] = v; continue; }
-    if (k === proseProp && typeof v === 'string' && v.trim() !== '' && v.trim() === v.replace(/\s+$/, '')) { prose.push(...v.replace(/\s+$/, '').split('\n')); continue; }
+    if (k === proseProp && typeof v === 'string' && v.trim() !== '' && v.trim() === v.replace(/\s+$/, '')) { if (announced.has(k)) long.push(`${label(k)} :`, ...v.replace(/\s+$/, '').split('\n')); else prose.push(...v.replace(/\s+$/, '').split('\n')); continue; }
     if (kind.k === 'link') { const t = scalarText(kind, v); if (t === null) { fence[k] = v; continue; } if (links.slice(0, links.indexOf(k)).every(o => o in props && !fenced.has(o))) bare.push(t); else named.push(`${label(k)} : ${t}`); continue; }
     if (kind.k === 'list') {
       const t = scalarText(kind, v);
-      if (t !== null && kind.item.k !== 'group' && kind.item.k !== 'link') { named.push(`${label(k)} : ${t}`); continue; }
+      if (t !== null && kind.item.k !== 'group' && kind.item.k !== 'link' && !(kind.item.k === 'field' && v.some(x => typeof x !== 'string'))) { named.push(`${label(k)} : ${t}`); continue; }
       if (!Array.isArray(v) || !v.length) { fence[k] = v; continue; }
       const lines = []; let ok = true;
       for (const it of v) { const w = writeItem(it, kind.item); if (!w) { ok = false; break; } lines.push(...w.map((l, n) => (n === 0 ? '- ' + l : l))); }
@@ -544,18 +579,20 @@ function writeBody(props, schema, opts, fenced) {
   listed.sort((a, b) => (a.k === defaultList ? -1 : 0) - (b.k === defaultList ? -1 : 0));
   const lines = [...prose, ...named, ...bare, ...listed.flatMap(l => l.lines), ...long];
   if (Object.keys(fence).length) lines.push('```yaml', ...YAML.stringify(fence, { lineWidth: 0 }).trimEnd().split('\n'), '```');
-  return { lines, fence };
+  return { lines, fence, proseProp: typeof props[proseProp] === 'string' && !fenced.has(proseProp) ? proseProp : null };
 }
 
 /** Écrit un bloc et le relit jusqu'à ce que la lecture rende les données : ce qui diffère passe dans le bloc yaml. */
 function writeChecked(props, schema, opts, read) {
-  const fenced = new Set();
-  for (let round = 0; round <= Object.keys(props).length + 1; round++) {
-    const w = writeBody(props, schema, opts, fenced);
+  const fenced = new Set(), announced = new Set();
+  for (let round = 0; round <= Object.keys(props).length + 2; round++) {
+    const w = writeBody(props, schema, opts, fenced, announced);
     const back = read(w.lines);
     const bad = Object.keys(props).filter(k => !(opts.skip || []).includes(k) && !fenced.has(k) && !same(back.props[k], props[k]));
     const extra = Object.keys(back.props).filter(k => !(k in props));
     if (!back.errors.length && !bad.length && !extra.length) return w.lines;
+    // Un texte libre qui ne se relit pas tel quel (une phrase « mot : suite », un lien seul) s'annonce : il est alors lu tel quel.
+    if (w.proseProp && !announced.has(w.proseProp)) { announced.add(w.proseProp); continue; }
     if (!bad.length) { for (const k of Object.keys(props)) if (!(opts.skip || []).includes(k)) fenced.add(k); if (round > Object.keys(props).length) break; continue; }
     for (const k of bad) fenced.add(k);
   }
