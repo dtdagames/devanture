@@ -6,7 +6,6 @@ import path from 'node:path';
 import YAML from 'yaml';
 import { normalize } from './emit/php/twin.js';
 
-export const DEFAULT_MODEL = 'claude-opus-5-5';
 const MAX_PER_SECTION = 14;
 const MAX_LEN = 60;
 
@@ -47,21 +46,6 @@ export function buildUserPrompt(site, sections) {
   const head = `Site : ${site.name}${site.tagline ? ' — ' + site.tagline : ''}.\nSections (id, page, composant, titre, mots-clés déjà connus, extrait) :\n`;
   const body = sections.map(s => `\n[${s.key}] page « ${s.pageTitle} », composant ${s.component}${s.title ? `, titre « ${s.title} »` : ''}\n  déjà connus : ${[...s.intents, ...s.existing].join(', ') || 'aucun'}\n  extrait : ${s.excerpt || '(vide)'}`).join('\n');
   return head + body + '\n\nRéponds avec le JSON demandé, une clé par id de section.';
-}
-
-/** Appel au modèle via le SDK officiel. Nécessite ANTHROPIC_API_KEY ou un profil `ant auth login`. */
-export async function askModel({ system, user, model = DEFAULT_MODEL }) {
-  const { default: Anthropic } = await import('@anthropic-ai/sdk');
-  const client = new Anthropic();
-  const response = await client.messages.create({
-    model,
-    max_tokens: 16000,
-    output_config: { effort: 'low' },
-    system,
-    messages: [{ role: 'user', content: user }],
-  });
-  if (response.stop_reason === 'refusal') throw new Error(`Le modèle a refusé la demande (${response.stop_details?.category ?? 'sans catégorie'}).`);
-  return response.content.filter(b => b.type === 'text').map(b => b.text).join('');
 }
 
 /** Extrait et nettoie la réponse : JSON strict, expressions courtes, sans doublon ni redite du titre. */
