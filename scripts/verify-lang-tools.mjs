@@ -139,7 +139,7 @@ try {
   let res = await gen.generateComponent({ root: site2, name: 'avis-defilants', description: 'Un carrousel d\'avis clients.', catalog, rounds: 3, ask: async (system, user, round) => { prompts.push({ system, user }); return JSON.stringify(round === 1 ? bad : good); } });
   ok('générateur : premier jet refusé, réparé au deuxième tour', res.ok && res.rounds === 2, JSON.stringify({ ok: res.ok, rounds: res.rounds, problems: res.problems }));
   ok('générateur : le prompt de réparation cite les problèmes (donnée inconnue avec suggestion, intention mal écrite) et les fichiers précédents', /« auteur » n'est pas une donnée.*vouliez-vous dire « author »/.test(prompts[1]?.user || '') && /intention inconnue « couleur d'acent »/.test(prompts[1]?.user || '') && /## Fichiers précédents/.test(prompts[1]?.user || ''));
-  ok('générateur : le guide du format langage vient du code (types, primitives, intentions, natifs en forme)', /défilement : carrousel/.test(prompts[0]?.system || '') && /nombre entier/.test(prompts[0]?.system || '') && /coins arrondis/.test(prompts[0]?.system || '') && /- grille de items, colonnes columns par défaut 3:/.test(prompts[0]?.system || '') && !/template\.html :/.test(prompts[0]?.system || ''));
+  ok('générateur : le guide du format langage vient du code (types, primitives, intentions, natifs en forme)', /défilement : carrousel/.test(prompts[0]?.system || '') && /nombre entier/.test(prompts[0]?.system || '') && /coins arrondis/.test(prompts[0]?.system || '') && /- grille de items, colonnes columns par défaut 3 :/.test(prompts[0]?.system || '') && !/template\.html :/.test(prompts[0]?.system || ''));
   ok('générateur : aucun gabarit ni feuille écrits au format langage', !(await fs.readdir(path.join(site2, 'components', 'avis-defilants'))).some(f => f === 'template.html' || f === 'styles.css'));
   const written = await fs.readdir(path.join(site2, 'components', 'avis-defilants', 'fixtures'));
   ok('générateur : description.md, cas de test et instantanés écrits', written.includes('complet.html') && (await fs.readFile(path.join(site2, 'components', 'avis-defilants', 'description.md'), 'utf8')).includes('Un carrousel d\'avis clients.'));
@@ -152,7 +152,7 @@ try {
   ok('générateur --format html : guide html, gabarit et feuille écrits et vérifiés', res.ok && /template\.html \(gabarit neutre\)/.test(htmlPrompts[0] || '') && (await fs.readdir(path.join(site2, 'components', 'avis-html2'))).includes('template.html'), JSON.stringify(res.problems));
   r = run('component', 'new', site2, 'autre-bloc', '--describe', 'Un bloc simple.', '--export', path.join(tmp, 'p.json'));
   const exported = JSON.parse(await fs.readFile(path.join(tmp, 'p.json'), 'utf8'));
-  ok('générateur sans clé : --export écrit system, user et schéma de sortie', r.code === 0 && exported.system && /Nom du composant : autre-bloc/.test(exported.user) && exported.output_schema?.required?.includes('manifest') && !exported.output_schema?.required?.includes('template') && exported.format === 'langage');
+  ok('générateur sans clé : --export écrit system, user et schéma de sortie', r.code === 0 && exported.system && /Nom du composant : autre-bloc/.test(exported.user) && exported.output_schema?.required?.includes('composant') && !exported.output_schema?.required?.includes('manifest') && !exported.output_schema?.required?.includes('template') && exported.format === 'langage');
   await fs.writeFile(path.join(tmp, 'r.json'), JSON.stringify(bad));
   await fs.rm(path.join(site2, 'components', 'avis-defilants'), { recursive: true });
   r = run('component', 'new', site2, 'avis-defilants', '--import', path.join(tmp, 'r.json'), '--export', path.join(tmp, 'rep.json'));
@@ -171,6 +171,48 @@ try {
   res = await gen.editComponent({ root: site3, name: 'avis-defilants', request: 'Casse tout.', catalog, rounds: 2, ask: async () => JSON.stringify(bad) });
   const after3 = await fs.readFile(path.join(site3, 'components', 'avis-defilants', 'manifest.yaml'), 'utf8');
   ok('edit : échec après tous les tours → version précédente restaurée', !res.ok && res.restored && after3.includes('citations: italique') && after3 !== before3 && !(await fs.readdir(path.join(site3, 'components'))).some(f => f.startsWith('.sauvegarde-')));
+  // --- Générateur au format plan : la réponse est un composant.md et des cas écrits en documents, dans un site en documents
+  {
+    const pdir = path.join(ROOT, 'examples', 'le-fournil', 'components', 'avis-defilants');
+    const rename = t => t.replaceAll('avis-defilants', 'avis-bis');
+    const planY = await fs.readFile(path.join(pdir, 'composant.md'), 'utf8');
+    const casesY = []; for (const n of ['complet', 'minimal']) casesY.push({ name: n, document: await fs.readFile(path.join(pdir, 'fixtures', n + '.md'), 'utf8') });
+    const goodP = { composant: rename(planY), fixtures: casesY.map(c => ({ name: c.name, document: rename(c.document) })), notes: 'ok' };
+    const badP = { ...goodP, composant: goodP.composant.replace('- signature : author, date, en toutes lettres', '- signature : auteur, date, en toutes lettres') };
+    const site4 = await copy('examples/le-fournil', 'fournil-plan');
+    const promptsP = [];
+    let rp = await gen.generateComponent({ root: site4, name: 'avis-bis', description: 'Un carrousel d\'avis.', catalog, rounds: 3, ask: async (system, user, round) => { promptsP.push({ system, user }); return JSON.stringify(round === 1 ? badP : goodP); } });
+    ok('générateur en plan : premier jet refusé à la ligne de composant.md, réparé au deuxième tour', badP.composant !== goodP.composant && rp.ok && rp.rounds === 2 && /composant\.md › ligne \d+ : .*« auteur » n'est pas une donnée/.test(promptsP[1]?.user || '') && /composant\.md :\n````\n# avis-bis/.test(promptsP[1]?.user || ''), JSON.stringify({ ok: rp.ok, rounds: rp.rounds, problems: rp.problems }) + (promptsP[1]?.user || '').slice(-600));
+    const filesP = await fs.readdir(path.join(site4, 'components', 'avis-bis')), casesP = await fs.readdir(path.join(site4, 'components', 'avis-bis', 'fixtures'));
+    ok('générateur en plan : composant.md et cas en documents écrits, aucun YAML, instantanés rendus', filesP.includes('composant.md') && !filesP.includes('manifest.yaml') && casesP.includes('complet.md') && casesP.includes('complet.html') && !casesP.some(f => /\.ya?ml$/.test(f)), filesP.join(' ') + ' | ' + casesP.join(' '));
+    const sysP = promptsP[0]?.system || '';
+    ok('générateur en plan : la consigne demande un plan et des cas en documents, sans manifeste', /composant \(le contenu complet de composant\.md\)/.test(sysP) && !/manifest\.yaml/.test(sysP) && /À la visite :/.test(sysP) && /Dans composant\.md, le titre est « # avis-bis »/.test(promptsP[0]?.user || '') && gen.schemaFor('langage').required.includes('composant') && gen.schemaFor('html').required.includes('manifest'));
+    const editedP = { ...goodP, composant: goodP.composant.replace("- étoiles : couleur d'accent", "- étoiles : couleur d'accent\n- citations : italique") };
+    const ep = [];
+    rp = await gen.editComponent({ root: site4, name: 'avis-bis', request: 'Mets le texte des avis en italique.', catalog, rounds: 1, ask: async (s, u) => { ep.push(u); return JSON.stringify(editedP); } });
+    ok('edit en plan : le composant actuel est montré en plan, la modification écrite dans composant.md', editedP.composant !== goodP.composant && rp.ok && /# Composant actuel\ncomposant\.md :\n````\n# avis-bis/.test(ep[0] || '') && /- complet :\n````\n## avis-bis/.test(ep[0] || '') && (await fs.readFile(path.join(site4, 'components', 'avis-bis', 'composant.md'), 'utf8')).includes('- citations : italique'), JSON.stringify(rp.problems) + (ep[0] || '').slice(0, 300));
+    // Un composant encore écrit en manifeste : montré en plan au modèle, récrit en plan par sa réponse.
+    const site5 = await copy('scripts/reference/exemples-yaml/le-fournil', 'fournil-edit-plan');
+    const ep2 = [];
+    rp = await gen.editComponent({ root: site5, name: 'avis-defilants', request: 'Ne change rien.', catalog, rounds: 1, ask: async (s, u) => { ep2.push(u); return JSON.stringify({ composant: planY, fixtures: casesY, notes: '' }); } });
+    const d5 = await fs.readdir(path.join(site5, 'components', 'avis-defilants'));
+    ok('edit d\'un composant en manifeste : montré en plan au modèle, récrit en composant.md', rp.ok && /composant\.md :\n````\n# avis-defilants/.test(ep2[0] || '') && !/manifest\.yaml :/.test(ep2[0] || '') && /````\n## avis-defilants/.test(ep2[0] || '') && d5.includes('composant.md') && !d5.includes('manifest.yaml'), JSON.stringify(rp.problems) + d5.join(' ') + (ep2[0] || '').slice(0, 300));
+    r = run('check', site5);
+    ok('edit d\'un composant en manifeste : le site en YAML reste valide avec son composant en plan', r.code === 0, r.out.slice(0, 300));
+    // Les exemples que la consigne donne au modèle sont compilés ici : un exemple faux enseignerait une erreur.
+    const site6 = path.join(tmp, 'consigne'); r = run('init', site6, '--no-git', '--local');
+    await fs.mkdir(path.join(site6, 'components', 'avis-defilants', 'fixtures'), { recursive: true }); await fs.mkdir(path.join(site6, 'components', 'devis-express'), { recursive: true });
+    await fs.writeFile(path.join(site6, 'components', 'avis-defilants', 'composant.md'), gen.EXAMPLE_PLAN + '\n');
+    for (const f of gen.EXAMPLE_PLAN_FIXTURES) await fs.writeFile(path.join(site6, 'components', 'avis-defilants', 'fixtures', f.name + '.md'), f.document + '\n');
+    await fs.writeFile(path.join(site6, 'components', 'devis-express', 'composant.md'), gen.EXAMPLE_PLAN_FORM + '\n');
+    const t6 = run('test', site6);
+    ok('générateur en plan : les exemples de la consigne se compilent et leurs cas se rendent', r.code === 0 && t6.code === 0 && /avis-defilants › complet/.test(t6.out) && /avis-defilants › minimal/.test(t6.out) && /devis-express › exemple/.test(t6.out) && /"failed":0/.test(t6.out), t6.out.slice(-500));
+    const site7 = await copy('examples/savonnerie', 'savon-consigne');
+    await fs.writeFile(path.join(site7, 'components', 'selection', 'fixtures', 'consigne.md'), gen.EXAMPLE_PLAN_VISIT.document + '\n');
+    const t7 = run('test', site7, '--only', 'selection');
+    ok('générateur en plan : le cas « à la visite » de la consigne se lit et se rend', t7.code === 0 && /NEW  selection › consigne/.test(t7.out), t7.out.slice(-400));
+  }
+
   const garnier3 = await copy('scripts/reference/exemples-yaml/garnier-associes', 'garnier-gen');
   await copy('scripts/reference/exemples-yaml/paquets', 'paquets-gen');
   await fs.writeFile(path.join(garnier3, 'site.yaml'), (await fs.readFile(path.join(garnier3, 'site.yaml'), 'utf8')).replace('../paquets/vitrine', '../paquets-gen/vitrine'));
@@ -178,7 +220,7 @@ try {
   const pkgPrompts = [];
   res = await gen.generateComponent({ root: garnier3, name: 'alerte', description: 'Un bandeau d\'alerte.', catalog, pkg: '../paquets-gen/vitrine', rounds: 1, ask: async (s3, user) => { pkgPrompts.push(user); return JSON.stringify(pkgGood); } });
   ok('paquet : composant généré dans le paquet, exposé vitrine.alerte', res.ok && res.target?.name === 'vitrine.alerte' && (await fs.readFile(path.join(tmp, 'paquets-gen', 'vitrine', 'components', 'alerte', 'template.html'), 'utf8')).includes('alerte-box'), JSON.stringify(res.problems));
-  ok('paquet : le prompt donne le nom court au manifeste et le nom préfixé aux pages', /name: alerte \(nom court\)/.test(pkgPrompts[0] || '') && /« - vitrine\.alerte: »/.test(pkgPrompts[0] || ''));
+  ok('paquet : le prompt donne le nom court au manifeste et le nom préfixé aux pages', /le titre est « # alerte » \(nom court\)/.test(pkgPrompts[0] || '') && /« ## vitrine\.alerte »/.test(pkgPrompts[0] || ''), (pkgPrompts[0] || '').slice(-400));
   r = run('component', 'preview', site3, 'avis-defilants');
   const pv = await fs.readFile(path.join(site3, '.devanture', 'preview', 'avis-defilants.html'), 'utf8').catch(() => '');
   ok('preview : page d\'aperçu (cas rendus, thèmes, comportement, assets en relatif)', r.code === 0 && (pv.match(/class="pv-case"/g) || []).length === good.fixtures.length && /data-pv-theme="sombre"/.test(pv) && /comportements déclarés : carousel/.test(pv) && !/src="\/assets\//.test(pv), r.out.slice(0, 300));
@@ -250,7 +292,7 @@ try {
   ok('primitives : compilation, feuille de base dans site.css, comportements filter, lightbox et copy dans le script du site', r.code === 0 && lfCss.includes('.comptoir .comptoir-filtre-grille{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}') && /data-sl-filters/.test(lfJs) && /data-sl-lightbox/.test(lfJs) && /data-sl-copy/.test(lfJs), r.out.slice(-300));
   r = run('component', 'new', lf, 'essai-forme', '--describe', 'Un formulaire de réservation.', '--export', path.join(tmp, 'pf.json'));
   const sysF = JSON.parse(await fs.readFile(path.join(tmp, 'pf.json'), 'utf8')).system || '';
-  ok('générateur : le guide enseigne fonctionnement (réglages, types de champ) et les primitives à comportement', /# fonctionnement/.test(sysF) && /enregistre dans, prévient par e-mail/.test(sysF) && /si <champ> vaut <valeur>/.test(sysF) && !/effects\.form/.test(sysF) && /- filtres : /.test(sysF) && /- portrait : /.test(sysF) && /- repli : /.test(sysF) && /- copier : /.test(sysF));
+  ok('générateur : le guide enseigne fonctionnement (réglages, types de champ) et les primitives à comportement', /# ## Fonctionnement › formulaire/.test(sysF) && /enregistre dans, prévient par e-mail/.test(sysF) && /si <champ> vaut <valeur>/.test(sysF) && !/effects\.form/.test(sysF) && /- filtres : /.test(sysF) && /- portrait : /.test(sysF) && /- repli : /.test(sysF) && /- copier : /.test(sysF));
 
   // --- expériences : objectifs, bras, groupe témoin (segments.yaml)
   {
@@ -491,7 +533,7 @@ try {
     const gp2 = path.join(tmp, 'gen-lit.json');
     r = run('component', 'new', sav, 'vitrine-du-jour', '--describe', 'Les trois derniers produits.', '--export', gp2);
     const gj2 = JSON.parse(await fs.readFile(gp2, 'utf8').catch(() => '{}'));
-    ok('lit : le guide du générateur décrit les sources et leurs champs, sans la source réservée', /fonctionnement › lit/.test(gj2.system || '') && /- produits de la boutique, catégorie <donnée>, vedettes <donnée>, tri <donnée>, limite <donnée> : /.test(gj2.system) && /à la visite: \{ nom: … \}/.test(gj2.system) && !/saisie du contact/.test(gj2.system), (gj2.system || '').slice(0, 200));
+    ok('lit : le guide du générateur décrit les sources et leurs champs, sans la source réservée', /Fonctionnement › lit/.test(gj2.system || '') && /- produits de la boutique, catégorie <donnée>, vedettes <donnée>, tri <donnée>, limite <donnée> : /.test(gj2.system) && /« À la visite : », puis un bloc yaml/.test(gj2.system) && !/saisie du contact/.test(gj2.system), (gj2.system || '').slice(0, 200));
     r = run('schema', sav);
     const ms2 = JSON.parse(await fs.readFile(path.join(sav, '.devanture', 'schema', 'manifest.schema.json'), 'utf8').catch(() => 'null'));
     ok('lit : le schéma d\'éditeur propose « lit » et ses sources', /`panier du visiteur`/.test(ms2?.properties?.fonctionnement?.properties?.lit?.markdownDescription || ''), '');
@@ -555,7 +597,7 @@ try {
     const gp3 = path.join(tmp, 'gen-reg.json');
     r = run('component', 'new', rg, 'stage', '--describe', 'Inscription à un stage, douze places.', '--export', gp3);
     const gj3 = JSON.parse(await fs.readFile(gp3, 'utf8').catch(() => '{}'));
-    ok('registre : le guide du générateur enseigne les règles, sans inventer de nombre', /places: 12 par atelier, comptées par personnes/.test(gj3.system || '') && /liste d'attente/.test(gj3.system) && /N'invente aucun nombre de places/.test(gj3.system) && /état du registre/.test(gj3.system), (gj3.system || '').slice(0, 200));
+    ok('registre : le guide du générateur enseigne les règles, sans inventer de nombre', /places : 12 par atelier, comptées par personnes/.test(gj3.system || '') && /liste d'attente/.test(gj3.system) && /N'invente aucun nombre de places/.test(gj3.system) && /état du registre/.test(gj3.system), (gj3.system || '').slice(0, 200));
 
     // éditeur et générateur : les mots sont connus
     r = run('schema', voc);

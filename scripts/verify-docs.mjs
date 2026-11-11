@@ -424,7 +424,7 @@ async function explainComponents() {
 // ───────────────────────────── E. CLAUDE.md d'un dépôt créé par sitec init ─────────────────────────────
 
 async function initCopy() {
-  const dir = path.join(tmp, 'init'); const r = run('init', dir, '--name', 'Site du banc', '--local', '--no-git');
+  const dir = path.join(tmp, 'init'); const r = run('init', dir, '--name', 'Site du banc', '--local', '--no-git', '--yaml');
   const f = path.join(dir, 'CLAUDE.md'); if (r.code !== 0 || !await exists(f)) return ok('sitec init : CLAUDE.md du dépôt de site créé', false, r.out.slice(0, 400));
   const text = (await fs.readFile(f, 'utf8')).replace(/\r\n/g, '\n');
   ok('CLAUDE.md du dépôt de site : aucune commande du dépôt du compilateur (node bin/sitec.js)', !text.includes('node bin/sitec.js') && /npx sitec check/.test(text));
@@ -433,6 +433,15 @@ async function initCopy() {
   const a = fences(doc['CLAUDE.md']).filter(b => b.lang === 'yaml').map(b => b.body), b = fences(text).filter(x => x.lang === 'yaml').map(x => x.body);
   ok('CLAUDE.md du dépôt de site : mêmes exemples yaml que le CLAUDE.md vérifié', a.length > 0 && a.length === b.length && a.every((x, i) => x === b[i]), `${a.length} blocs ici, ${b.length} dans le dépôt créé`);
   await compileDoc('CLAUDE.md', text, 'CLAUDE.md (sitec init)');
+  // Par défaut, le dépôt créé est en documents : son mode d'emploi remplace la structure YAML par celle des documents, et garde les règles.
+  const dirD = path.join(tmp, 'init-documents'); const rd = run('init', dirD, '--name', 'Site du banc', '--local', '--no-git');
+  const textD = rd.code === 0 ? (await fs.readFile(path.join(dirD, 'CLAUDE.md'), 'utf8')).replace(/\r\n/g, '\n') : '';
+  const cut = t => { const i = t.indexOf('## Structure d\'un site'), j = t.indexOf('## Règles'); return i >= 0 && j > i ? t.slice(0, i) + t.slice(j) : t; };
+  const aD = fences(cut(doc['CLAUDE.md'])).filter(x => x.lang === 'yaml').map(x => x.body), bD = fences(textD).filter(x => x.lang === 'yaml').map(x => x.body);
+  ok('CLAUDE.md du dépôt de site en documents : structure des documents à la place de la structure YAML, mêmes exemples yaml dans les règles', rd.code === 0 && !textD.includes('node bin/sitec.js') && /## Structure du site/.test(textD) && !/### site\.yaml/.test(textD) && aD.length > 0 && aD.length === bD.length && aD.every((x, i) => x === bD[i]), `${aD.length} blocs attendus, ${bD.length} dans le dépôt créé`);
+  const badD = [...textD.matchAll(/npx sitec[ \t]+([a-z]+)/g)].map(m => m[1]).filter(c => !COMMANDS.includes(c));
+  ok('CLAUDE.md du dépôt de site en documents : commandes npx sitec connues', !badD.length, uniq(badD));
+  await compileDoc('CLAUDE.md', textD, 'CLAUDE.md (sitec init, documents)');
 }
 
 // ───────────────────────────── Exécution ─────────────────────────────

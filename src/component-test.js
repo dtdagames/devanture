@@ -145,7 +145,7 @@ export async function testComponents(project, { update = false, catalog = false,
       const r = rendered[i] || { error: 'pas de résultat' };
       if (r.error) { results.push({ component: k.component, name: k.name, status: 'error', detail: r.error }); continue; }
       if (/<!-- composant inconnu/.test(r.html)) { results.push({ component: k.component, name: k.name, status: 'error', detail: 'composant non rendu' }); continue; }
-      if (!k.snapshot) { results.push({ component: k.component, name: k.name, status: 'ok', detail: 'exemple rendu sans erreur (pas d\'instantané : ajoutez fixtures/<cas>.yaml)' }); continue; }
+      if (!k.snapshot) { results.push({ component: k.component, name: k.name, status: 'ok', detail: 'exemple rendu sans erreur (pas d\'instantané : ajoutez fixtures/<cas>.md)' }); continue; }
       const html = r.html.trim() + '\n';
       let prev = null; try { prev = await fs.readFile(k.snapshot, 'utf8'); } catch { /* premier passage */ }
       if (prev === null) { await fs.writeFile(k.snapshot, html); results.push({ component: k.component, name: k.name, status: 'created', detail: path.basename(k.snapshot) }); continue; }

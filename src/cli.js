@@ -33,7 +33,7 @@ Usage :
                                              Fiche détaillée d'un composant (ou : explain site, explain langage, explain document) ; --document ajoute son exemple écrit en document
   sitec component new <dossier> <nom>        Squelette d'un composant de projet : components/<nom>/composant.md (données, forme, apparence, exemple) ; --format html : manifest.yaml, template.html, styles.css
   sitec component new <dossier> <nom> --describe "texte" | --from f.md [--format langage|html] [--force] --export p.json
-                                             Écrit la consigne qui fait écrire le composant par un modèle depuis une description ; --import r.json écrit sa réponse et la vérifie (--export p2.json : consigne de réparation). Le compilateur n'appelle aucun modèle
+                                             Écrit la consigne qui fait écrire le composant par un modèle depuis une description ; --import r.json écrit sa réponse (composant.md et cas de test en documents) et la vérifie (--export p2.json : consigne de réparation). Le compilateur n'appelle aucun modèle
   sitec component edit <dossier> <nom> --ask "modification" [--package chemin] --export p.json | --import r.json
                                              Consigne pour modifier un composant existant par une demande en langage naturel, puis import de la réponse (même vérification)
   sitec component preview <dossier> <nom> [--package chemin]
@@ -59,8 +59,8 @@ Usage :
   sitec build … --draft                      Compile malgré des textes à compléter
   sitec keywords <dossier-projet> [--all] [--dry-run] --export f.json | --import f.json
                                              Consigne pour faire proposer par un modèle les mots-clés de recherche de chaque section, puis import de sa réponse, figée dans la source du site
-  sitec init  <dossier> [--name "Nom du site"] [--repo github:compte/depot#tag | --local] [--no-git]
-                                             Crée un dépôt de site sans PHP : squelette YAML, brief, README, CLAUDE.md, .gitignore, flux GitHub Actions (vérifier, déployer), premier commit (--no-git : sans dépôt ni commit)
+  sitec init  <dossier> [--name "Nom du site"] [--yaml] [--repo github:compte/depot#tag | --local] [--no-git]
+                                             Crée un dépôt de site sans PHP : squelette en documents (site.md, pages/<id>.md, lecture figée ; --yaml : squelette YAML), brief, README, CLAUDE.md, .gitignore, flux GitHub Actions (vérifier, déployer), premier commit (--no-git : sans dépôt ni commit)
   sitec host  <dossier-hôte> [--draft]        Compile les sites listés dans hosts.yaml en un seul dist/ routé par domaine
   sitec deploy <dossier-projet> [--to https://domaine | SITE_URL] [--secret s | DEVANTURE_DEPLOY_SECRET]
                                              Pousse dist/ vers /_deploy du site (envois signés, intégrité vérifiée, données conservées)
@@ -421,8 +421,10 @@ export async function run(argv) {
       const show = ({ round, problems, warnings, notes }) => { console.log(`TOUR ${round} : ${problems.length} problème(s), ${warnings.length} avertissement(s)`); for (const p of [...problems, ...warnings]) console.log(`      [${p.code}] ${p.file}${p.path ? ' › ' + p.path : ''} : ${p.message}`); if (notes) console.log(`      notes du modèle : ${notes}`); };
       const generative = sub === 'edit' || opt('--describe') || opt('--from') || opt('--import');
       if (generative) {
-        let exists = false; try { await fs.access(path.join(cdir, 'manifest.yaml')); exists = true; } catch { /* libre */ }
+        let exists = false; for (const f of ['composant.md', 'manifest.yaml']) try { await fs.access(path.join(cdir, f)); exists = true; } catch { /* libre */ }
         const existing = exists ? await gen.readComponent(cdir) : null;
+        // Un composant au format langage encore écrit en manifeste est montré en plan au modèle : sa réponse l'écrira ainsi.
+        if (existing?.format === 'langage') existing.files = await gen.asPlan(existing.files, { name: target.name, props: (project.catalog || catalog).get(target.name)?.manifest.props });
         if (sub === 'new' && exists && !flags.has('--force') && !opt('--import')) { console.error(`${relDir} existe déjà : --force pour le régénérer depuis sa description, ou sitec component edit … --ask "…" pour le modifier.`); return 2; }
         if (sub === 'edit' && !existing) { console.error(`Composant introuvable : ${relDir}.`); return 2; }
         const request = sub === 'edit' ? opt('--ask') : null;
@@ -431,7 +433,7 @@ export async function run(argv) {
         if (!description && opt('--import')) description = '[à compléter] description du composant (importé sans --describe).';
         if (!description) { console.error('Description manquante : --describe "…" ou --from description.md.'); return 2; }
         const history = existing?.history || [];
-        const promptArgs = extra => ({ name: target.name, description, project, target, current: request ? existing.files : null, request, ...extra });
+        const promptArgs = extra => ({ name: target.name, description, project, target, current: request ? existing.files : null, request, format: request ? existing.format : (opt('--format') || 'langage'), ...extra });
         if (opt('--format') && !['langage', 'html'].includes(opt('--format'))) { console.error('--format langage (données, forme, apparence ; défaut) ou --format html (gabarit et feuille)'); return 2; }
         if (opt('--export') && !opt('--import')) {
           const fmt = request ? existing.format : (opt('--format') || 'langage');
@@ -447,7 +449,7 @@ export async function run(argv) {
           show({ round: 1, ...v, notes: files.notes });
           if ((v.problems.length || v.warnings.length) && opt('--export')) {
             const fmt = files.template ? 'html' : 'langage';
-            await fs.writeFile(path.resolve(opt('--export')), JSON.stringify({ name: target.name, description, request, format: fmt, system: await gen.buildSystemPrompt(fmt), user: gen.buildUserPrompt(promptArgs({ previous: files, problems: [...v.problems, ...v.warnings] })), output_schema: gen.schemaFor(fmt) }, null, 2));
+            await fs.writeFile(path.resolve(opt('--export')), JSON.stringify({ name: target.name, description, request, format: fmt, system: await gen.buildSystemPrompt(fmt), user: gen.buildUserPrompt(promptArgs({ previous: files, problems: [...v.problems, ...v.warnings], format: fmt })), output_schema: gen.schemaFor(fmt) }, null, 2));
             console.log(`      prompt de réparation écrit : ${opt('--export')}`);
           }
           if (!v.problems.length) await preview();
@@ -653,23 +655,23 @@ intents: [mots, que, tapent, les, visiteurs]
         console.log(JSON.stringify({ ok: true, dry_run: true, sections: result.size, ...report }));
         return 0;
       }
-      const touched = await applyProposals(project, sections, result);
-      console.log(JSON.stringify({ ok: true, sections: result.size, keywords: report.accepted, dropped: report.dropped, unknown: report.unknown, files: touched }));
-      return 0;
+      const applied = await applyProposals(project, sections, result);
+      console.log(JSON.stringify({ ok: !applied.failed.length, sections: result.size, keywords: report.accepted, dropped: report.dropped + applied.dropped, unknown: report.unknown, files: applied.files, ...(applied.skipped.length ? { skipped: applied.skipped } : {}), ...(applied.failed.length ? { failed: applied.failed, hint: 'ces documents, relus avec leurs mots-clés, ne valaient plus leur lecture d\'avant : ils sont remis en l\'état' } : {}) }));
+      return applied.failed.length ? 1 : 0;
     }
 
     case 'init': {
       const dir = args[0];
-      if (!dir) { console.error('Usage : sitec init <dossier> [--name "Nom du site"] [--repo github:compte/depot#tag | --local]'); return 2; }
+      if (!dir) { console.error('Usage : sitec init <dossier> [--name "Nom du site"] [--yaml] [--repo github:compte/depot#tag | --local] [--no-git]'); return 2; }
       const nameIdx = rest.indexOf('--name'), repoIdx = rest.indexOf('--repo');
       const { initProject } = await import('./init.js');
       try {
-        const r = await initProject(dir, { name: nameIdx >= 0 ? rest[nameIdx + 1] : undefined, repo: repoIdx >= 0 ? rest[repoIdx + 1] : undefined, local: flags.has('--local'), git: !flags.has('--no-git') });
-        console.log(`OK  ${r.name} → ${path.relative(process.cwd(), r.root) || '.'} : ${r.files.length} fichiers${r.committed ? ', dépôt git initialisé (branche main, premier commit)' : ''}`);
+        const r = await initProject(dir, { name: nameIdx >= 0 ? rest[nameIdx + 1] : undefined, repo: repoIdx >= 0 ? rest[repoIdx + 1] : undefined, local: flags.has('--local'), git: !flags.has('--no-git'), yaml: flags.has('--yaml') });
+        console.log(`OK  ${r.name} → ${path.relative(process.cwd(), r.root) || '.'} : ${r.files.length} fichiers, site écrit en ${r.format === 'yaml' ? 'YAML' : 'documents (site.md, pages/<id>.md ; lecture figée dans lecture/)'}${r.committed ? ', dépôt git initialisé (branche main, premier commit)' : ''}`);
         console.log(`    compilateur : ${r.dependency}${r.dependency.startsWith('file:') ? '  (chemin local, pour travailler sur le compilateur ; sans --local, la dépendance est le dépôt GitHub étiqueté)' : ''}`);
         // Schémas de l'éditeur tout de suite (npm install les régénère ensuite, avec la version épinglée du compilateur).
-        try { const project = await loadProject(r.root); validateProject(project, catalog); const { writeSchemas } = await import('./schema.js'); await writeSchemas(project, catalog); console.log('    éditeur : .devanture/schema + .vscode (extension YAML de Red Hat) : complétion des composants, props, images et routes'); } catch { /* facultatif */ }
-        console.log('    ensuite : cd ' + dir + ' && npm install && npx sitec check .   (remplir brief.md et les [à compléter])');
+        if (r.format === 'yaml') try { const project = await loadProject(r.root); validateProject(project, catalog); const { writeSchemas } = await import('./schema.js'); await writeSchemas(project, catalog); console.log('    éditeur : .devanture/schema + .vscode (extension YAML de Red Hat) : complétion des composants, props, images et routes'); } catch { /* facultatif */ }
+        console.log('    ensuite : cd ' + dir + ' && npm install && npx sitec check .   (remplir brief.md et les [à compléter]' + (r.format === 'yaml' ? ')' : ' ; après chaque modification d\'un document : npx sitec lire . --accepter)'));
         return 0;
       } catch (e) { console.error('Erreur : ' + e.message); return 1; }
     }

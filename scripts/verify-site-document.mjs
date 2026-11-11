@@ -284,6 +284,47 @@ try {
   ok('explain document : le format en une page, noms français tirés du lecteur', r.code === 0 && frOk && /Adresse : \/contact/.test(r.out), r.out.slice(0, 300));
   ok('noms français : chacun désigne un composant natif', Object.keys(COMPONENT_NAMES).every(k => catalog.has(k)), Object.keys(COMPONENT_NAMES).filter(k => !catalog.has(k)).join(', '));
 
+  // --- sitec init pose un site en documents ; keywords et migrate travaillent sur les documents
+  {
+    const ini = path.join(tmp, 'init-doc'); let r = run('init', ini, '--name', 'Site du banc', '--no-git', '--local');
+    const files = (await fs.readdir(ini, { recursive: true })).map(x => String(x).replaceAll('\\', '/'));
+    ok('init : le squelette est écrit en documents, sa lecture figée par le compilateur', r.code === 0 && ['site.md', 'pages/accueil.md', 'pages/contact.md', 'pages/mentions-legales.md', 'lecture/site.yaml', 'lecture/pages/contact.page.yaml'].every(f => files.includes(f)) && !files.some(f => /\.ya?ml$/.test(f) && !f.startsWith('lecture/') && !f.startsWith('.github/')), r.out.slice(0, 200) + files.join(' '));
+    const c = run('check', ini), l = run('lire', ini), b = run('build', ini, '--draft', '--out', path.join(tmp, 'init-dist'));
+    ok('init : le site créé passe check, sa lecture est à jour, il se compile en brouillon', c.code === 0 && /Lecture à jour : site\.md, pages\/accueil\.md/.test(l.out) && b.code === 0, c.out.slice(0, 200) + l.out.slice(0, 200) + b.out.slice(0, 200));
+    const manual = (await fs.readFile(path.join(ini, 'CLAUDE.md'), 'utf8')).replace(/\r\n/g, '\n');
+    ok('init : le mode d\'emploi du dépôt décrit les documents, pas la structure YAML', /## Structure du site/.test(manual) && /npx sitec lire \. --accepter/.test(manual) && !/### site\.yaml/.test(manual) && !/Tu écris des sites vitrines dans un DSL YAML/.test(manual) && /## Règles\n\nCe sont les règles du langage/.test(manual));
+    // Les deux exemples que ce mode d'emploi donne (site.md, une page) sont lus et vérifiés ici.
+    const blocks = [...manual.slice(manual.indexOf('### site.md'), manual.indexOf('## Règles')).matchAll(/```\n([\s\S]*?)```/g)].map(m => m[1]);
+    const ex = path.join(tmp, 'init-ex'); run('init', ex, '--no-git', '--local');
+    if (blocks.length === 2) { await fs.writeFile(path.join(ex, 'site.md'), blocks[0]); await fs.writeFile(path.join(ex, 'pages', 'accueil.md'), blocks[1]); }
+    await fs.writeFile(path.join(ex, 'pages', 'services.md'), '# Services\n\nNos services\n\nAdresse : /services\n\n## Texte : Services\nDépannage et installation.\n');
+    const ax = run('lire', ex, '--accepter'), cx = run('check', ex);
+    ok('init : les exemples du mode d\'emploi (site.md, page) se lisent et passent check', blocks.length === 2 && ax.code === 0 && cx.code === 0 && /"pages":4/.test(cx.out), ax.out.slice(0, 300) + cx.out.slice(0, 300));
+    const y = path.join(tmp, 'init-yaml'); r = run('init', y, '--yaml', '--no-git', '--local');
+    const yf = await fs.readdir(y);
+    ok('init --yaml : le squelette YAML reste disponible', r.code === 0 && yf.includes('site.yaml') && !yf.includes('site.md') && !yf.includes('lecture') && run('check', y).code === 0, r.out.slice(0, 200));
+
+    r = run('keywords', ini, '--export', path.join(tmp, 'kw.json'));
+    const kw = JSON.parse(await fs.readFile(path.join(tmp, 'kw.json'), 'utf8'));
+    await fs.writeFile(path.join(tmp, 'kw-r.json'), JSON.stringify({ 'accueil:0': ['où nous trouver', 'oui, ouvert'], 'accueil:1': ['nos atouts'], 'mentions-legales:0': ['siret'] }));
+    const before = (await fs.readFile(path.join(ini, 'pages', 'accueil.md'), 'utf8')).replace(/\r\n/g, '\n');
+    r = run('keywords', ini, '--import', path.join(tmp, 'kw-r.json'));
+    const after = await fs.readFile(path.join(ini, 'pages', 'accueil.md'), 'utf8');
+    const wanted = before.replace('la promesse en une ligne\n', 'la promesse en une ligne\nMots-clés : où nous trouver\n').replace('Pourquoi nous\n', 'Pourquoi nous\nMots-clés : nos atouts\n');
+    ok('keywords : les mots-clés s\'écrivent dans les documents, sous l\'intitulé de leur section, sans toucher au reste', r.code === 0 && kw.sections.includes('accueil:0') && wanted !== before && after === wanted && /"dropped":1/.test(r.out) && /"lecture\/pages\/accueil\.page\.yaml"/.test(r.out), r.out.slice(0, 300) + after);
+    const frozen = await fs.readFile(path.join(ini, 'lecture', 'pages', 'accueil.page.yaml'), 'utf8');
+    ok('keywords : la lecture des documents touchés est figée, le site reste valide', /keywords:\s*\n\s+- où nous trouver/.test(frozen) && run('check', ini).code === 0 && /Lecture à jour : site\.md, pages\/accueil\.md/.test(run('lire', ini).out), frozen.slice(0, 400));
+    await fs.writeFile(path.join(tmp, 'kw-r2.json'), JSON.stringify({ 'accueil:0': ['terrasse'] }));
+    r = run('keywords', ini, '--all', '--import', path.join(tmp, 'kw-r2.json'));
+    const after2 = await fs.readFile(path.join(ini, 'pages', 'accueil.md'), 'utf8');
+    ok('keywords : une ligne « Mots-clés » déjà là est complétée, pas doublée', r.code === 0 && (after2.match(/Mots-clés : /g) || []).length === 2 && /Mots-clés : où nous trouver, terrasse\n/.test(after2) && run('check', ini).code === 0, r.out.slice(0, 300));
+
+    r = run('migrate', ini, '--dry-run');
+    ok('migrate : un site en documents est en version 1, rien à récrire', r.code === 0 && /Déjà en version 1/.test(r.out) && /"from":1/.test(r.out), r.out.slice(0, 300));
+    const g = run('migrate', path.join(ROOT, 'examples', 'garnier-associes'), '--dry-run');
+    ok('migrate : les suggestions lisent les pages en documents et parlent leur écriture', g.code === 0 && /recopié dans pages\/contact\.md/.test(g.out) && /« Constantes : » puis « - nom \| 30 minutes »/.test(g.out), g.out.slice(0, 400));
+  }
+
   // --- mesure : la source en documents est plus courte que la source en YAML, sur chaque exemple
   const m = spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'measure-site-document.mjs'), '--json'], { encoding: 'utf8' });
   let mes = null; try { mes = JSON.parse(m.stdout); } catch { /* dit par le contrôle */ }
