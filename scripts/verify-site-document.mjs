@@ -1,0 +1,186 @@
+// Banc du format document du site (prototype) : site.md et pages/<id>.md à la place du YAML, lus sans modèle d'après les
+// données que chaque composant déclare.
+//   - identité : examples/garnier-document (documents) vaut examples/garnier-associes (YAML) : mêmes données, mêmes fichiers
+//     servis tels quels, même HTML rendu page par page ;
+//   - aller-retour : chaque site d'exemple écrit en documents par le rédacteur se relit à l'identique ;
+//   - règles de lecture : titre, texte libre, « Nom : valeur », lien seul, puces et leurs champs dans l'ordre, puces en retrait ;
+//   - garde-fou 1 : une ligne sans rôle est refusée, à sa ligne ; garde-fou 3 : la lecture est figée dans lecture/, tout
+//     changement arrête la compilation jusqu'à « sitec lire --accepter » ;
+//   - commandes : rediger, lire, explain ; mesure : les documents sont plus courts que le YAML sur chaque exemple.
+// Usage : node scripts/verify-site-document.mjs [port]     (PHP : PHP_BIN, sinon php ; sans PHP, la comparaison du rendu échoue)
+import { execFileSync, spawnSync } from 'node:child_process';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { loadCatalog } from '../src/catalog.js';
+import { loadProject } from '../src/load.js';
+import { componentSchemas, readPageDocument, readSiteDocument, writePageDocument, writeSiteDocument, canon, parseLink, COMPONENT_NAMES, PROP_NAMES } from '../src/lang/site-document.js';
+import { THEME_PRESETS } from '../src/emit/php/css.js';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const SITEC = path.join(ROOT, 'bin', 'sitec.js');
+const port = Number(process.argv[2]) || 8976;
+const checks = [];
+const ok = (n, pass, detail = '') => { checks.push({ name: n, pass: !!pass, detail: String(detail).slice(0, 700) }); };
+const run = (...args) => { try { return { code: 0, out: execFileSync(process.execPath, [SITEC, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }) }; } catch (e) { return { code: e.status ?? 1, out: (e.stdout || '') + (e.stderr || '') }; } };
+const jsonLines = out => out.split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'sitec-site-document-'));
+const same = (a, b) => JSON.stringify(canon(a)) === JSON.stringify(canon(b));
+const tokens = Object.keys(THEME_PRESETS.clair);
+const catalog = await loadCatalog();
+const schemas = new Map(catalog.list().map(c => [c.name, c.manifest.props]));
+const page = body => readPageDocument(`# Titre\n\nAdresse : /x\n\n${body}\n`, { schemas });
+const first = r => { const s = r.data.sections?.[0]; return s ? s[Object.keys(s)[0]] : null; };
+const refused = (r, re, line) => r.errors.some(e => re.test(e.message) && (line === undefined || e.line === line));
+
+try {
+  // --- identité : l'exemple en documents vaut l'exemple en YAML
+  const yamlSite = await loadProject(path.join(ROOT, 'examples', 'garnier-associes')), docSite = await loadProject(path.join(ROOT, 'examples', 'garnier-document'));
+  ok('identité : l\'exemple en documents est lu sans erreur, lecture à jour', docSite.documents.site && docSite.documents.pages.length === 6 && !docSite.loadErrors.length, JSON.stringify(docSite.loadErrors).slice(0, 400));
+  ok('identité : le site lu de site.md vaut site.yaml', same(docSite.site, yamlSite.site), JSON.stringify(canon(docSite.site)).slice(0, 300));
+  const strip = d => { const { page: _p, ...rest } = d; return rest; };
+  const diffPages = yamlSite.pages.filter((p, i) => docSite.pages[i]?.id !== p.id || !same(strip(p.data), docSite.pages[i].data)).map(p => p.id);
+  ok('identité : chaque page lue de pages/<id>.md vaut son .page.yaml, dans le même ordre', yamlSite.pages.length === 6 && !diffPages.length, diffPages.join(', '));
+  const a = path.join(tmp, 'dist-yaml'), b = path.join(tmp, 'dist-documents');
+  let r = run('build', path.join(ROOT, 'examples', 'garnier-associes'), '--out', a);
+  const r2 = run('build', path.join(ROOT, 'examples', 'garnier-document'), '--out', b);
+  ok('identité : les deux sites compilent', r.code === 0 && r2.code === 0, r.out + r2.out);
+  const walk = async d => (await fs.readdir(d, { withFileTypes: true, recursive: true })).filter(e => e.isFile()).map(e => path.relative(d, path.join(e.parentPath ?? e.path, e.name)).split(path.sep).join('/')).sort();
+  const fa = await walk(a), fb = await walk(b);
+  // Les pages compilées gardent l'ordre des données de la source (celui de la déclaration, en document) : comparées par leur rendu.
+  const skip = f => /^pages\/.*\.php$/.test(f) || f === 'manifest.sha256.json' || f === 'site.json' || /^(data|cache)\//.test(f);
+  const differ = [];
+  for (const f of fa.filter(f => !skip(f))) { const x = await fs.readFile(path.join(a, f)), y = await fs.readFile(path.join(b, f)).catch(() => null); if (!y || !x.equals(y)) differ.push(f); }
+  ok('identité : mêmes fichiers compilés', JSON.stringify(fa.filter(f => !/^(data|cache)\//.test(f))) === JSON.stringify(fb.filter(f => !/^(data|cache)\//.test(f))), `${fa.length} / ${fb.length}`);
+  ok('identité : gabarits, styles, scripts, index d\'intention, versions texte identiques à l\'octet', fa.length > 40 && !differ.length, differ.join(', '));
+  const twin = async d => { const j = JSON.parse(await fs.readFile(path.join(d, 'site.json'), 'utf8')); delete j.generated_at; return JSON.stringify(j); };
+  ok('identité : jumeau pour agents (site.json) identique hors date', await twin(a) === await twin(b));
+  const snap = async (dist, p, out) => spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'snapshot-pages.mjs'), dist, String(p), out], { encoding: 'utf8' });
+  const sa = await snap(a, port, path.join(tmp, 'snap-a')), sb = await snap(b, port + 1, path.join(tmp, 'snap-b'));
+  const cmp = spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'snapshot-pages.mjs'), '--compare', path.join(tmp, 'snap-a'), path.join(tmp, 'snap-b')], { encoding: 'utf8' });
+  const verdict = jsonLines(cmp.stdout || '').pop() || {};
+  ok('identité : HTML rendu identique sur toutes les pages (PHP)', sa.status === 0 && sb.status === 0 && verdict.pages >= 6 && verdict.different === 0, (sa.stderr || '') + (sb.stderr || '') + (cmp.stdout || '').slice(0, 400));
+
+  // --- aller-retour : tout site d'exemple s'écrit en documents et se relit à l'identique
+  for (const site of ['garnier-associes', 'plomberie-martin', 'le-fournil', 'savonnerie']) {
+    const project = await loadProject(path.join(ROOT, 'examples', site));
+    const sch = componentSchemas(project, catalog), bad = [];
+    const s = writeSiteDocument(project.site, { tokens });
+    if (s.error || !same(readSiteDocument(s.text, { tokens }).data, { language: 1, ...project.site })) bad.push('site : ' + (s.error || 'relu différent'));
+    for (const p of project.pages) { const w = writePageDocument(p.data, { schemas: sch }); if (w.error || !same(readPageDocument(w.text, { schemas: sch }).data, strip(p.data))) bad.push(`${p.id} : ${w.error || 'relu différent'}`); }
+    ok(`aller-retour : ${site} (${project.pages.length} pages) s'écrit en documents et se relit à l'identique`, !bad.length, bad.join(' | '));
+  }
+
+  // --- règles de lecture
+  let d = page('## Bandeau : Des savons faits main\nFabriqués en Provence.\nImage : hero.jpg\nDécouvrir → /boutique\nNous contacter → /contact\nAlignement : gauche');
+  ok('lecture : titre dans l\'intitulé, texte libre, « Nom : valeur », liens seuls dans l\'ordre, valeur dite en français', !d.errors.length && same(first(d), { title: 'Des savons faits main', subtitle: 'Fabriqués en Provence.', image: 'hero.jpg', cta: { label: 'Découvrir', to: '/boutique' }, secondary: { label: 'Nous contacter', to: '/contact' }, align: 'left' }), JSON.stringify(d));
+  ok('lecture : le nom du composant vaut son nom français', Object.keys(page('## hero : A').data.sections[0])[0] === 'hero' && Object.keys(page('## BANDEAU : A').data.sections[0])[0] === 'hero');
+  d = page('## Appel #joindre : Une question : laquelle ?\nÉcrivez-nous.\n[Nous écrire](/contact)');
+  ok('lecture : ancre dans l\'intitulé, « : » dans le titre, lien écrit en Markdown', !d.errors.length && same(first(d), { title: 'Une question : laquelle ?', text: 'Écrivez-nous.', button: { label: 'Nous écrire', to: '/contact' }, id: 'joindre' }), JSON.stringify(d));
+  d = page('## Points forts : Pourquoi nous\nUne introduction.\nColonnes : 3\n- leaf | Naturel | Huiles bio | En savoir plus → /a\n- Fait main\n- Local | Produit à 20 km, vendu sur place.\n- rien | check | Une coche en titre');
+  ok('lecture : puces, champs dans l\'ordre de la fiche, icône sautée si absente, « rien » saute un champ', !d.errors.length && same(first(d).items, [{ icon: 'leaf', title: 'Naturel', text: 'Huiles bio', link: { label: 'En savoir plus', to: '/a' } }, { title: 'Fait main' }, { title: 'Local', text: 'Produit à 20 km, vendu sur place.' }, { title: 'check', text: 'Une coche en titre' }]) && first(d).columns === 3 && first(d).intro === 'Une introduction.', JSON.stringify(d));
+  d = page('## Équipe\n- Jeanne Dubois | Fondatrice | jeanne.jpg | Trente ans de métier.\n- Paul Martin | bio : Arrivé en 2020.\n- Zoé Petit | zoe.jpg');
+  ok('lecture : un fichier image va au champ image, « nom : valeur » vise un champ', !d.errors.length && same(first(d).members, [{ name: 'Jeanne Dubois', role: 'Fondatrice', photo: 'jeanne.jpg', bio: 'Trente ans de métier.' }, { name: 'Paul Martin', bio: 'Arrivé en 2020.' }, { name: 'Zoé Petit', photo: 'zoe.jpg' }]), JSON.stringify(d));
+  d = page('## Tarifs : Nos tarifs\nNote : Prix TTC.\n- Dépannage\n  - Déplacement | à partir de 95 € | Lyon\n  - Recherche de fuite | 180 € | mention : Rapport inclus\n- Entretien\n  - Contrat chaudière | 129 €');
+  ok('lecture : puces en retrait, la liste d\'un élément', !d.errors.length && first(d).groups.length === 2 && same(first(d).groups[0], { title: 'Dépannage', items: [{ name: 'Déplacement', price: 'à partir de 95 €', description: 'Lyon' }, { name: 'Recherche de fuite', price: '180 €', badge: 'Rapport inclus' }] }) && first(d).note === 'Prix TTC.', JSON.stringify(d));
+  d = page('## Horaires\n- lundi | fermé : oui\n- mardi | 06:30-13:00, 15:00-19:30');
+  ok('lecture : oui / non, liste de mots sur une ligne', !d.errors.length && same(first(d).days, [{ day: 'lundi', closed: true }, { day: 'mardi', slots: ['06:30-13:00', '15:00-19:30'] }]), JSON.stringify(d));
+  d = page('## Texte : Notre histoire\nPremier paragraphe : fondé en 1987, « à la main ».\n\nSecond paragraphe.\n\n- un point\n- un autre\nImage : atelier.jpg');
+  ok('lecture : paragraphes, deux-points et guillemets tels quels, puces gardées dans un texte sans liste', !d.errors.length && first(d).text === 'Premier paragraphe : fondé en 1987, « à la main ».\n\nSecond paragraphe.\n\n- un point\n- un autre' && first(d).image === 'atelier.jpg', JSON.stringify(d));
+  d = page('## Chiffres\n- 2011 | année de fondation\n- 3 | associés\nMots-clés : chiffres, année, combien');
+  ok('lecture : un nombre reste le texte qu\'on a écrit, mots-clés sur une ligne', !d.errors.length && same(first(d), { items: [{ value: '2011', label: 'année de fondation' }, { value: '3', label: 'associés' }], keywords: ['chiffres', 'année', 'combien'] }), JSON.stringify(d));
+  d = page('## Accès : Venir\nlat : 45.7745\nlon : 4.832\nAccès :\nMétro C.\n\nParking à 200 m.');
+  ok('lecture : nombres, texte de plusieurs paragraphes annoncé par « Nom : »', !d.errors.length && first(d).lat === 45.7745 && first(d).access === 'Métro C.\n\nParking à 200 m.', JSON.stringify(d));
+  d = page('## Formulaire de contact : Écrivez-nous\nDestinataire : a@b.fr\nChamps : name, email, message\n```yaml\nvariants:\n  mobile: { title: Appelez-nous }\n```');
+  ok('lecture : bloc yaml pour ce qui ne se dit pas en lignes', !d.errors.length && same(first(d), { title: 'Écrivez-nous', to: 'a@b.fr', fields: ['name', 'email', 'message'], variants: { mobile: { title: 'Appelez-nous' } } }), JSON.stringify(d));
+  ok('lecture : cibles de lien (route, ancre, URL, mailto, tel) ; un texte à flèche sans cible n\'est pas un lien', same(parseLink('Voir → #tarifs'), { label: 'Voir', to: '#tarifs' }) && parseLink('Appeler -> tel:+33472001122').to === 'tel:+33472001122' && parseLink('Paris → Lyon') === null && parseLink('Site → https://exemple.fr/a').to === 'https://exemple.fr/a');
+  const sd = readSiteDocument('# Mon site\n\nUn slogan.\n\nLangue : fr-FR\nThème : sombre\ncolor.primary : #6b2d5c\nE-mail : a@b.fr\nMenu :\n- Accueil → /\n- Contact → /contact\nLiens du pied de page :\n- Mentions → /mentions\n```yaml\nconstants: { delai: 1 h }\nsite:\n  agents: { enabled: true }\n```\n', { tokens });
+  ok('lecture : site.md (nom, slogan, thème, jeton sans guillemets, menu, pied, bloc yaml fusionné)', !sd.errors.length && same(sd.data, { language: 1, constants: { delai: '1 h' }, site: { name: 'Mon site', tagline: 'Un slogan.', locale: 'fr-FR', theme: { preset: 'sombre', tokens: { 'color.primary': '#6b2d5c' } }, nav: [{ label: 'Accueil', to: '/' }, { label: 'Contact', to: '/contact' }], footer: { links: [{ label: 'Mentions', to: '/mentions' }] }, contact: { email: 'a@b.fr' }, agents: { enabled: true } } }), JSON.stringify(sd));
+
+  // --- garde-fou 1 : toute ligne a un rôle, sinon elle est refusée à sa ligne
+  ok('refus : ligne sans rôle (composant sans texte libre), à sa ligne', refused(page('## Chiffres\nUn texte sans place.\n- 3 | avocats\n- 2 | villes'), /ligne sans rôle/, 6));
+  ok('refus : nom de réglage à une lettre près, pas rangé dans le texte', refused(page('## Bandeau : A\nAlignment : left'), /Alignment.*vouliez-vous dire « alignement »/));
+  ok('refus : nom de réglage qui reprend un mot d\'une donnée sans en être une ; un autre début de phrase reste du texte', refused(page('## Texte : A\nUn paragraphe.\nImage côté : left'), /Image côté.*vouliez-vous dire « côté de l'image »/) && !page('## Texte : A\nProfil : titulaire du CAPA.\nTéléphone : 05 56 00 00 00.').errors.length);
+  ok('refus : composant inconnu, avec le nom le plus proche', refused(page('## Formulaire : Écrivez-nous'), /n'est pas un composant.*formulaire de contact/) && refused(page('## Bandau : A'), /vouliez-vous dire « bandeau »/));
+  ok('refus : un lien de trop', refused(page('## Appel : A\nUn → /a\nDeux → /b'), /un lien de trop/));
+  ok('refus : valeur de puce sans champ', refused(page('## Galerie\n- a.jpg | Alt | Légende | en trop'), /ne trouve pas de champ/));
+  ok('refus : valeur du mauvais type', refused(page('## Points forts\nColonnes : trois\n- A\n- B'), /une valeur parmi 2, 3, 4/) && refused(page('## Horaires\nshow_status : peut-être\n- lundi | fermé : oui'), /oui ou non/));
+  ok('refus : donnée dite deux fois', refused(page('## Bandeau : A\nTitre : B'), /déjà dans l'intitulé/) && refused(page('## Bandeau : A\nImage : a.jpg\nImage : b.jpg'), /déjà dit ligne 6/));
+  ok('refus : intertitre, bloc non yaml, donnée inconnue dans un bloc', refused(page('## Texte : A\nB\n### C'), /intertitre non lu/) && refused(page('## Texte : A\nB\n```js\nx\n```'), /seul un bloc ```yaml/) && refused(page('## Texte : A\nB\n```yaml\ncouleur: rouge\n```'), /donnée inconnue de richtext : couleur/));
+  ok('refus : page sans adresse, page sans section', refused(readPageDocument('# T\n\n## Texte : A\nB\n', { schemas }), /ne dit pas son adresse/) && refused(readPageDocument('# T\n\nAdresse : /x\n', { schemas }), /aucune section/));
+  ok('refus : site sans nom, ligne de site inconnue gardée comme slogan une seule fois', refused(readSiteDocument('Thème : clair\n', { tokens }), /commence par son nom/) && refused(readSiteDocument('# S\n\nUn slogan.\n\nThème : clair\nThème : sombre\n', { tokens }), /déjà dit/));
+
+  // --- en projet : erreurs à la ligne, lecture figée, commandes
+  const site = path.join(tmp, 'site');
+  await fs.cp(path.join(ROOT, 'examples', 'garnier-document'), site, { recursive: true, filter: s => !/[\\/](dist|node_modules)([\\/]|$)/.test(s) });
+  await fs.cp(path.join(ROOT, 'examples', 'paquets'), path.join(tmp, 'paquets'), { recursive: true });
+  r = run('check', site);
+  ok('projet : l\'exemple en documents passe check', r.code === 0 && /"ok":true/.test(r.out), r.out);
+  const accueil = path.join(site, 'pages', 'accueil.md'), original = await fs.readFile(accueil, 'utf8');
+  await fs.writeFile(accueil, original.replace('Nos honoraires → /honoraires', 'Nos honoraires → /tarifs'));
+  r = run('lire', site, '--accepter');
+  const out1 = r.out;
+  r = run('check', site);
+  let errs = jsonLines(r.out);
+  ok('projet : une erreur de validation renvoie à la ligne du document', r.code === 1 && errs.some(e => /accueil\.md$/.test(e.file || '') && /^ligne \d+ · sections\[0\]\.hero\.secondary/.test(e.path || '')), r.out);
+  await fs.writeFile(accueil, original); run('lire', site, '--accepter');
+  await fs.writeFile(accueil, original.replace('## Appel : Une question juridique ?', '## Appel : Une question de droit ?'));
+  r = run('check', site); errs = jsonLines(r.out);
+  ok('garde-fou 3 : un document modifié arrête check (E_READING), l\'ancienne et la nouvelle lecture citées', r.code === 1 && errs.some(e => e.code === 'E_READING' && /Une question juridique/.test(e.message) && /Une question de droit/.test(e.message)), r.out + out1);
+  r = run('build', site, '--out', path.join(tmp, 'd3'));
+  ok('garde-fou 3 : build s\'arrête aussi', r.code !== 0, r.out);
+  r = run('lire', site);
+  ok('lire : dit le document changé et les lignes de lecture retirées et ajoutées', r.code === 1 && /pages\/accueil\.md : la lecture a changé/.test(r.out) && /- title: Une question juridique \?/.test(r.out) && /\+ title: Une question de droit \?/.test(r.out) && /Lecture à jour : site\.md, pages\/cabinet\.md/.test(r.out), r.out);
+  r = run('lire', site, '--accepter');
+  const r3 = run('check', site);
+  ok('lire --accepter : fige la lecture, check repasse', r.code === 0 && /changement accepté/.test(r.out) && r3.code === 0 && /Une question de droit/.test(await fs.readFile(path.join(site, 'lecture', 'pages', 'accueil.page.yaml'), 'utf8')), r.out + r3.out);
+  await fs.writeFile(path.join(site, 'pages', 'recrutement.md'), '# Recrutement\n\nLe cabinet recrute.\n\nAdresse : /recrutement\n\n## Bandeau : Rejoignez-nous\nLe cabinet recrute.\n\n## Appel : Candidater\nPostuler → /contact\n');
+  r = run('check', site); errs = jsonLines(r.out);
+  ok('garde-fou 3 : une page nouvelle n\'est pas compilée avant d\'être relue', r.code === 1 && errs.some(e => e.code === 'E_READING' && /recrutement/.test(e.message + e.file)), r.out);
+  r = run('lire', site);
+  ok('lire : une page jamais acceptée est redite section par section, avec ses lignes', /pages\/recrutement\.md : pas encore acceptée/.test(r.out) && /ligne\s+7\s+hero : title, subtitle/.test(r.out) && /ligne\s+10\s+cta : title, button/.test(r.out), r.out);
+  r = run('lire', site, '--accepter'); const r4 = run('check', site);
+  ok('lire --accepter : la page nouvelle est acceptée', r.code === 0 && r4.code === 0 && /"pages":7/.test(r4.out), r.out + r4.out);
+  await fs.writeFile(path.join(site, 'pages', 'recrutement.md'), '# Recrutement\n\nAdresse : /recrutement\n\n## Chiffres\nTexte perdu.\n- 3 | a\n- 2 | b\n');
+  r = run('check', site); errs = jsonLines(r.out);
+  ok('projet : un document refusé donne E_DOCUMENT à sa ligne, sans erreurs en cascade', r.code === 1 && errs.filter(e => /recrutement/.test(e.file || '')).length === 1 && errs[0].code === 'E_DOCUMENT' && errs[0].path === 'ligne 6', r.out);
+  await fs.rm(path.join(site, 'pages', 'recrutement.md'));
+  await fs.writeFile(path.join(site, 'pages', 'cabinet.page.yaml'), 'route: /cabinet\nsections:\n  - richtext: { text: A }\n');
+  r = run('check', site);
+  ok('projet : une page écrite deux fois (document et YAML) est refusée', r.code === 1 && /une page n'a qu'une source/.test(r.out), r.out);
+  await fs.rm(path.join(site, 'pages', 'cabinet.page.yaml'));
+
+  // --- commandes : rediger, explain
+  const y = path.join(tmp, 'plomberie');
+  await fs.cp(path.join(ROOT, 'examples', 'plomberie-martin'), y, { recursive: true, filter: s => !/[\\/](dist|node_modules)([\\/]|$)/.test(s) });
+  r = run('rediger', y, '--dry-run');
+  ok('rediger --dry-run : dit ce qui s\'écrirait sans rien modifier', r.code === 0 && /site\.yaml → site\.md/.test(r.out) && /rien n'est modifié/.test(r.out) && await fs.access(path.join(y, 'site.yaml')).then(() => true, () => false), r.out);
+  r = run('rediger', y); const r5 = run('check', y); const r6 = run('lire', y);
+  ok('rediger : écrit les documents et leur lecture, retire le YAML, et le site passe check', r.code === 0 && r5.code === 0 && /"ok":true/.test(r5.out) && !/à accepter|a changé/.test(r6.out) && await fs.access(path.join(y, 'site.yaml')).then(() => false, () => true) && await fs.access(path.join(y, 'lecture', 'site.yaml')).then(() => true, () => false), r.out + r5.out);
+  r = run('rediger', y);
+  ok('rediger : refuse un site déjà en documents', r.code === 1 && /déjà écrit en documents/.test(r.out), r.out);
+  r = run('explain', 'features', '--document');
+  ok('explain --document : l\'exemple du composant écrit en document', r.code === 0 && /En document/.test(r.out) && /## Points forts : Pourquoi nous choisir/.test(r.out) && /- leaf \| 100 % naturel \| Huiles bio et locales/.test(r.out), r.out);
+  r = run('explain', 'hero', site);
+  ok('explain <composant> <dossier> : la forme document est donnée d\'office pour un site en documents', r.code === 0 && /En document/.test(r.out), r.out);
+  r = run('explain', 'document');
+  const frOk = Object.entries(COMPONENT_NAMES).every(([k, v]) => r.out.toLowerCase().includes(`${v} = ${k}`)) && Object.entries(PROP_NAMES).every(([k, v]) => r.out.includes(`${v} = ${k}`));
+  ok('explain document : le format en une page, noms français tirés du lecteur', r.code === 0 && frOk && /Adresse : \/contact/.test(r.out), r.out.slice(0, 300));
+  ok('noms français : chacun désigne un composant natif', Object.keys(COMPONENT_NAMES).every(k => catalog.has(k)), Object.keys(COMPONENT_NAMES).filter(k => !catalog.has(k)).join(', '));
+
+  // --- mesure : la source en documents est plus courte que la source en YAML, sur chaque exemple
+  const m = spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'measure-site-document.mjs'), '--json'], { encoding: 'utf8' });
+  let mes = null; try { mes = JSON.parse(m.stdout); } catch { /* dit par le contrôle */ }
+  if (mes) console.log(`mesure : création ${mes.total.creation.yaml} tokens en YAML, ${mes.total.creation.documents} en documents (${mes.total.creation.gain_pct} % de moins) ; éditions ${mes.total.editions.yaml_ecrits} contre ${mes.total.editions.documents_ecrits} tokens écrits (${mes.total.editions.gain_pct} % de moins)`);
+  ok('mesure : documents plus courts que le YAML sur chaque exemple, à la création et aux éditions', mes && mes.creation.every(x => x.documents < x.yaml) && mes.editions.every(x => x.documents.tokens_ajoutes < x.yaml.tokens_ajoutes), m.stdout + m.stderr);
+} catch (e) {
+  ok('exécution du banc', false, e.stack || e.message);
+} finally {
+  await fs.rm(tmp, { recursive: true, force: true });
+}
+
+const passed = checks.filter(c => c.pass).length;
+for (const c of checks) console.log(`${c.pass ? 'OK  ' : 'FAIL'} ${c.name}${c.detail && !c.pass ? ' — ' + c.detail : ''}`);
+console.log(JSON.stringify({ banc: 'document du site', passed, total: checks.length }));
+process.exit(passed === checks.length ? 0 : 1);

@@ -1,0 +1,31 @@
+page: domaines
+route: /domaines
+seo: { title: Domaines d'intervention, description: "Droit du travail, droit des affaires et droit de la famille à Bordeaux, Libourne et Arcachon." }
+sections:
+  - hero: { title: Domaines d'intervention, subtitle: "Trois spécialités, portées chacune par un associé." }
+  - richtext:
+      id: travail
+      title: Droit du travail
+      text: |
+        Me Hélène Garnier conseille et défend salariés et employeurs : contrat de travail, licenciement, rupture conventionnelle, litiges devant le conseil de prud'hommes.
+  - richtext:
+      id: affaires
+      title: Droit des affaires
+      text: |
+        Me Thomas Ruiz accompagne les dirigeants et les entreprises : création et vie des sociétés, contrats commerciaux, litiges entre associés.
+  - richtext:
+      id: famille
+      title: Droit de la famille
+      text: |
+        Me Inès Kaddour intervient sur le divorce, l'autorité parentale, la pension alimentaire et les successions, avec le souci de privilégier un règlement apaisé.
+  - steps:
+      title: Comment se déroule un dossier
+      items:
+        - { title: Première consultation, text: 30 minutes offertes pour exposer votre situation. }
+        - { title: Convention d'honoraires, text: Établie par écrit avant toute démarche. }
+        - { title: Suivi du dossier, text: Un avocat référent vous tient informé à chaque étape. }
+  - faq:
+      title: Questions fréquentes
+      items:
+        - { q: Où intervenez-vous ?, a: "À Bordeaux, Libourne et Arcachon." }
+        - { q: La première consultation est-elle payante ?, a: "Non, les 30 premières minutes sont offertes." }

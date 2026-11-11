@@ -1,0 +1,53 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+route: /
+seo:
+  title: Cabinet Garnier & Associés, avocats à Bordeaux
+  description: Avocats en droit du travail, des affaires et de la famille à Bordeaux, Libourne et Arcachon.
+sections:
+  - hero:
+      title: Des avocats à Bordeaux pour vos affaires et votre famille
+      subtitle: Droit du travail, droit des affaires, droit de la famille. Première consultation de 30 minutes offerte.
+      image: hero.svg
+      cta:
+        label: Prendre rendez-vous
+        to: /contact
+      secondary:
+        label: Nos honoraires
+        to: /honoraires
+  - stats:
+      items:
+        - value: "2011"
+          label: année de fondation
+        - value: "3"
+          label: avocats associés
+        - value: "3"
+          label: villes d'intervention
+  - features:
+      title: Un cabinet à taille humaine
+      columns: 3
+      items:
+        - icon: scale
+          title: Trois domaines d'expertise
+          text: Travail, affaires et famille, chacun porté par un associé.
+        - icon: euro
+          title: Honoraires transparents
+          text: Forfait ou temps passé, avec une convention d'honoraires systématique.
+        - icon: pin
+          title: Proche de vous
+          text: Interventions à Bordeaux, Libourne et Arcachon.
+  - steps:
+      title: Comment se déroule un dossier
+      items:
+        - title: Première consultation
+          text: 30 minutes offertes pour exposer votre situation.
+        - title: Convention d'honoraires
+          text: Signée avant toute intervention, au forfait ou au temps passé.
+        - title: Suivi du dossier
+          text: Un associé responsable de votre dossier.
+  - cta:
+      title: Besoin d'un avis juridique ?
+      text: Appelez-nous au 05 56 00 00 00 ou écrivez-nous.
+      button:
+        label: Nous contacter
+        to: /contact

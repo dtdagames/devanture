@@ -816,6 +816,99 @@ Sans clé d'API, `--recrire --export p.json` écrit la consigne (`system`, `user
 - **Tolérance limitée.** Neuf textes, rédigés par des modèles à qui l'on n'avait montré ni le lexique ni les tournures, ont été lus en trois lots, chaque lot par le lecteur tel qu'il était avant de le voir : 3 phrases lues sur 30, puis 13 sur 31, puis 10 sur 30. Le lecteur a été élargi d'après les deux premiers lots (28 sur 30 et 29 sur 31 aujourd'hui) et, pour le troisième, seulement sa phrase des champs (14 sur 30). Un texte libre demande donc encore qu'on reprenne une phrase sur deux, guidé par les refus. Aucune des 23 phrases lues au premier passage des lots 2 et 3 ne l'a été de travers ; pendant la mise au point, trois lectures fausses sont passées, que seule la lecture redite a montrées. Les textes sont dans `scripts/reference/redactions/`, la mesure du lecteur actuel dans `scripts/measure-document.mjs`.
 - **Réécriture.** Les 20 phrases que le lecteur refuse dans ces neuf textes ont été soumises à `--recrire`, mêlées à 13 phrases qu'aucune tournure ne peut dire sans perdre quelque chose (un tarif, « sauf le dimanche », « une fois par mois »). Claude Opus, au premier tour : 19 phrases récrites, toutes lues comme le corrigé écrit d'avance, une laissée à juste titre (« une fois par semaine », une période), et les 13 autres laissées. Avant l'intégration, avec la même consigne à deux formes près : Claude Sonnet 18 sur 20 (un second tour pour une phrase), Claude Haiku 14 sur 20, aucune lue de travers, 13 sur 13 laissées. C'est une mesure, faite une fois par modèle, sur peu de phrases, avec des textes rédigés par des modèles et des pièges rédigés par l'auteur du lecteur : pas encore un texte de client. `scripts/verify-document.mjs` vérifie le mécanisme (contrôles, jugement du lecteur, lecture non acceptée) avec des réponses fixes, sans appeler de modèle.
 
+## 6 sexies. Site écrit comme des documents (prototype)
+
+Le site et ses pages peuvent s'écrire en texte : `site.md` à la place de `site.yaml`, `pages/<id>.md` à la place de `pages/<id>.page.yaml` (l'un ou l'autre pour chaque fichier, jamais les deux). Le compilateur lit ces documents sans modèle de langage, et sans règle propre à un composant : ce qu'une ligne veut dire, il le lit dans les données que le composant déclare (son bloc `données`), dans leur ordre. Un composant de site ou de paquet se lit donc comme un natif, sans rien ajouter au lecteur.
+
+<!-- sitec: pages/equipe.md -->
+```markdown
+# L'équipe du cabinet
+
+Trois avocats associés à Bordeaux.
+
+Adresse : /equipe
+
+## Bandeau : Le cabinet
+Fondé en 2011, un cabinet indépendant : trois associés, trois spécialités.
+Alignement : gauche
+Prendre rendez-vous → /contact
+
+## Équipe : Les associés
+- Me Hélène Garnier | Avocate associée, droit du travail | helene.svg | Fondatrice du cabinet.
+- Me Thomas Ruiz | Avocat associé, droit des affaires
+- Me Inès Kaddour | bio : Elle assiste ses clients dans les séparations et les successions.
+
+## Chiffres
+- 2011 | fondation du cabinet
+- 3 | avocats associés
+
+## Questions #questions : Avant de venir
+- La première consultation est-elle gratuite ? | Oui, trente minutes, sans engagement.
+- Où se garer ? | Parking Tourny, à 200 m.
+```
+
+| Dans une page | Ce que le lecteur en fait |
+|---|---|
+| `# Titre`, puis une ligne | le titre de la page (`seo.title`) et sa description |
+| `Adresse : /equipe` | la route ; obligatoire, « / » pour l'accueil |
+| `## composant : Titre` | une section : le composant par son nom du catalogue ou son nom français, puis son titre ; `## composant #ancre : Titre` pose l'`id` |
+| un paragraphe | le texte libre du composant : la première donnée texte déclarée après le titre (sous-titre, introduction, texte) |
+| `Nom : valeur` | une donnée, par son nom ou son nom français ; « oui » / « non », un nombre, « a, b, c » pour une liste de mots |
+| `Libellé → /cible` seul sur sa ligne | le premier lien libre du composant ; cible : route, `#ancre`, `https://…`, `mailto:…`, `tel:…` |
+| `- valeur \| valeur \| valeur` | un élément de la liste du composant ; les valeurs remplissent ses champs dans l'ordre de leur déclaration |
+| puces en retrait | la liste d'un élément (les lignes d'un groupe de tarifs) |
+| `Nom :` seul sur sa ligne | annonce la liste qui suit, si le composant en a plusieurs, ou un texte de plusieurs paragraphes |
+| un bloc `yaml` | ce qui ne se dit pas en lignes : `variants`, groupes libres, champs de formulaire libres |
+
+Dans une puce, un champ dont le type ne convient pas à la valeur est sauté : un nom d'icône va au champ icône, un fichier image au champ image, un « Libellé → /cible » au champ lien. « rien » saute un champ, « nom : valeur » en vise un. Rien ne se protège : « : », « , », « # », `{{ … }}` et les nombres s'écrivent tels quels, sans guillemets ni indentation. Les trois pièges YAML du mode d'emploi n'existent pas dans un document.
+
+`site.md` suit les mêmes règles, avec ses propres noms :
+
+<!-- sitec: aucun — le site d'essai de ce document est écrit en YAML ; examples/garnier-document porte un site.md compilé par le banc -->
+```markdown
+# Garnier & Associés
+
+Avocats à Bordeaux depuis 2011
+
+Langue : fr-FR
+Thème : clair
+color.primary : #6b2d5c
+Pied de page : Cabinet Garnier & Associés, avocats au Barreau de Bordeaux
+E-mail : contact@garnier-associes.fr
+Téléphone : 05 56 00 00 00
+Adresse : 25 cours de l'Intendance, 33000 Bordeaux
+Menu :
+- Accueil → /
+- Contact → /contact
+Liens du pied de page :
+- Mentions légales → /mentions-legales
+```
+
+Le reste de `site.yaml` (constantes, collections, boutique, agents…) s'écrit dans un bloc `yaml` du document, tel qu'en YAML.
+
+### Les garde-fous
+
+1. **Toute ligne a un rôle.** Une ligne qui ne trouve pas sa place est refusée, à sa ligne (`E_DOCUMENT`) : un texte sous un composant qui n'a pas de texte libre, une valeur de puce sans champ, un lien de trop, un intertitre. Une ligne « nom : valeur » dont le nom est à une lettre d'une donnée, ou reprend un mot d'une donnée sans en être une (« Image côté : left » pour « Côté de l'image »), est refusée elle aussi au lieu d'être rangée dans le texte.
+2. **Une seule lecture.** Les valeurs d'une puce suivent l'ordre des champs, et le type tranche. Il n'y a pas de seconde règle.
+3. **La lecture est redite et figée.** Ce que vaut chaque document est un YAML, gardé dans `lecture/` (`lecture/site.yaml`, `lecture/pages/<id>.page.yaml`). Un document modifié ou nouveau arrête `check` et `build` (`E_READING`) jusqu'à `sitec lire <dossier> --accepter`, qui dit, pour un document changé, les lignes de lecture retirées et ajoutées, et pour un document nouveau, chaque section avec ses données.
+
+Une erreur de validation (route inconnue, image absente, donnée obligatoire) renvoie à la ligne du document, puis au chemin de la donnée : `"path":"ligne 9 · sections[0].hero.secondary.to"`.
+
+### Commandes
+
+- `sitec lire <dossier> [--accepter] [--tout]` : l'état de chaque document ; `--tout` montre le YAML entier que vaut chacun.
+- `sitec rediger <dossier> [--dry-run]` : récrit un site YAML en documents. Chaque document écrit est relu et doit rendre les données de son YAML, sinon rien n'est écrit ; ce qui ne se dit pas en lignes passe dans un bloc `yaml`.
+- `sitec explain document` : le format en une page, avec les noms français des composants et des données. `sitec explain <composant> --document` : l'exemple du composant écrit en document.
+
+Hors du format à ce jour : `sitec migrate`, `sitec keywords --import`, les schémas de l'éditeur et l'atelier navigateur ne lisent que le YAML.
+
+### Ce qui est mesuré
+
+- **Même site.** `examples/garnier-document` est `examples/garnier-associes` écrit en documents : mêmes données, mêmes fichiers compilés à l'octet hors pages PHP (qui gardent l'ordre des données de leur source), même HTML rendu sur toutes les pages. `scripts/verify-site-document.mjs` le vérifie. Les quatre sites d'exemple s'écrivent en documents et se relisent à l'identique.
+- **Texte à écrire.** `scripts/measure-site-document.mjs` : la source des quatre sites d'exemple pèse 17 079 tokens en YAML (hors commentaires) et 14 250 en documents, soit 17 % de moins (de 14 à 23 % selon le site ; le plus fort gain là où aucun bloc `yaml` ne reste). Les quatre modifications du test de maintenance demandent 916 tokens écrits en YAML et 751 en documents, 18 % de moins.
+- **Travail d'un agent.** Douze agents Sonnet sans contexte, trois par case, tous réussis (`mesure-document/`, `scripts/measure-site-document-agents.mjs`). Création d'un site depuis un brief : 58 % de tokens produits en moins et 52 % de tokens traités en moins en documents. Cet écart tient pour partie à un seuil : les trois sites YAML dépassaient la longueur d'une commande sous Windows, leur écriture groupée a échoué et ils ont été écrits deux fois ; les trois sites en documents tenaient dessous. Éditions (quatre modifications) : aucun gain, 31 % de tokens produits en plus et 25 % de tokens traités en plus en documents (10 % et 4 % sans l'essai où le script de l'agent n'avait rien écrit), parce que la relecture ajoute une commande et que le champ de formulaire libre retombe en YAML. Trois essais par case, un seul modèle, un seul site : des ordres de grandeur.
+- **Une lecture fausse passée.** Sur les trois créations en documents, une portait une ligne de réglage mal nommée, lue comme du texte et affichée sur la page ; `check` et le banc ne la voyaient pas, l'agent l'a vue dans la lecture redite. Le lecteur refuse maintenant cette ligne.
+
 ## 6 ter. Éditeur
 
 `sitec schema <dossier>` produit des schémas JSON dérivés du catalogue réel du site (`.devanture/schema/` : site, pages, composés, manifestes, vocabulaire, paquet, cas de test, chaque collection, produits) et les déclare à l'extension YAML de VS Code (`.vscode/settings.json`, extension recommandée `redhat.vscode-yaml`). L'éditeur propose alors les composants et leurs props avec leur description et leur exemple, les fichiers d'`assets/`, les routes et les sources ; il souligne une prop, un composant, une image ou une route inconnus. Les expressions `{{ … }}` sont acceptées partout, `{ for, as, item }` dans les composés. Les schémas aident à la frappe, `sitec check` reste l'autorité (expressions, références croisées, gabarits).

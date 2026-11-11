@@ -1,3 +1,4 @@
+import path from 'node:path';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import { err, nearest } from './errors.js';
@@ -16,6 +17,7 @@ import { lintComponentCss } from './lang/css-lint.js';
 import { compileVocabulaire, prefixedWords } from './lang/vocabulaire.js';
 import { checkRules } from './lang/fonctionnement.js';
 import { BEHAVIORS, BEHAVIOR_NAMES, behaviorsUsedIn } from './lang/behaviors.js';
+import { lineOfPath } from './lang/site-document.js';
 
 /** Versions du langage que ce compilateur sait lire (site.yaml › language). */
 export const LANGUAGE_VERSIONS = [1];
@@ -161,7 +163,7 @@ export function validateProject(project, catalog) {
   const routes = new Set(project.pages.map(p => p.data?.route).filter(r => typeof r === 'string'));
   // Si une page n'a pas pu être lue, ses routes sont inconnues : on ne signale pas les routes
   // manquantes ni l'absence d'accueil, ce seraient des erreurs en cascade trompeuses.
-  const unreadPages = project.loadErrors.some(e => e.code === 'E_YAML_PARSE' && /\.page\.yaml$/.test(e.file || ''));
+  const unreadPages = project.loadErrors.some(e => (e.code === 'E_YAML_PARSE' && /\.page\.yaml$/.test(e.file || '')) || (e.code === 'E_DOCUMENT' && (project.documents?.pages || []).some(d => d.file === e.file)));
   const ajv = new Ajv({ allErrors: true, verbose: true, strict: false });
   addFormats(ajv);
   // Les routes dynamiques (/produit/[id]) acceptent tout lien /produit/<quelque chose>.
@@ -366,7 +368,7 @@ export function validateProject(project, catalog) {
     if (typeof page.data?.route === 'string') {
       if (seenRoutes.has(page.data.route)) {
         errors.push(err('E_DUPLICATE_ROUTE', { file, path: 'route', message: `La route ${page.data.route} est déjà utilisée par ${seenRoutes.get(page.data.route)}.`, hint: 'Deux pages ne peuvent pas partager la même route.' }));
-      } else seenRoutes.set(page.data.route, page.id + '.page.yaml');
+      } else seenRoutes.set(page.data.route, path.basename(page.file));
     }
     if (!Array.isArray(page.data?.sections)) continue;
     const origins = Object.keys(project.composites).length ? expandComposites(page, project.composites, project, errors, cat) : [];
@@ -462,7 +464,21 @@ export function validateProject(project, catalog) {
     errors.push(err('E_NO_HOME', { file: project.siteFile, path: '', message: 'Aucune page n\'a la route / (page d\'accueil).', hint: 'Donnez route: / à la page d\'accueil.' }));
   }
 
-  return dedupe(errors);
+  return dedupe(locateInDocuments(project, errors));
+}
+
+/** Une erreur de validation sur un site ou une page écrits en document renvoie à la ligne du document, puis au chemin de la donnée. */
+function locateInDocuments(project, errors) {
+  const docs = [project.documents?.site, ...(project.documents?.pages || [])].filter(Boolean);
+  if (!docs.length) return errors;
+  // Un document refusé n'a pas de lecture sûre : ses erreurs de validation seraient des redites trompeuses.
+  const refused = new Set(docs.filter(d => d.errors.length).map(d => d.file));
+  return errors.filter(e => !(refused.has(e.file) && e.code !== 'E_DOCUMENT')).map(e => {
+    const doc = docs.find(d => d.file === e.file);
+    if (!doc || !e.path || /^ligne \d/.test(e.path)) return e;
+    const line = lineOfPath(doc.where, e.path);
+    return line ? { ...e, path: `ligne ${line} · ${e.path}` } : e;
+  });
 }
 
 /** Avertissements (n'empêchent pas la compilation) : blocs custom hors validation, paquets hors du dossier avec l'atelier embarqué, version de langage implicite. */

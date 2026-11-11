@@ -1,0 +1,18 @@
+page: contact
+route: /contact
+seo: { title: Contact, description: "Contactez le cabinet Garnier & Associés à Bordeaux : 05 56 00 00 00, contact@garnier-associes.fr." }
+sections:
+  - contact.form:
+      title: Prendre rendez-vous
+      intro: "Décrivez brièvement votre situation : nous vous répondons pour fixer votre consultation de 30 minutes offerte."
+      to: contact@garnier-associes.fr
+      fields:
+        - name
+        - email
+        - phone
+        - { name: domaine, label: Domaine, type: select, options: [Droit du travail, Droit des affaires, Droit de la famille] }
+        - message
+      success: Merci, nous vous répondons rapidement.
+  - map:
+      title: Accès
+      address: "25 cours de l'Intendance, 33000 Bordeaux"

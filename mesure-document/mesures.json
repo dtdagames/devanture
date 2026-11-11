@@ -1,0 +1,511 @@
+{
+ "essais": [
+  {
+   "essai": "creation/yaml/run1",
+   "check_ok": true,
+   "build_ok": true,
+   "pages": 6,
+   "sections": 23,
+   "source_tokens": 2122,
+   "source_lignes": 172,
+   "blocs_yaml": null,
+   "banc": "50/50",
+   "banc_ok": true,
+   "tours": 11,
+   "tokens_produits": 10190,
+   "tokens_traites": 892937,
+   "contexte_final": 89502,
+   "appels_outils": 18,
+   "duree_s": 138.5
+  },
+  {
+   "essai": "creation/yaml/run2",
+   "check_ok": true,
+   "build_ok": true,
+   "pages": 6,
+   "sections": 23,
+   "source_tokens": 2087,
+   "source_lignes": 152,
+   "blocs_yaml": null,
+   "banc": "50/50",
+   "banc_ok": true,
+   "tours": 11,
+   "tokens_produits": 9828,
+   "tokens_traites": 889251,
+   "contexte_final": 87895,
+   "appels_outils": 18,
+   "duree_s": 155.1
+  },
+  {
+   "essai": "creation/yaml/run3",
+   "check_ok": true,
+   "build_ok": true,
+   "pages": 6,
+   "sections": 25,
+   "source_tokens": 2329,
+   "source_lignes": 236,
+   "blocs_yaml": null,
+   "banc": "50/50",
+   "banc_ok": true,
+   "tours": 10,
+   "tokens_produits": 10354,
+   "tokens_traites": 813591,
+   "contexte_final": 88581,
+   "appels_outils": 18,
+   "duree_s": 125.1
+  },
+  {
+   "essai": "creation/document/run1",
+   "check_ok": true,
+   "build_ok": true,
+   "pages": 6,
+   "sections": 19,
+   "source_tokens": 1193,
+   "source_lignes": 103,
+   "blocs_yaml": 0,
+   "banc": "50/50",
+   "banc_ok": true,
+   "tours": 6,
+   "tokens_produits": 4230,
+   "tokens_traites": 546315,
+   "contexte_final": 99655,
+   "appels_outils": 7,
+   "duree_s": 96.4
+  },
+  {
+   "essai": "creation/document/run2",
+   "check_ok": true,
+   "build_ok": true,
+   "pages": 6,
+   "sections": 18,
+   "source_tokens": 1253,
+   "source_lignes": 104,
+   "blocs_yaml": 0,
+   "banc": "50/50",
+   "banc_ok": true,
+   "tours": 4,
+   "tokens_produits": 3964,
+   "tokens_traites": 349653,
+   "contexte_final": 99720,
+   "appels_outils": 5,
+   "duree_s": 87.3
+  },
+  {
+   "essai": "creation/document/run3",
+   "check_ok": true,
+   "build_ok": true,
+   "pages": 6,
+   "sections": 23,
+   "source_tokens": 1517,
+   "source_lignes": 135,
+   "blocs_yaml": 1,
+   "banc": "50/50",
+   "banc_ok": true,
+   "tours": 4,
+   "tokens_produits": 4604,
+   "tokens_traites": 356152,
+   "contexte_final": 101486,
+   "appels_outils": 5,
+   "duree_s": 93,
+   "depuis": "refusé par le lecteur actuel : pages/domaines.md ligne 20 — « Image côté » n'est pas une donnée de richtext : vouliez-vous dire « côté de l'image » ?"
+  },
+  {
+   "essai": "edition/yaml/run1",
+   "check_ok": true,
+   "build_ok": true,
+   "pages": 7,
+   "sections": 29,
+   "source_tokens": 3137,
+   "source_lignes": 255,
+   "blocs_yaml": null,
+   "banc": "28/28",
+   "banc_ok": true,
+   "tours": 5,
+   "tokens_produits": 2470,
+   "tokens_traites": 362090,
+   "contexte_final": 76729,
+   "appels_outils": 7,
+   "duree_s": 67.3
+  },
+  {
+   "essai": "edition/yaml/run2",
+   "check_ok": true,
+   "build_ok": true,
+   "pages": 7,
+   "sections": 29,
+   "source_tokens": 3140,
+   "source_lignes": 250,
+   "blocs_yaml": null,
+   "banc": "28/28",
+   "banc_ok": true,
+   "tours": 4,
+   "tokens_produits": 1947,
+   "tokens_traites": 282486,
+   "contexte_final": 74623,
+   "appels_outils": 6,
+   "duree_s": 51.8
+  },
+  {
+   "essai": "edition/yaml/run3",
+   "check_ok": true,
+   "build_ok": true,
+   "pages": 7,
+   "sections": 29,
+   "source_tokens": 3129,
+   "source_lignes": 245,
+   "blocs_yaml": null,
+   "banc": "28/28",
+   "banc_ok": true,
+   "tours": 4,
+   "tokens_produits": 2065,
+   "tokens_traites": 294217,
+   "contexte_final": 78453,
+   "appels_outils": 5,
+   "duree_s": 64.7
+  },
+  {
+   "essai": "edition/document/run1",
+   "check_ok": true,
+   "build_ok": true,
+   "pages": 7,
+   "sections": 29,
+   "source_tokens": 2435,
+   "source_lignes": 163,
+   "blocs_yaml": 1,
+   "banc": "28/28",
+   "banc_ok": true,
+   "tours": 7,
+   "tokens_produits": 3702,
+   "tokens_traites": 522214,
+   "contexte_final": 80702,
+   "appels_outils": 8,
+   "duree_s": 90.8
+  },
+  {
+   "essai": "edition/document/run2",
+   "check_ok": true,
+   "build_ok": true,
+   "pages": 7,
+   "sections": 29,
+   "source_tokens": 2438,
+   "source_lignes": 163,
+   "blocs_yaml": 1,
+   "banc": "28/28",
+   "banc_ok": true,
+   "tours": 4,
+   "tokens_produits": 2329,
+   "tokens_traites": 292733,
+   "contexte_final": 79020,
+   "appels_outils": 6,
+   "duree_s": 65.5
+  },
+  {
+   "essai": "edition/document/run3",
+   "check_ok": true,
+   "build_ok": true,
+   "pages": 7,
+   "sections": 29,
+   "source_tokens": 2437,
+   "source_lignes": 161,
+   "blocs_yaml": 1,
+   "banc": "28/28",
+   "banc_ok": true,
+   "tours": 5,
+   "tokens_produits": 2435,
+   "tokens_traites": 359588,
+   "contexte_final": 76193,
+   "appels_outils": 6,
+   "duree_s": 54.5
+  }
+ ],
+ "cases": {
+  "creation/yaml": {
+   "source_tokens": {
+    "moyenne": 2179,
+    "essais": [
+     2122,
+     2087,
+     2329
+    ]
+   },
+   "sections": {
+    "moyenne": 24,
+    "essais": [
+     23,
+     23,
+     25
+    ]
+   },
+   "tours": {
+    "moyenne": 11,
+    "essais": [
+     11,
+     11,
+     10
+    ]
+   },
+   "tokens_produits": {
+    "moyenne": 10124,
+    "essais": [
+     10190,
+     9828,
+     10354
+    ]
+   },
+   "tokens_traites": {
+    "moyenne": 865260,
+    "essais": [
+     892937,
+     889251,
+     813591
+    ]
+   },
+   "contexte_final": {
+    "moyenne": 88659,
+    "essais": [
+     89502,
+     87895,
+     88581
+    ]
+   },
+   "appels_outils": {
+    "moyenne": 18,
+    "essais": [
+     18,
+     18,
+     18
+    ]
+   },
+   "duree_s": {
+    "moyenne": 140,
+    "essais": [
+     138.5,
+     155.1,
+     125.1
+    ]
+   },
+   "reussis": "3/3"
+  },
+  "creation/document": {
+   "source_tokens": {
+    "moyenne": 1321,
+    "essais": [
+     1193,
+     1253,
+     1517
+    ]
+   },
+   "sections": {
+    "moyenne": 20,
+    "essais": [
+     19,
+     18,
+     23
+    ]
+   },
+   "tours": {
+    "moyenne": 5,
+    "essais": [
+     6,
+     4,
+     4
+    ]
+   },
+   "tokens_produits": {
+    "moyenne": 4266,
+    "essais": [
+     4230,
+     3964,
+     4604
+    ]
+   },
+   "tokens_traites": {
+    "moyenne": 417373,
+    "essais": [
+     546315,
+     349653,
+     356152
+    ]
+   },
+   "contexte_final": {
+    "moyenne": 100287,
+    "essais": [
+     99655,
+     99720,
+     101486
+    ]
+   },
+   "appels_outils": {
+    "moyenne": 6,
+    "essais": [
+     7,
+     5,
+     5
+    ]
+   },
+   "duree_s": {
+    "moyenne": 92,
+    "essais": [
+     96.4,
+     87.3,
+     93
+    ]
+   },
+   "reussis": "3/3"
+  },
+  "edition/yaml": {
+   "source_tokens": {
+    "moyenne": 3135,
+    "essais": [
+     3137,
+     3140,
+     3129
+    ]
+   },
+   "sections": {
+    "moyenne": 29,
+    "essais": [
+     29,
+     29,
+     29
+    ]
+   },
+   "tours": {
+    "moyenne": 4,
+    "essais": [
+     5,
+     4,
+     4
+    ]
+   },
+   "tokens_produits": {
+    "moyenne": 2161,
+    "essais": [
+     2470,
+     1947,
+     2065
+    ]
+   },
+   "tokens_traites": {
+    "moyenne": 312931,
+    "essais": [
+     362090,
+     282486,
+     294217
+    ]
+   },
+   "contexte_final": {
+    "moyenne": 76602,
+    "essais": [
+     76729,
+     74623,
+     78453
+    ]
+   },
+   "appels_outils": {
+    "moyenne": 6,
+    "essais": [
+     7,
+     6,
+     5
+    ]
+   },
+   "duree_s": {
+    "moyenne": 61,
+    "essais": [
+     67.3,
+     51.8,
+     64.7
+    ]
+   },
+   "reussis": "3/3"
+  },
+  "edition/document": {
+   "source_tokens": {
+    "moyenne": 2437,
+    "essais": [
+     2435,
+     2438,
+     2437
+    ]
+   },
+   "sections": {
+    "moyenne": 29,
+    "essais": [
+     29,
+     29,
+     29
+    ]
+   },
+   "tours": {
+    "moyenne": 5,
+    "essais": [
+     7,
+     4,
+     5
+    ]
+   },
+   "tokens_produits": {
+    "moyenne": 2822,
+    "essais": [
+     3702,
+     2329,
+     2435
+    ]
+   },
+   "tokens_traites": {
+    "moyenne": 391512,
+    "essais": [
+     522214,
+     292733,
+     359588
+    ]
+   },
+   "contexte_final": {
+    "moyenne": 78638,
+    "essais": [
+     80702,
+     79020,
+     76193
+    ]
+   },
+   "appels_outils": {
+    "moyenne": 7,
+    "essais": [
+     8,
+     6,
+     6
+    ]
+   },
+   "duree_s": {
+    "moyenne": 70,
+    "essais": [
+     90.8,
+     65.5,
+     54.5
+    ]
+   },
+   "reussis": "3/3"
+  }
+ },
+ "ecarts_documents_contre_yaml": {
+  "creation": {
+   "source_tokens": "-39 %",
+   "tours": "-55 %",
+   "tokens_produits": "-58 %",
+   "tokens_traites": "-52 %",
+   "contexte_final": "+13 %",
+   "appels_outils": "-67 %",
+   "duree_s": "-34 %"
+  },
+  "edition": {
+   "source_tokens": "-22 %",
+   "tours": "+25 %",
+   "tokens_produits": "+31 %",
+   "tokens_traites": "+25 %",
+   "contexte_final": "+3 %",
+   "appels_outils": "+17 %",
+   "duree_s": "+15 %"
+  }
+ }
+}

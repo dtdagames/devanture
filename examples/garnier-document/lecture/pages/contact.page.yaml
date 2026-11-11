@@ -1,0 +1,31 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+route: /contact
+seo:
+  title: Contact | Garnier & Associés
+  description: "Contactez le cabinet Garnier & Associés à Bordeaux : 05 56 00 00 00, contact@garnier-associes.fr."
+sections:
+  - hero:
+      title: Nous contacter
+      subtitle: Cabinet à Bordeaux, interventions à Libourne et Arcachon.
+      align: left
+  - contact.form:
+      title: Écrivez-nous
+      intro: Décrivez brièvement votre situation, nous vous répondons rapidement pour fixer un rendez-vous. Ne joignez pas de pièces confidentielles à ce stade.
+      to: contact@garnier-associes.fr
+      fields:
+        - name
+        - email
+        - phone
+        - message
+      required:
+        - name
+        - email
+        - message
+      success: Merci, nous vous répondons sous deux jours ouvrés.
+  - gallery:
+      title: Bordeaux
+      images:
+        - src: bordeaux.svg
+          alt: Bordeaux
+          caption: 25 cours de l'Intendance

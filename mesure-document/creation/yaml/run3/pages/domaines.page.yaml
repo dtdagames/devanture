@@ -1,0 +1,49 @@
+page: domaines
+route: /domaines
+seo:
+  title: Domaines d'intervention | Garnier & Associés
+  description: Droit du travail, droit des affaires et droit de la famille à Bordeaux, Libourne et Arcachon.
+sections:
+  - hero:
+      title: Domaines d'intervention
+      subtitle: Chaque domaine est confié à l'un des associés du cabinet.
+  - richtext:
+      id: travail
+      title: Droit du travail
+      text: |
+        Me Hélène Garnier conseille et défend salariés et employeurs.
+
+        - Contrat de travail, modification, rupture
+        - Licenciement, rupture conventionnelle
+        - Contentieux prud'homal
+        - Harcèlement et discrimination
+  - richtext:
+      id: affaires
+      title: Droit des affaires
+      text: |
+        Me Thomas Ruiz accompagne les dirigeants et les sociétés.
+
+        - Création et structuration de société
+        - Contrats commerciaux
+        - Baux commerciaux
+        - Litiges entre associés et contentieux commercial
+  - richtext:
+      id: famille
+      title: Droit de la famille
+      text: |
+        Me Inès Kaddour accompagne les familles dans les moments sensibles.
+
+        - Divorce et séparation
+        - Garde des enfants et pension alimentaire
+        - Successions et partages
+        - Régimes matrimoniaux
+  - faq:
+      title: Questions fréquentes
+      items:
+        - q: Où intervenez-vous ?
+          a: À Bordeaux, Libourne et Arcachon.
+        - q: Comment se déroule la première consultation ?
+          a: Elle dure 30 minutes et elle est offerte. Elle permet de faire le point sur votre situation et sur les suites possibles.
+  - cta:
+      title: Vous ne savez pas quel domaine est concerné ?
+      button: { label: Décrivez-nous votre situation, to: /contact }

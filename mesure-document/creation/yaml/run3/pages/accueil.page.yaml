@@ -1,0 +1,46 @@
+page: accueil
+route: /
+seo:
+  title: Garnier & Associés, avocats à Bordeaux
+  description: "Cabinet d'avocats à Bordeaux : droit du travail, droit des affaires, droit de la famille. Première consultation de 30 minutes offerte."
+sections:
+  - hero:
+      title: Des avocats à vos côtés, à Bordeaux et en Gironde
+      subtitle: Droit du travail, droit des affaires, droit de la famille. Première consultation de 30 minutes offerte.
+      image: cabinet.svg
+      cta: { label: Prendre rendez-vous, to: /contact }
+      secondary: { label: Nos honoraires, to: /honoraires }
+  - features:
+      title: Trois domaines, trois associés
+      columns: 3
+      items:
+        - icon: users
+          title: Droit du travail
+          text: Salariés et employeurs, accompagnés par Me Hélène Garnier.
+          link: { label: En savoir plus, to: /domaines }
+        - icon: scale
+          title: Droit des affaires
+          text: Entrepreneurs et sociétés, conseillés par Me Thomas Ruiz.
+          link: { label: En savoir plus, to: /domaines }
+        - icon: heart
+          title: Droit de la famille
+          text: Familles accompagnées par Me Inès Kaddour.
+          link: { label: En savoir plus, to: /domaines }
+  - stats:
+      title: Le cabinet en bref
+      items:
+        - { value: "2011", label: Année de fondation }
+        - { value: "3", label: Avocats associés }
+        - { value: "3", label: Villes d'intervention }
+        - { value: 30 min, label: De première consultation offerte }
+  - richtext:
+      title: Un cabinet à taille humaine
+      text: |
+        Fondé en 2011, le cabinet Garnier & Associés réunit trois associés, deux collaboratrices et une assistante. Chaque dossier est suivi par un avocat identifié, qui reste votre interlocuteur du début à la fin.
+
+        Nous intervenons à Bordeaux, Libourne et Arcachon.
+      cta: { label: Découvrir le cabinet, to: /cabinet }
+  - cta:
+      title: Un litige, une question, un projet ?
+      text: La première consultation de 30 minutes est offerte.
+      button: { label: Nous contacter, to: /contact }

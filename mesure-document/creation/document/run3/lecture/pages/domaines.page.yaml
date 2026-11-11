@@ -1,0 +1,54 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+route: /domaines
+seo:
+  title: Domaines d'intervention
+  description: Droit du travail, droit des affaires et droit de la famille au cabinet Garnier & Associés.
+sections:
+  - hero:
+      title: Domaines d'intervention
+      subtitle: Chaque domaine est suivi par un associé dédié.
+  - richtext:
+      title: Droit du travail
+      text: |-
+        Me Hélène Garnier vous conseille et vous défend en droit du travail.
+
+        Pour toute situation touchant à votre relation de travail, la première consultation de 30 minutes est offerte.
+      image: garnier.svg
+      cta:
+        label: Prendre rendez-vous
+        to: /contact
+      id: travail
+  - richtext:
+      title: Droit des affaires
+      text: |-
+        Me Thomas Ruiz accompagne les entreprises en droit des affaires.
+
+        Pour toute question touchant à votre activité, la première consultation de 30 minutes est offerte.
+
+        Image côté : left
+      image: ruiz.svg
+      cta:
+        label: Prendre rendez-vous
+        to: /contact
+      id: affaires
+  - richtext:
+      title: Droit de la famille
+      text: |-
+        Me Inès Kaddour intervient en droit de la famille.
+
+        Pour toute situation familiale, la première consultation de 30 minutes est offerte.
+      image: kaddour.svg
+      cta:
+        label: Prendre rendez-vous
+        to: /contact
+      id: famille
+  - faq:
+      title: Questions fréquentes
+      items:
+        - q: Dans quelles villes intervenez-vous ?
+          a: À Bordeaux, Libourne et Arcachon.
+        - q: La première consultation est-elle payante ?
+          a: Non, la première consultation de 30 minutes est offerte.
+        - q: Comment sont fixés les honoraires ?
+          a: Au forfait ou au temps passé, toujours par une convention d'honoraires.

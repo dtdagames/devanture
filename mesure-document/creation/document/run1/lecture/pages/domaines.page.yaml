@@ -1,0 +1,38 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+route: /domaines
+seo:
+  title: Domaines d'intervention
+  description: Droit du travail, droit des affaires et droit de la famille à Bordeaux.
+sections:
+  - hero:
+      title: Domaines d'intervention
+      subtitle: Trois associés, trois spécialités.
+  - features:
+      title: Nos spécialités
+      columns: 3
+      items:
+        - icon: users
+          title: Droit du travail
+          text: Me Hélène Garnier vous accompagne, salarié ou employeur.
+        - icon: scale
+          title: Droit des affaires
+          text: Me Thomas Ruiz conseille et défend les entreprises.
+        - icon: heart
+          title: Droit de la famille
+          text: Me Inès Kaddour vous accompagne dans les moments sensibles.
+  - faq:
+      title: Questions fréquentes
+      items:
+        - q: Dans quelles villes intervenez-vous ?
+          a: Nous intervenons à Bordeaux, Libourne et Arcachon.
+        - q: La première consultation est-elle payante ?
+          a: Non, la première consultation de 30 minutes est offerte.
+        - q: Quel associé va traiter mon dossier ?
+          a: "Selon la nature de votre affaire : Me Garnier, Me Ruiz ou Me Kaddour."
+  - cta:
+      title: Exposez-nous votre situation
+      text: Première consultation de 30 minutes offerte.
+      button:
+        label: Prendre rendez-vous
+        to: /contact

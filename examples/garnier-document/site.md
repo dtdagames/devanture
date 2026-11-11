@@ -1,0 +1,19 @@
+# Garnier & Associés
+
+Avocats à Bordeaux depuis 2011
+
+Langue : fr-FR
+Thème : clair
+Pied de page : Cabinet Garnier & Associés, avocats au Barreau de Bordeaux
+E-mail : contact@garnier-associes.fr
+Téléphone : 05 56 00 00 00
+Adresse : 25 cours de l'Intendance, 33000 Bordeaux
+Paquets : ../paquets/vitrine
+Menu :
+- Accueil → /
+- Domaines d'intervention → /domaines
+- Le cabinet → /cabinet
+- Honoraires → /honoraires
+- Contact → /contact
+Liens du pied de page :
+- Mentions légales → /mentions-legales

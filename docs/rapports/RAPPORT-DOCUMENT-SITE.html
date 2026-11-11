@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Site en documents</title>
+<style>
+  :root { --bg:#fff; --bg-soft:#f6f7f9; --fg:#1b1f24; --fg-muted:#5b6470; --accent:#1f3a5f; --accent-soft:#e8eef6; --border:#d9dee5; --code-bg:#f1f3f6; --ok-bg:#e7f5ec; --ok-border:#5aa36f; --warn-bg:#fff6e0; --warn-border:#e8c46a; --bar:#1f3a5f; --bar2:#8aa3c4; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0f1216; --bg-soft:#161b22; --fg:#e6e9ee; --fg-muted:#9aa4b1; --accent:#8fb4e3; --accent-soft:#1b2a3f; --border:#2a323d; --code-bg:#161b22; --ok-bg:#12301c; --ok-border:#3c8a52; --warn-bg:#2b2410; --warn-border:#8a6d1f; --bar:#8fb4e3; --bar2:#3b5676; } }
+  :root[data-theme="dark"] { --bg:#0f1216; --bg-soft:#161b22; --fg:#e6e9ee; --fg-muted:#9aa4b1; --accent:#8fb4e3; --accent-soft:#1b2a3f; --border:#2a323d; --code-bg:#161b22; --ok-bg:#12301c; --ok-border:#3c8a52; --warn-bg:#2b2410; --warn-border:#8a6d1f; --bar:#8fb4e3; --bar2:#3b5676; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:32px 16px 80px; }
+  header { border-bottom:1px solid var(--border); padding-bottom:20px; margin-bottom:28px; }
+  header h1 { font-size:1.8rem; line-height:1.25; margin:0 0 8px; }
+  header p.meta { color:var(--fg-muted); margin:0; }
+  h2 { font-size:1.4rem; margin:44px 0 12px; padding-top:8px; border-top:1px solid var(--border); }
+  p { margin:0 0 14px; } ul, ol { margin:0 0 14px; padding-left:24px; } li { margin-bottom:5px; }
+  code { font:.9em/1.5 ui-monospace,"Cascadia Code",Consolas,monospace; background:var(--code-bg); padding:1px 5px; border-radius:4px; }
+  pre { background:var(--code-bg); border:1px solid var(--border); border-radius:8px; padding:12px 14px; overflow-x:auto; margin:0 0 18px; }
+  pre code { background:none; padding:0; font-size:.82rem; }
+  table { width:100%; border-collapse:collapse; margin:0 0 20px; font-size:.93rem; }
+  th, td { text-align:left; vertical-align:top; padding:8px 10px; border:1px solid var(--border); }
+  th { background:var(--bg-soft); font-weight:600; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  tr.dsl td { background:var(--accent-soft); }
+  .table-wrap { overflow-x:auto; margin-bottom:20px; }
+  .verdict { background:var(--accent-soft); border-left:4px solid var(--accent); padding:14px 18px; border-radius:0 8px 8px 0; margin-bottom:18px; }
+  .box { border-radius:8px; padding:12px 16px; margin:0 0 18px; border:1px solid; }
+  .ok { background:var(--ok-bg); border-color:var(--ok-border); } .warn { background:var(--warn-bg); border-color:var(--warn-border); }
+  .bars { margin:0 0 22px; }
+  .bar-row { display:grid; grid-template-columns:200px 1fr 90px; gap:10px; align-items:center; margin-bottom:6px; font-size:.92rem; }
+  .bar-row .track { background:var(--bg-soft); border:1px solid var(--border); border-radius:4px; height:18px; overflow:hidden; position:relative; }
+  .bar-row .fill { height:100%; background:var(--bar2); }
+  .bar-row.dsl .fill { background:var(--bar); }
+  .bar-row .range { position:absolute; top:3px; height:12px; border-left:2px solid #c0392b; border-right:2px solid #c0392b; }
+  .bar-row .n { text-align:right; font-variant-numeric:tabular-nums; }
+  .legend { font-size:.85rem; color:var(--fg-muted); margin:-10px 0 18px; }
+  @media (max-width:640px) { header h1 { font-size:1.45rem; } .bar-row { grid-template-columns:1fr; gap:2px; } .bar-row .n { text-align:left; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Un site écrit comme des documents : même site qu'en YAML, et ce que cela économise en tokens</h1>
+  <p class="meta">Réalisé le 11 novembre 2026 · Devanture v0.14.0 · Suite du <a href="RAPPORT-VARIANCE.html">test de variance</a> et du <a href="RAPPORT-MAINTENANCE.html">test de maintenance</a>, dont il reprend le brief, les quatre modifications et les bancs.</p>
+</header>
+
+<h2>1. Verdict</h2>
+<div class="verdict">
+Le site d'exemple Garnier &amp; Associés est écrit en documents (<code>site.md</code>, <code>pages/&lt;id&gt;.md</code>) et donne le même site que sa version YAML. À écrire, c'est <strong>17 % de tokens en moins</strong> pour le même site et <strong>18 % en moins</strong> pour les mêmes éditions. Pour un agent qui travaille, le gain existe <strong>à la création</strong> (moitié moins de tokens, en partie par un effet de seuil) et <strong>pas aux éditions</strong> (un peu plus de tokens en documents).
+</div>
+<ul>
+  <li><strong>Même site.</strong> Mêmes données, mêmes fichiers compilés, même HTML sur les six pages. Les quatre sites d'exemple se convertissent et se relisent à l'identique.</li>
+  <li><strong>Création par un agent</strong> (Sonnet, trois essais par format, tous réussis) : -58 % de tokens produits, -52 % de tokens traités, -34 % de durée en documents.</li>
+  <li><strong>Éditions par un agent</strong> (quatre modifications, trois essais par format, tous réussis) : +31 % de tokens produits, +25 % de tokens traités en documents.</li>
+  <li><strong>Une lecture fausse est passée</strong> dans un des trois sites créés en documents. Le lecteur a été corrigé ; ce site-là ne passe plus <code>check</code>.</li>
+</ul>
+
+<h2>2. Ce qui a été fait</h2>
+<p>Le format document, jusqu'ici réservé à un composant à formulaire, décrit maintenant un site entier. La technique de lecture n'est pas la même : un composant à règles se lit par des tournures de phrase, un site est surtout du contenu. Le lecteur de site n'a donc aucune règle par composant. Il lit chaque ligne d'après les données que le composant déclare, dans leur ordre.</p>
+<pre><code># Honoraires | Garnier &amp; Associés
+
+Honoraires au forfait ou au temps passé, convention d'honoraires systématique.
+
+Adresse : /honoraires
+
+## Bandeau : Nos honoraires
+Transparents, annoncés dès le départ et formalisés par écrit.
+Alignement : left
+
+## Points forts : Comment sont fixés nos honoraires
+Colonnes : 3
+- gift | Première consultation offerte | Trente minutes pour exposer votre situation, sans engagement.
+- check | Forfait | Pour les missions dont le périmètre est connu à l'avance.
+
+## Appel : Parlons de votre dossier
+Prendre rendez-vous → /contact</code></pre>
+<p>Les garde-fous du format sont repris : une ligne qui ne trouve pas sa place est refusée à sa ligne, et la lecture de chaque document (le YAML qu'il vaut) est figée dans <code>lecture/</code> ; tout changement arrête la compilation jusqu'à <code>sitec lire &lt;dossier&gt; --accepter</code>. Ce qui ne se dit pas en lignes (variantes, champs de formulaire libres, collections, boutique) reste du YAML, dans un bloc du document.</p>
+<p>Commandes nouvelles : <code>sitec rediger</code> (du YAML aux documents, chaque document relu), <code>sitec lire</code> étendu au site, <code>sitec explain document</code>, <code>sitec explain &lt;composant&gt; --document</code>. Exemple : <code>examples/garnier-document</code>. Détail : <code>docs/LANGAGE.md</code>, section 6 sexies.</p>
+
+<h2>3. Même site</h2>
+<div class="table-wrap"><table>
+  <thead><tr><th>Contrôle (<code>scripts/verify-site-document.mjs</code>, 55 contrôles)</th><th>Résultat</th></tr></thead>
+  <tbody>
+    <tr><td>Données lues de <code>site.md</code> et des six pages, comparées au YAML</td><td>identiques</td></tr>
+    <tr><td>Gabarits, styles, scripts, index d'intention, versions texte compilés</td><td>identiques à l'octet</td></tr>
+    <tr><td>Pages PHP compilées</td><td>ordre des données différent (celui de la déclaration du composant) ; comparées par leur rendu</td></tr>
+    <tr><td>HTML rendu par PHP sur les six pages</td><td>identique</td></tr>
+    <tr><td>Aller-retour des quatre sites d'exemple (29 pages)</td><td>chaque document écrit se relit à l'identique</td></tr>
+  </tbody>
+</table></div>
+
+<h2>4. Texte à écrire</h2>
+<p>Mesure du texte seul, sans agent (<code>scripts/measure-site-document.mjs</code>). Le YAML est compté sans ses commentaires.</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Site (création : la source entière)</th><th class="num">Pages</th><th class="num">YAML</th><th class="num">Documents</th><th class="num">Écart</th><th class="num">Blocs YAML gardés</th></tr></thead>
+  <tbody>
+    <tr><td>garnier-associes</td><td class="num">6</td><td class="num">2 910</td><td class="num">2 243</td><td class="num">−23 %</td><td class="num">0</td></tr>
+    <tr><td>plomberie-martin</td><td class="num">7</td><td class="num">5 139</td><td class="num">4 424</td><td class="num">−14 %</td><td class="num">9</td></tr>
+    <tr><td>le-fournil</td><td class="num">6</td><td class="num">6 215</td><td class="num">5 216</td><td class="num">−16 %</td><td class="num">3</td></tr>
+    <tr><td>savonnerie</td><td class="num">10</td><td class="num">2 815</td><td class="num">2 367</td><td class="num">−16 %</td><td class="num">11</td></tr>
+    <tr><th>Total</th><th></th><th class="num">17 079</th><th class="num">14 250</th><th class="num">−17 %</th><th></th></tr>
+  </tbody>
+</table></div>
+<div class="table-wrap"><table>
+  <thead><tr><th>Éditions (quatre modifications, lignes changées)</th><th class="num">Tokens écrits en YAML</th><th class="num">En documents</th><th class="num">Écart</th></tr></thead>
+  <tbody>
+    <tr><td>garnier-associes</td><td class="num">451</td><td class="num">367</td><td class="num">−19 %</td></tr>
+    <tr><td>le-fournil</td><td class="num">465</td><td class="num">384</td><td class="num">−17 %</td></tr>
+    <tr><th>Total</th><th class="num">916</th><th class="num">751</th><th class="num">−18 %</th></tr>
+  </tbody>
+</table></div>
+<p>Le gain vient de ce que le document ne porte ni clés répétées, ni guillemets, ni indentation. Il est le plus fort (23 %) sur le site qui n'a besoin d'aucun bloc YAML, et tombe vers 15 % quand des variantes, des collections ou une boutique restent en YAML.</p>
+
+<h2>5. Travail d'un agent</h2>
+<p>Douze agents Sonnet sans contexte, trois par case, avec les consignes du test de variance (<code>mesure-document/BRIEFS.md</code>). Création : écrire le site du cabinet depuis le brief client. Éditions : appliquer les quatre modifications du test de maintenance au même site de départ, écrit dans chaque format. Les deux consignes d'une tâche ne diffèrent que par le format demandé.</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Moyennes de trois essais</th><th class="num">Création YAML</th><th class="num">Création documents</th><th class="num">Écart</th><th class="num">Éditions YAML</th><th class="num">Éditions documents</th><th class="num">Écart</th></tr></thead>
+  <tbody>
+    <tr><td>Tokens produits par l'agent</td><td class="num">10 124</td><td class="num">4 266</td><td class="num">-58 %</td><td class="num">2 161</td><td class="num">2 822</td><td class="num">+31 %</td></tr>
+    <tr><td>Tokens traités (lus et produits, tous les tours)</td><td class="num">865 260</td><td class="num">417 373</td><td class="num">-52 %</td><td class="num">312 931</td><td class="num">391 512</td><td class="num">+25 %</td></tr>
+    <tr><td>Tours</td><td class="num">11</td><td class="num">5</td><td class="num">-55 %</td><td class="num">4</td><td class="num">5</td><td class="num">+25 %</td></tr>
+    <tr><td>Appels d'outils</td><td class="num">18</td><td class="num">6</td><td class="num">-67 %</td><td class="num">6</td><td class="num">7</td><td class="num">+17 %</td></tr>
+    <tr><td>Durée</td><td class="num">140 s</td><td class="num">92 s</td><td class="num">-34 %</td><td class="num">61 s</td><td class="num">70 s</td><td class="num">+15 %</td></tr>
+    <tr><td>Source laissée (tokens)</td><td class="num">2 179</td><td class="num">1 321</td><td class="num">-39 %</td><td class="num">3 135</td><td class="num">2 437</td><td class="num">-22 %</td></tr>
+    <tr><td>Essais réussis (check, build, banc)</td><td class="num">3/3</td><td class="num">3/3</td><td></td><td class="num">3/3</td><td class="num">3/3</td><td></td></tr>
+  </tbody>
+</table></div>
+<div class="table-wrap"><table>
+  <thead><tr><th>Case</th><th>Essai</th><th class="num">Tours</th><th class="num">Appels</th><th class="num">Produits</th><th class="num">Traités</th><th class="num">Durée</th><th class="num">Source</th><th class="num">Sections</th><th>Banc</th></tr></thead>
+  <tbody>
+    <tr><td>Création · YAML</td><td>1</td><td class="num">11</td><td class="num">18</td><td class="num">10 190</td><td class="num">892 937</td><td class="num">138,5 s</td><td class="num">2 122</td><td class="num">23</td><td>50/50</td></tr>
+    <tr><td>Création · YAML</td><td>2</td><td class="num">11</td><td class="num">18</td><td class="num">9 828</td><td class="num">889 251</td><td class="num">155,1 s</td><td class="num">2 087</td><td class="num">23</td><td>50/50</td></tr>
+    <tr><td>Création · YAML</td><td>3</td><td class="num">10</td><td class="num">18</td><td class="num">10 354</td><td class="num">813 591</td><td class="num">125,1 s</td><td class="num">2 329</td><td class="num">25</td><td>50/50</td></tr>
+    <tr class="dsl"><td>Création · documents</td><td>1</td><td class="num">6</td><td class="num">7</td><td class="num">4 230</td><td class="num">546 315</td><td class="num">96,4 s</td><td class="num">1 193</td><td class="num">19</td><td>50/50</td></tr>
+    <tr class="dsl"><td>Création · documents</td><td>2</td><td class="num">4</td><td class="num">5</td><td class="num">3 964</td><td class="num">349 653</td><td class="num">87,3 s</td><td class="num">1 253</td><td class="num">18</td><td>50/50</td></tr>
+    <tr class="dsl"><td>Création · documents</td><td>3</td><td class="num">4</td><td class="num">5</td><td class="num">4 604</td><td class="num">356 152</td><td class="num">93 s</td><td class="num">1 517</td><td class="num">23</td><td>50/50</td></tr>
+    <tr><td>Éditions · YAML</td><td>1</td><td class="num">5</td><td class="num">7</td><td class="num">2 470</td><td class="num">362 090</td><td class="num">67,3 s</td><td class="num">3 137</td><td class="num">29</td><td>28/28</td></tr>
+    <tr><td>Éditions · YAML</td><td>2</td><td class="num">4</td><td class="num">6</td><td class="num">1 947</td><td class="num">282 486</td><td class="num">51,8 s</td><td class="num">3 140</td><td class="num">29</td><td>28/28</td></tr>
+    <tr><td>Éditions · YAML</td><td>3</td><td class="num">4</td><td class="num">5</td><td class="num">2 065</td><td class="num">294 217</td><td class="num">64,7 s</td><td class="num">3 129</td><td class="num">29</td><td>28/28</td></tr>
+    <tr class="dsl"><td>Éditions · documents</td><td>1</td><td class="num">7</td><td class="num">8</td><td class="num">3 702</td><td class="num">522 214</td><td class="num">90,8 s</td><td class="num">2 435</td><td class="num">29</td><td>28/28</td></tr>
+    <tr class="dsl"><td>Éditions · documents</td><td>2</td><td class="num">4</td><td class="num">6</td><td class="num">2 329</td><td class="num">292 733</td><td class="num">65,5 s</td><td class="num">2 438</td><td class="num">29</td><td>28/28</td></tr>
+    <tr class="dsl"><td>Éditions · documents</td><td>3</td><td class="num">5</td><td class="num">6</td><td class="num">2 435</td><td class="num">359 588</td><td class="num">54,5 s</td><td class="num">2 437</td><td class="num">29</td><td>28/28</td></tr>
+  </tbody>
+</table></div>
+<p class="legend">Tokens produits et traités : relevés tour par tour dans le journal de chaque agent (<code>mesure-document/usage.json</code>). Traités = lus hors cache, écrits au cache, relus du cache et produits. Banc : <code>verify-php-site.mjs</code> (création), <code>verify-maintenance.mjs</code> (éditions).</p>
+
+<h2>6. Lecture</h2>
+<p><strong>Création.</strong> L'écart de 58 % sur les tokens produits a trois causes, que la mesure ne sépare pas proprement.</p>
+<ul>
+  <li><strong>Un seuil.</strong> Les six agents ont d'abord écrit tout le site en une commande. Les trois commandes YAML (8,7 à 9,7 milliers d'octets) ont échoué sur une erreur du shell, et les agents ont récrit le site fichier par fichier : environ 3 800 tokens produits deux fois par essai, et six tours de plus. Les trois commandes en documents (6,0 à 7,2 milliers d'octets) sont passées. Les commandes YAML sont valides (<code>bash -n</code> les accepte) : l'échec ressemble à une limite de longueur de commande sous Windows, que je n'ai pas démontrée. C'est un effet réel sur ce poste, pas une propriété du format.</li>
+  <li><strong>Des sites plus petits.</strong> Les agents ont écrit 20 sections en moyenne en documents, contre 24 en YAML. Rien dans la consigne ne l'explique.</li>
+  <li><strong>Le format.</strong> Par section, la source pèse 66 tokens en documents contre 92 en YAML (28 % de moins), proche de la mesure du texte.</li>
+</ul>
+<p>Sans la première écriture perdue, l'écart sur les tokens produits serait d'environ un tiers ; ramené à la section, d'environ un cinquième.</p>
+<p><strong>Éditions.</strong> Pas de gain. Une édition écrit peu (750 à 900 tokens de source) et lit beaucoup : le mode d'emploi, les fiches, les fichiers. L'économie de texte y pèse peu, et le format document ajoute une commande de relecture et sa sortie. La quatrième modification (un champ de formulaire libre) retombe en YAML dans le document. Un des trois essais en documents a perdu un tour parce que le script d'édition de l'agent n'avait rien écrit ; sans lui, l'écart est de +10 % en tokens produits et +4 % en tokens traités.</p>
+<p><strong>Erreurs de format.</strong> Aucun des six agents en documents n'a reçu d'erreur <code>E_DOCUMENT</code>. Un agent YAML a buté sur une virgule dans un texte en notation <code>{ }</code>, le premier piège du mode d'emploi, qui n'existe pas en documents.</p>
+
+<h2>7. Une lecture fausse</h2>
+<div class="box warn">
+Dans le troisième site créé en documents, l'agent a écrit <code>Image côté : left</code> au lieu de <code>Côté de l'image : left</code>. Le lecteur ne connaissait pas ce nom et a rangé la ligne dans le texte de la section : elle s'affichait sur la page. Ni <code>check</code> ni le banc ne le voyaient. L'agent l'a remarqué dans la lecture redite par <code>sitec lire</code> (la donnée n'y figurait pas) et l'a signalé sans corriger.
+</div>
+<p>Le lecteur refuse maintenant une ligne « nom : valeur » dont le nom reprend un mot d'une donnée du composant sans en être une, et propose le bon nom. Ce site ne passe donc plus <code>check</code> ; il est gardé tel que l'agent l'a laissé. Le défaut de fond demeure : une ligne « nom : valeur » dont le nom ne ressemble à aucune donnée est lue comme du texte, et seule la lecture redite le montre.</p>
+
+<h2>8. Limites</h2>
+<ul>
+  <li>Trois essais par case, un seul modèle (Sonnet), un seul site, une seule machine. Les écarts sont des ordres de grandeur.</li>
+  <li>Le mode d'emploi lu par les agents décrit les deux formats : chaque agent paie la lecture des deux.</li>
+  <li>La fiche <code>explain &lt;composant&gt; --document</code> donne l'exemple dans les deux écritures, ce qui alourdit le contexte des agents en documents (contexte final +13 % à la création).</li>
+  <li>Prototype : <code>migrate</code>, <code>keywords --import</code>, les schémas de l'éditeur et l'atelier navigateur ne lisent que le YAML.</li>
+  <li>À la première acceptation d'un document, la lecture est redite en résumé (sections et données), pas valeur par valeur ; <code>--tout</code> la donne en entier.</li>
+</ul>
+
+<h2>9. Reproduire</h2>
+<pre><code>node scripts/verify-site-document.mjs            # même site, règles de lecture, refus, lecture figée (55 contrôles)
+node scripts/measure-site-document.mjs           # texte à écrire : création et éditions
+node scripts/measure-site-document-agents.mjs    # les douze sites laissés par les agents : check, build, bancs, écarts
+node bin/sitec.js lire examples/garnier-document --tout
+node bin/sitec.js explain document</code></pre>
+<p>Les douze sites, les consignes et les relevés sont dans <code>mesure-document/</code>. Les journaux des agents ne sont pas au dépôt ; <code>usage.json</code> en est le relevé.</p>
+
+</div>
+</body>
+</html>

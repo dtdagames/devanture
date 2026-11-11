@@ -1,0 +1,37 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+route: /honoraires
+seo:
+  title: Honoraires
+  description: Honoraires au forfait ou au temps passé, avec convention d'honoraires systématique.
+sections:
+  - pricelist:
+      title: Nos modes de rémunération
+      note: Les montants sont fixés dans la convention d'honoraires remise avant toute intervention.
+      groups:
+        - title: Modes d'honoraires
+          items:
+            - name: Première consultation
+              price: offerte
+              description: 30 minutes pour exposer votre situation
+            - name: Honoraires au forfait
+              price: "[à compléter]"
+              description: Montant fixé à l'avance dans la convention
+            - name: Honoraires au temps passé
+              price: "[à compléter]"
+              description: Facturés selon le temps consacré au dossier
+  - steps:
+      title: Comment sont fixés les honoraires
+      items:
+        - title: Première consultation
+          text: Trente minutes offertes.
+        - title: Choix du mode
+          text: Forfait ou temps passé, selon votre dossier.
+        - title: Convention d'honoraires
+          text: Elle est systématiquement signée avant le début de l'intervention.
+  - cta:
+      title: Un doute sur le coût de votre dossier ?
+      text: Parlons-en lors de la première consultation offerte.
+      button:
+        label: Prendre rendez-vous
+        to: /contact

@@ -20,7 +20,7 @@ run() {
   fi
 }
 
-for d in examples/plomberie-martin examples/savonnerie examples/garnier-associes examples/le-fournil; do
+for d in examples/plomberie-martin examples/savonnerie examples/garnier-associes examples/garnier-document examples/le-fournil; do
   echo "== $d"
   run "check $d" node bin/sitec.js check "$d"
   run "build $d" node bin/sitec.js build "$d" --draft
