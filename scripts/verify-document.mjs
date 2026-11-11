@@ -117,6 +117,12 @@ try {
   ok('champs : énumération à articles contractés, exemple sans parenthèses, « ce dernier étant facultatif » (le formulaire n\'est pas un champ)', !q.errors.length && JSON.stringify(q.form.champs) === JSON.stringify({ seance: 'choix, un parmi Matin, Soir — Séance', name: null, email: null, personnes: 'nombre — Nombre de personnes (ex. 2)', message: 'facultatif' }), q.err + JSON.stringify(q.form.champs));
   q = read('', BASE.replace(FIELDS, 'Le visiteur choisit sa séance (Matin ou Soir), par exemple Matin, et indique son nom.'));
   ok('champs : un exemple après un choix déjà donné entre parenthèses est refusé', refused(q, /a déjà ses valeurs entre parenthèses/), q.err + JSON.stringify(q.form.champs));
+  // Un mot qui désigne deux champs (« paniers » : la taille du panier, le nombre de paniers souhaités) n'en choisit aucun.
+  const PANIERS = BASE.replace(FIELDS, 'Le visiteur choisit la taille du panier (Petit, Grand), indique son nom, son e-mail et le nombre de paniers souhaités (par exemple 1).');
+  q = read('Il y a 40 places, comptées par paniers.', PANIERS);
+  ok('garde-fou 2 : un mot qui désigne deux champs fait refuser la phrase, les deux champs cités', refused(q, /« paniers » désigne 2 champs du formulaire \(taille_panier, paniers_souhaites\)/) && !q.form.places, q.err + JSON.stringify(q.form.places));
+  q = read('Il y a 40 places, comptées par paniers souhaités.\nLa taille du panier et le nombre de paniers sont obligatoires, le nom est facultatif.', PANIERS);
+  ok('champs : désignés par les mots de leur libellé ; un voisin tranche (« paniers souhaités », « la taille du panier », « le nombre de paniers »)', !q.errors.length && q.form.places === '40, comptées par paniers_souhaites' && q.form.champs.name === 'facultatif' && !/facultatif/.test(q.form.champs.taille_panier + q.form.champs.paniers_souhaites), q.err + JSON.stringify(q.form));
 
   // --- garde-fou 1 : tout mot doit être expliqué
   q = read('Il y a 8 places par séance pendant les vacances.');

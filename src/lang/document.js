@@ -167,8 +167,21 @@ export function tokenize(sentence, fields = [], { subject = null } = {}) {
     else for (const part of m[4].replace(/’/g, "'").split(/(?<=')/)) { const w = part.replace(/'$/, ''); if (w) raw.push({ t: 'mot', text: w, key: key(w) }); }
   }
   // Noms des champs déclarés : par leur nom et par leur libellé, à la racine près.
-  const fieldKeys = new Map();
-  for (const f of fields) for (const k of [key(f.name), ...words(f.label || '').map(stem).slice(-1)]) if (k && !LIAISON.has(k)) fieldKeys.set(k, f.name);
+  const fieldWords = new Map();
+  for (const f of fields) for (const k of [key(f.name), ...words(f.label || '').map(stem)]) if (k && !LIAISON.has(k)) (fieldWords.get(k) || fieldWords.set(k, new Set()).get(k)).add(f.name);
+  const isNumber = n => fields.find(x => x.name === n)?.type === 'number';
+  // Le champ que désigne le mot i : un nom, { many } si le mot désigne plusieurs champs et que rien ne tranche, null sinon.
+  const fieldAt = i => {
+    const r = raw[i]; if (!r || r.t !== 'mot') return null;
+    const skip = (j, dir) => { while (raw[j] && raw[j].t === 'mot' && LIAISON.has(raw[j].key)) j += dir; return raw[j] && raw[j].t === 'mot' ? j : -1; };
+    // « le nombre de personnes » : « nombre » appartient au champ nombre qui suit.
+    if (r.key === key('nombre') && !fieldWords.has(r.key)) { const j = skip(i + 1, 1); const o = j >= 0 && fieldWords.get(raw[j].key); const nums = o ? [...o].filter(isNumber) : []; return nums.length === 1 ? nums[0] : null; }
+    const set = fieldWords.get(r.key); if (!set) return null;
+    if (set.size === 1) return [...set][0];
+    for (const dir of [-1, 1]) { const j = skip(i + dir, dir); const o = j >= 0 && fieldWords.get(raw[j].key); if (o) { const both = [...set].filter(x => o.has(x)); if (both.length === 1) return both[0]; } }
+    { const j = skip(i - 1, -1); if (j >= 0 && raw[j].key === key('nombre')) { const nums = [...set].filter(isNumber); if (nums.length === 1) return nums[0]; } }
+    return { many: [...set] };
+  };
   // Un nom de champ que tout le monde écrit pareil (« adresse e-mail », « téléphone ») désigne ce champ s'il est déclaré.
   const declared = new Set(fields.map(x => x.name));
   const known = classes => { if ([...classes].some(c => c.startsWith('CHAMP:'))) return; for (const c of [...classes]) if (c.startsWith('CONNU:') && declared.has(c.slice(6))) classes.add('CHAMP:' + c.slice(6)); };
@@ -199,17 +212,17 @@ export function tokenize(sentence, fields = [], { subject = null } = {}) {
       const text = raw.slice(i, i + hit.keys.length).map(x => x.text).join(' ');
       const classes = new Set([hit.notion, ...(hit.more || [])]);
       for (const p of PHRASES) if (p.keys.length === hit.keys.length && p.keys.every((k, j) => k === hit.keys[j])) classes.add(p.notion);
-      const inside = [...new Set(raw.slice(i, i + hit.keys.length).filter(x => fieldKeys.has(x.key)).map(x => fieldKeys.get(x.key)))];
+      const inside = [...new Set(hit.keys.map((_, j) => fieldAt(i + j)).filter(x => typeof x === 'string'))];
       if (inside.length === 1) classes.add('CHAMP:' + inside[0]);
       known(classes);
       toks.push({ t: 'mot', text, classes, ...(fixed ? { corrected: hit.text, note: fixed } : {}) }); i += hit.keys.length - 1; continue;
     }
     const classes = new Set(SINGLE_WORDS.get(r.key) || []);
-    if (fieldKeys.has(r.key)) classes.add('CHAMP:' + fieldKeys.get(r.key));
+    const fr = fieldAt(i);
+    if (typeof fr === 'string') classes.add('CHAMP:' + fr); else if (fr) for (const n of fr.many) classes.add('CHAMP:' + n);
     known(classes);
     const n = norm(r.text);
     if (/^\d+$/.test(n)) classes.add('NOMBRE'); else if (n in NOMBRES) classes.add('NOMBRE');
-    if (fieldKeys.has(r.key)) classes.add('CHAMP:' + fieldKeys.get(r.key));
     if (NEGATIONS.includes(n)) classes.add('NEG');
     if (LIAISON.has(r.key) && !classes.has('NEG')) classes.add('LIAISON');
     if (n === 'une') classes.add('UNE');
@@ -217,12 +230,12 @@ export function tokenize(sentence, fields = [], { subject = null } = {}) {
     if (subject?.has(r.key)) classes.add('SUJET');
     // « demande » est un verbe de saisie après un sujet (« le formulaire demande »), un nom sinon (« chaque demande »).
     if (classes.has('SAISIT') && n === 'demande') { const prev = raw.slice(0, i).reverse().find(x => x.t === 'mot'); if (!prev || !/^(formulaire|visiteur|il|elle|on|fiche|composant)$/.test(norm(prev.text))) classes.delete('SAISIT'); }
-    const tok = { t: 'mot', text: r.text, classes };
+    const tok = { t: 'mot', text: r.text, classes, ...(fr && typeof fr !== 'string' ? { many: fr.many } : {}) };
     if (classes.has('NOMBRE')) tok.value = /^\d+$/.test(n) ? Number(n) : NOMBRES[n];
     // Petite faute de frappe : un mot inconnu à une lettre d'un seul mot du lexique ou d'un seul champ est lu comme lui, et c'est dit.
     if (!classes.size && r.key.length >= 5) {
-      const near = [...SINGLE_WORDS.keys(), ...fieldKeys.keys()].filter(k => k.length >= 4 && lev(k, r.key) === 1);
-      if (near.length === 1) { for (const c of SINGLE_WORDS.get(near[0]) || []) classes.add(c); if (fieldKeys.has(near[0])) classes.add('CHAMP:' + fieldKeys.get(near[0])); tok.corrected = near[0]; }
+      const near = [...SINGLE_WORDS.keys(), ...fieldWords.keys()].filter(k => k.length >= 4 && lev(k, r.key) === 1);
+      if (near.length === 1) { for (const c of SINGLE_WORDS.get(near[0]) || []) classes.add(c); if (fieldWords.get(near[0])?.size === 1) classes.add('CHAMP:' + [...fieldWords.get(near[0])][0]); tok.corrected = near[0]; }
     }
     toks.push(tok);
   }
@@ -243,6 +256,7 @@ function fieldTokens(toks) {
   const fields = [], undecided = [];
   toks.forEach((t, i) => {
     const c = [...t.classes].find(x => x.startsWith('CHAMP:')); if (!c) return;
+    if (t.many) { undecided.push({ t, many: t.many }); return; }
     if (!ACTEURS.some(a => t.classes.has(a))) { fields.push({ t, name: c.slice(6) }); return; }
     const next = toks.slice(i + 1).find(x => !x.classes.has('LIAISON')), prev = toks.slice(0, i).reverse().find(x => !x.classes.has('LIAISON'));
     if (prev && (prev.classes.has('COMPTE') || prev.classes.has('COMBIEN'))) { fields.push({ t, name: c.slice(6) }); return; }
@@ -252,7 +266,7 @@ function fieldTokens(toks) {
   return { fields, undecided };
 }
 const fieldsOf = toks => fieldTokens(toks).fields.map(x => x.name);
-const undecided = toks => { const u = fieldTokens(toks).undecided; return u.length ? `« ${u[0].t.text} » : la personne, ou le champ « ${u[0].name} » ? Dites « le champ ${u[0].name} » ou tournez la phrase autrement` : null; };
+const undecided = toks => { const u = fieldTokens(toks).undecided; return u.length && u[0].many ? `« ${u[0].t.text} » désigne ${u[0].many.length} champs du formulaire (${u[0].many.join(', ')}) : dites le libellé entier du champ voulu` : u.length ? `« ${u[0].t.text} » : la personne, ou le champ « ${u[0].name} » ? Dites « le champ ${u[0].name} » ou tournez la phrase autrement` : null; };
 const cites = toks => toks.filter(t => t.classes.has('CITE')).map(t => t.text);
 const numbers = toks => toks.filter(t => t.classes.has('NOMBRE'));
 const MSG = ['VISITEUR', 'LIT', 'SINON', 'AFFICHE'];
@@ -328,7 +342,7 @@ export const TOURNURES = [
   { id: 'obligation', label: 'champs obligatoires et facultatifs', exemple: 'Le nom et l\'e-mail sont obligatoires, la ville est facultative.',
     need: ['CHAMP'], anyOf: [['OBLIGATOIRE'], ['FACULTATIF']], may: ['OBLIGATOIRE', 'FACULTATIF', 'PEUT'],
     // Chaque champ prend la mention qui le suit : « A et B sont obligatoires, C est facultatif ».
-    read: toks => { const out = { required: [], optional: [] }; let wait = []; for (const t of toks) { const c = [...t.classes].find(x => x.startsWith('CHAMP:')); if (c) wait.push(c.slice(6)); else if (t.classes.has('OBLIGATOIRE') && !t.classes.has('FACULTATIF')) { out.required.push(...wait); wait = []; } else if (t.classes.has('FACULTATIF')) { out.optional.push(...wait); wait = []; } } return wait.length ? { error: `obligatoire ou facultatif : ${wait.join(', ')} ?` } : out; },
+    read: toks => { const u = toks.find(t => t.many); if (u) return { error: `« ${u.text} » désigne ${u.many.length} champs du formulaire (${u.many.join(', ')}) : dites le libellé entier du champ voulu` }; const out = { required: [], optional: [] }; let wait = []; for (const t of toks) { const c = [...t.classes].find(x => x.startsWith('CHAMP:')); if (c) wait.push(c.slice(6)); else if (t.classes.has('OBLIGATOIRE') && !t.classes.has('FACULTATIF')) { out.required.push(...wait); wait = []; } else if (t.classes.has('FACULTATIF')) { out.optional.push(...wait); wait = []; } } return wait.length ? { error: `obligatoire ou facultatif : ${wait.join(', ')} ?` } : out; },
     say: r => `formulaire : obligatoires = ${r.required.join(', ') || 'aucun'} ; facultatifs = ${r.optional.join(', ') || 'aucun'}` },
   { id: 'message_doublon', label: 'message au second envoi', exemple: 'Si la même adresse s\'inscrit de nouveau, le visiteur lit : « Vous êtes déjà inscrit. »',
     need: ['DEJA', 'CITE'], may: ['QUAND', 'CHAMP', 'SINSCRIT', 'INSCRIPTION', ...MSG],
