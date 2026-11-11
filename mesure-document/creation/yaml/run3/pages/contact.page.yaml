@@ -1,0 +1,25 @@
+page: contact
+route: /contact
+seo:
+  title: Contact | Garnier & Associés
+  description: Contactez le cabinet au 05 56 00 00 00 ou par formulaire. Première consultation de 30 minutes offerte.
+sections:
+  - hero:
+      title: Nous contacter
+      subtitle: Première consultation de 30 minutes offerte.
+  - contact.form:
+      id: formulaire
+      title: Écrivez-nous
+      intro: Décrivez brièvement votre situation, nous vous répondrons pour convenir d'un rendez-vous.
+      to: contact@garnier-associes.fr
+      fields:
+        - name
+        - email
+        - phone
+        - { name: domaine, label: Domaine concerné, type: select, options: [Droit du travail, Droit des affaires, Droit de la famille, Autre] }
+        - message
+      success: Merci, votre message a bien été transmis. Le cabinet vous répondra rapidement.
+  - map:
+      title: Le cabinet
+      address: 25 cours de l'Intendance, 33000 Bordeaux
+      access: Interventions à Bordeaux, Libourne et Arcachon.

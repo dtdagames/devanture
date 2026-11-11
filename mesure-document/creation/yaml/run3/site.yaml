@@ -1,0 +1,27 @@
+language: 1
+site:
+  name: Garnier & Associés
+  tagline: Avocats à Bordeaux, Libourne et Arcachon
+  locale: fr-FR
+  theme:
+    preset: clair
+    tokens:
+      color.primary: "#1f2f4d"
+      color.accent: "#9c7a3c"
+  nav:
+    - { label: Accueil, to: / }
+    - { label: Domaines d'intervention, to: /domaines }
+    - { label: Le cabinet, to: /cabinet }
+    - { label: Honoraires, to: /honoraires }
+    - { label: Contact, to: /contact }
+  footer:
+    text: Cabinet Garnier & Associés, avocats au barreau de Bordeaux depuis 2011
+    links:
+      - { label: Mentions légales, to: /mentions-legales }
+  contact:
+    email: contact@garnier-associes.fr
+    phone: 05 56 00 00 00
+    address: 25 cours de l'Intendance, 33000 Bordeaux
+  agents:
+    business_type: LegalService
+    summary: Cabinet d'avocats à Bordeaux en droit du travail, des affaires et de la famille.

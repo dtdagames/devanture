@@ -1,0 +1,26 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+route: /contact
+seo:
+  title: Contact
+  description: "Contactez le cabinet Garnier & Associés à Bordeaux : 05 56 00 00 00, contact@garnier-associes.fr."
+sections:
+  - contact.form:
+      title: Prendre rendez-vous
+      to: contact@garnier-associes.fr
+      fields:
+        - name
+        - email
+        - phone
+        - name: domaine
+          label: Domaine
+          type: select
+          options:
+            - Droit du travail
+            - Droit des affaires
+            - Droit de la famille
+        - message
+      success: Merci pour votre message, nous revenons vers vous rapidement.
+  - map:
+      title: Nous trouver
+      access: Cabinet situé au 25 cours de l'Intendance, à Bordeaux.

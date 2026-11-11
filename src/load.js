@@ -2,23 +2,54 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import YAML from 'yaml';
 import { err } from './errors.js';
-import { readComponentDir } from './catalog.js';
+import { readComponentDir, loadCatalog } from './catalog.js';
+import { readSiteDocument, readPageDocument, componentSchemas } from './lang/site-document.js';
+import { readingDiff } from './lang/document.js';
+import { THEME_PRESETS } from './emit/php/css.js';
+
+const LIRE = 'sitec lire <dossier> redit ce que le compilateur comprend et ce qui a changé ; --accepter fige cette lecture';
+/** Erreurs d'un document (site.md, pages/<id>.md) et de sa lecture figée (lecture/…), au format des erreurs de chargement. */
+function documentErrors(doc, errors) {
+  for (const e of doc.errors) errors.push(err('E_DOCUMENT', { file: doc.file, path: e.line ? `ligne ${e.line}` : '', message: e.message + (/[.?!…»]$/.test(e.message) ? '' : '.'), ...(e.hint ? { hint: e.hint } : {}) }));
+  if (doc.errors.length) return;
+  if (doc.frozen === undefined) errors.push(err('E_READING', { file: doc.frozenFile, path: '', message: `Lecture absente : ${path.basename(doc.file)} n'a pas encore été relu.`, hint: LIRE }));
+  else { const d = readingDiff(doc.frozen, doc.yaml); if (d) errors.push(err('E_READING', { file: doc.frozenFile, path: '', message: `La lecture de ${path.basename(doc.file)} a changé depuis qu'elle a été acceptée : « ${d.was} » est devenu « ${d.now} ».`, hint: LIRE })); }
+}
 
 /**
  * Charge un projet : site.yaml, pages/*.page.yaml, liste des assets.
+ * Format document (prototype) : site.md à la place de site.yaml, pages/<id>.md à la place de pages/<id>.page.yaml ; leur lecture
+ * rend les mêmes données, et elle est figée dans lecture/ (site.yaml, pages/<id>.page.yaml).
  * Les erreurs de lecture/parsing sont collectées dans project.loadErrors,
  * la validation continue sur ce qui a pu être lu.
  */
-export async function loadProject(root) {
+export async function loadProject(root, { catalog = null } = {}) {
   const project = { root, site: null, siteFile: path.join(root, 'site.yaml'), pages: [], assets: new Set(), loadErrors: [] };
 
-  const siteDoc = await readYaml(project.siteFile, project.loadErrors);
-  if (siteDoc !== undefined) project.site = siteDoc;
+  const text = f => fs.readFile(f, 'utf8').then(t => t, () => undefined);
+  project.documents = { site: null, pages: [] };
+  const siteMd = await text(path.join(root, 'site.md'));
+  if (siteMd !== undefined) {
+    // Le site écrit comme un document : sa lecture vaut un site.yaml.
+    const yamlFile = project.siteFile;
+    project.siteFile = path.join(root, 'site.md');
+    if (await text(yamlFile) !== undefined) project.loadErrors.push(err('E_DOCUMENT', { file: project.siteFile, path: '', message: 'site.md et site.yaml à la fois : un site n\'a qu\'une source.', hint: 'Gardez le document, supprimez site.yaml.' }));
+    const r = readSiteDocument(siteMd, { tokens: Object.keys(THEME_PRESETS.clair) });
+    const frozenFile = path.join(root, 'lecture', 'site.yaml');
+    project.documents.site = { file: project.siteFile, text: siteMd, yaml: r.yaml, errors: r.errors, where: r.where, frozenFile, frozen: await text(frozenFile) };
+    documentErrors(project.documents.site, project.loadErrors);
+    project.site = r.data;
+  } else {
+    const siteDoc = await readYaml(project.siteFile, project.loadErrors);
+    if (siteDoc !== undefined) project.site = siteDoc;
+  }
 
   const pagesDir = path.join(root, 'pages');
-  let pageFiles = [];
+  let pageFiles = [], pageDocs = [];
   try {
-    pageFiles = (await fs.readdir(pagesDir)).filter(f => f.endsWith('.page.yaml')).sort();
+    const all = await fs.readdir(pagesDir);
+    pageFiles = all.filter(f => f.endsWith('.page.yaml')).sort();
+    pageDocs = all.filter(f => f.endsWith('.md')).sort();
   } catch {
     project.loadErrors.push(err('E_NO_PAGES', { file: pagesDir, message: 'Dossier pages/ introuvable.', hint: 'Créez pages/accueil.page.yaml avec page, route et sections.' }));
   }
@@ -88,6 +119,25 @@ export async function loadProject(root) {
   project.segmentsFile = path.join(root, 'segments.yaml');
   project.segmentsRaw = null;
   try { await fs.access(project.segmentsFile); project.segmentsRaw = await readYaml(project.segmentsFile, project.loadErrors) ?? null; } catch { /* pas de segments */ }
+
+  // Pages écrites comme des documents (pages/<id>.md) : lues d'après les données que chaque composant déclare, donc après
+  // les composants du site et des paquets. Elles prennent le rang qu'aurait leur .page.yaml.
+  if (pageDocs.length) {
+    const schemas = componentSchemas(project, catalog || await loadCatalog());
+    for (const f of pageDocs) {
+      const file = path.join(pagesDir, f), id = f.replace(/\.md$/, '');
+      if (project.pages.some(p => p.id === id)) { project.loadErrors.push(err('E_DOCUMENT', { file, path: '', message: `${f} et ${id}.page.yaml à la fois : une page n'a qu'une source.` })); continue; }
+      const source = await text(file) ?? '';
+      const r = readPageDocument(source, { schemas });
+      const frozenFile = path.join(root, 'lecture', 'pages', id + '.page.yaml');
+      const doc = { id, file, text: source, yaml: r.yaml, errors: r.errors, where: r.where, frozenFile, frozen: await text(frozenFile) };
+      project.documents.pages.push(doc);
+      documentErrors(doc, project.loadErrors);
+      project.pages.push({ file, id, data: r.data, document: doc });
+    }
+    const rank = p => (p.document ? p.id + '.page.yaml' : path.basename(p.file));
+    project.pages.sort((a, b) => (rank(a) < rank(b) ? -1 : rank(a) > rank(b) ? 1 : 0));
+  }
 
   // Tous les fichiers du projet (pour les blocs custom). Parcours manuel : dist/, node_modules/ et .git/ sont élagués avant d'y entrer
   // et les liens symboliques ne sont pas suivis (un dépôt de site installe le compilateur sous node_modules/, parfois par lien vers un dossier qui contient le site : boucle).

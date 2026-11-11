@@ -67,14 +67,15 @@ const routeSlug = r => (r === '/' ? 'accueil' : r.replace(/^\/|\/$/g, '').replac
 async function complete(dir) {
   const added = [];
   if (!await exists(path.join(dir, 'site.yaml'))) await put(dir, 'site.yaml', BASE_SITE);
-  const yamls = await walk(dir, p => p.endsWith('.yaml'));
+  const yamls = await walk(dir, p => p.endsWith('.yaml') || /[\\/]pages[\\/][^\\/]+\.md$/.test(p));
   const texts = await Promise.all(yamls.map(f => fs.readFile(f, 'utf8')));
   const all = texts.join('\n');
   // routes déclarées (les routes à paramètre deviennent des motifs) et routes citées
-  const declared = [...all.matchAll(/^route:\s*["']?([^\s"']+)/gm)].map(m => m[1]);
+  const declared = [...all.matchAll(/^route:\s*["']?([^\s"']+)/gm), ...all.matchAll(/^Adresse\s*:\s*(\/\S*)/gm)].map(m => m[1]);
   const matches = r => declared.some(d => d === r || (d.includes('[') && new RegExp('^' + d.replace(/\[\w+\]/g, '[^/]+') + '$').test(r)));
   const cited = new Map([['/', new Set()]]);
   for (const m of all.matchAll(/\bto:\s*["']?(\/[^\s"',}#\]]*)(?:#([\w-]+))?/g)) { if (m[1].includes('[')) continue; if (!cited.has(m[1])) cited.set(m[1], new Set()); if (m[2]) cited.get(m[1]).add(m[2]); }
+  for (const m of all.matchAll(/(?:→|->)\s*(\/[^\s#|)]*)(?:#([\w-]+))?/g)) { if (!cited.has(m[1])) cited.set(m[1], new Set()); if (m[2]) cited.get(m[1]).add(m[2]); }
   for (const [route, anchors] of cited) {
     if (matches(route)) continue;
     const id = 'cite-' + routeSlug(route);
@@ -99,6 +100,7 @@ async function complete(dir) {
 
 /** check puis build --draft. Renvoie erreurs, avertissements, codes de sortie. */
 function compile(dir, name) {
+  run('lire', dir, '--accepter'); // les documents (pages, composants) sont relus : leur lecture est figée avant check
   const c = run('check', dir); const all = lines(c.out);
   const errors = all.filter(e => e.code && e.level !== 'warning'), warnings = all.filter(e => e.level === 'warning');
   if (c.code !== 0 && !errors.length) errors.push({ code: 'E_?', file: '', path: '', message: c.out.trim().slice(0, 400) });
@@ -211,7 +213,7 @@ async function cites(name, text, { commands = true } = {}) {
     for (const s of L[i].matchAll(/scripts\/([\w-]+\.(?:mjs|sh))/g)) if (await exists(path.join(ROOT, 'scripts', s[1]))) known += await fs.readFile(path.join(ROOT, 'scripts', s[1]), 'utf8');
     for (const m of L[i].matchAll(/(?<![\w(-])--([a-z][\w-]*)/g)) if (!(FLAGS.includes(m[1]) || known.includes('--' + m[1]))) bad.options.push(`l.${i + 1} --${m[1]}`);
   }
-  for (const m of text.matchAll(/\bexplain[ \t]+([a-z][\w.-]*[\w])(?![\w.-])([ \t]+<dossier>)?/g)) if (!m[2] && !['site', 'langage', ...catalogNames].includes(m[1])) bad.fiches.push(`${where(m.index)} explain ${m[1]}`);
+  for (const m of text.matchAll(/\bexplain[ \t]+([a-z][\w.-]*[\w])(?![\w.-])([ \t]+<dossier>)?/g)) if (!m[2] && !['site', 'langage', 'document', ...catalogNames].includes(m[1])) bad.fiches.push(`${where(m.index)} explain ${m[1]}`);
   for (const m of text.matchAll(/(?<![\w/.<>:@#-])((?:src|scripts|docs|bin|examples|studio|\.github)\/[\w./-]*)/g)) {
     const p = m[1].replace(/[.]+$/, ''); const next = text[m.index + m[1].length] || '';
     if ('<*…'.includes(next) && next || /\/dist(\/|$)/.test(p) || p === 'studio/sitec-browser.js') continue;
@@ -225,7 +227,7 @@ async function cites(name, text, { commands = true } = {}) {
   for (const m of text.matchAll(/\bdata-sl-[a-z]+(?:-[a-z]+)*/g)) if (!srcText.includes(m[0]) && !compText.includes(m[0])) bad.attributs.push(`${where(m.index)} ${m[0]}`);
   for (const m of text.matchAll(/var\((--[a-z][\w-]*)\)/g)) if (!CSS_VARS.has(m[1]) && !srcText.includes(m[1])) bad.jetons.push(`${where(m.index)} ${m[1]}`);
   for (const m of text.matchAll(/`((?:color|font|radius|space)\.[\w-]+)`/g)) if (!THEME_KEYS.includes(m[1])) bad.jetons.push(`${where(m.index)} ${m[1]}`);
-  for (const m of text.matchAll(/(?<![\w.{/-])site\.([a-z_]+)\b/g)) if (!['yaml', 'json', 'js', 'css', 'php'].includes(m[1]) && !SITE_PROPS.includes(m[1])) bad.reglages.push(`${where(m.index)} site.${m[1]}`);
+  for (const m of text.matchAll(/(?<![\w.{/-])site\.([a-z_]+)\b/g)) if (!['yaml', 'json', 'js', 'css', 'php', 'md'].includes(m[1]) && !SITE_PROPS.includes(m[1])) bad.reglages.push(`${where(m.index)} site.${m[1]}`);
   for (const m of text.matchAll(/`([a-z]+)\.([a-z]+)`/g)) if (FAMILIES.includes(m[1]) && !['yaml', 'json', 'js', 'css', 'php', 'html', 'md'].includes(m[2]) && !catalogNames.includes(m[1] + '.' + m[2])) bad.composants.push(`${where(m.index)} ${m[0]}`);
   const say = { commandes: 'commandes citées connues de sitec help', options: 'options citées connues (sitec help, ou le script de la même ligne)', fiches: 'fiches « explain » citées existantes', chemins: 'chemins du dépôt cités existants', liens: 'liens relatifs valides', scripts: 'scripts npm cités déclarés', codes: 'codes d\'erreur et d\'avertissement cités émis par le compilateur', variables: 'variables d\'environnement citées lues quelque part', routes: 'routes d\'exploitation citées servies par la cible', attributs: 'attributs de comportement cités connus', jetons: 'jetons de thème cités existants', reglages: 'réglages site.* cités acceptés par le schéma', composants: 'composants natifs cités présents au catalogue' };
   for (const k of Object.keys(bad)) ok(`${name} : ${say[k]}`, !bad[k].length, uniq(bad[k]));

@@ -1,6 +1,16 @@
 # Journal des versions
 
-Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.13.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.14.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+
+## v0.14.0 — 2026-11-11 — un site écrit comme des documents (prototype)
+
+- **Format document du site** : `site.md` à la place de `site.yaml`, `pages/<id>.md` à la place de `pages/<id>.page.yaml`, page par page. Le lecteur (`src/lang/site-document.js`) n'a aucune règle par composant : il lit chaque ligne d'après les données que le composant déclare, dans leur ordre. `# Titre` et une ligne de description, `Adresse : /route`, `## composant : Titre` (nom du catalogue ou nom français, `#ancre`), paragraphes (texte libre), `Nom : valeur`, `Libellé → /cible` (premier lien libre), puces `- valeur | valeur` (champs dans l'ordre, le type tranche, « rien » saute un champ, « nom : valeur » en vise un), puces en retrait, bloc `yaml` pour ce qui ne se dit pas en lignes.
+- **Garde-fous** : une ligne sans rôle est refusée à sa ligne (`E_DOCUMENT`), y compris un réglage mal nommé ; la lecture de chaque document est figée dans `lecture/` et tout changement arrête `check` et `build` (`E_READING`) jusqu'à `sitec lire <dossier> --accepter`. Une erreur de validation renvoie à la ligne du document.
+- **Commandes** : `sitec lire <dossier> [--accepter] [--tout]` (documents du site, puis des composants), `sitec rediger <dossier> [--dry-run]` (du YAML aux documents, chaque document relu), `sitec explain document`, `sitec explain <composant> --document`.
+- **Exemple** `examples/garnier-document` : le site Garnier & Associés en documents, mêmes données et même rendu que `examples/garnier-associes`.
+- **Mesures** : `scripts/measure-site-document.mjs` (texte à écrire : 17 % de tokens en moins à la création, 18 % aux éditions) ; `mesure-document/` et `scripts/measure-site-document-agents.mjs` (douze agents Sonnet : création −58 % de tokens produits et −52 % de tokens traités, en partie par un effet de seuil ; éditions +31 % et +25 %, aucun gain). Rapport : `docs/rapports/RAPPORT-DOCUMENT-SITE.html`.
+- Banc `scripts/verify-site-document.mjs` (55 contrôles) dans l'intégration continue ; le banc de la documentation compile une page écrite en document.
+- Limites : prototype ; `migrate`, `keywords --import`, les schémas de l'éditeur et l'atelier navigateur ne lisent que le YAML ; les champs de formulaire libres et les variantes restent en YAML dans le document.
 
 ## v0.13.0 — 2026-11-11 — un composant écrit comme un document (prototype)
 

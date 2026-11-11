@@ -1,0 +1,15 @@
+{
+  "note": "Ce que l'outil a rapporté à la fin de chaque agent (Sonnet, sans contexte, consignes dans BRIEFS.md) : contexte final en tokens, appels d'outils, durée. usage.json donne le détail par tour, relevé dans le journal de chaque agent.",
+  "creation/yaml/run1": { "contexte_final": 89502, "appels_outils": 18, "duree_s": 138.5 },
+  "creation/yaml/run2": { "contexte_final": 87895, "appels_outils": 18, "duree_s": 155.1 },
+  "creation/yaml/run3": { "contexte_final": 88581, "appels_outils": 18, "duree_s": 125.1 },
+  "creation/document/run1": { "contexte_final": 99655, "appels_outils": 7, "duree_s": 96.4 },
+  "creation/document/run2": { "contexte_final": 99720, "appels_outils": 5, "duree_s": 87.3 },
+  "creation/document/run3": { "contexte_final": 101486, "appels_outils": 5, "duree_s": 93.0 },
+  "edition/yaml/run1": { "contexte_final": 76729, "appels_outils": 7, "duree_s": 67.3 },
+  "edition/yaml/run2": { "contexte_final": 74623, "appels_outils": 6, "duree_s": 51.8 },
+  "edition/yaml/run3": { "contexte_final": 78453, "appels_outils": 5, "duree_s": 64.7 },
+  "edition/document/run1": { "contexte_final": 80702, "appels_outils": 8, "duree_s": 90.8 },
+  "edition/document/run2": { "contexte_final": 79020, "appels_outils": 6, "duree_s": 65.5 },
+  "edition/document/run3": { "contexte_final": 76193, "appels_outils": 6, "duree_s": 54.5 }
+}

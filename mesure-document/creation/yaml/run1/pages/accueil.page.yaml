@@ -1,0 +1,32 @@
+page: accueil
+route: /
+seo: { title: "Garnier & Associés, avocats à Bordeaux", description: "Cabinet d'avocats à Bordeaux, Libourne et Arcachon : droit du travail, droit des affaires, droit de la famille. Première consultation de 30 minutes offerte." }
+sections:
+  - hero:
+      title: Des avocats à votre écoute, à Bordeaux
+      subtitle: "Droit du travail, droit des affaires, droit de la famille. Première consultation de 30 minutes offerte."
+      cta: { label: Prendre rendez-vous, to: /contact }
+      secondary: { label: Nos honoraires, to: /honoraires }
+  - features:
+      title: Nos domaines d'intervention
+      columns: 3
+      items:
+        - { icon: users, title: Droit du travail, text: "Salariés et employeurs, avec Me Hélène Garnier.", link: { label: En savoir plus, to: "/domaines#travail" } }
+        - { icon: scale, title: Droit des affaires, text: "Entreprises et dirigeants, avec Me Thomas Ruiz.", link: { label: En savoir plus, to: "/domaines#affaires" } }
+        - { icon: heart, title: Droit de la famille, text: "Un accompagnement humain, avec Me Inès Kaddour.", link: { label: En savoir plus, to: "/domaines#famille" } }
+  - stats:
+      items:
+        - { value: "2011", label: Année de fondation }
+        - { value: "3", label: Avocats associés }
+        - { value: "3", label: Villes d'intervention }
+        - { value: "30 min", label: De première consultation offerte }
+  - steps:
+      title: Comment se déroule un dossier
+      items:
+        - { title: Première consultation, text: "30 minutes offertes pour comprendre votre situation et vous orienter." }
+        - { title: Convention d'honoraires, text: "Systématique : vous connaissez le coût avant toute démarche." }
+        - { title: Suivi du dossier, text: "Un avocat associé vous accompagne et vous tient informé." }
+  - cta:
+      title: Une question juridique ?
+      text: "Appelez-nous au {{ const.tel }} ou écrivez-nous."
+      button: { label: Nous contacter, to: /contact }

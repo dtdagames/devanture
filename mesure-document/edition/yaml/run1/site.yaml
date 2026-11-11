@@ -1,0 +1,28 @@
+language: 1
+
+site:
+  name: Garnier & Associés
+  tagline: Avocats à Bordeaux depuis 2011
+  locale: fr-FR
+  theme:
+    preset: clair
+    tokens:
+      color.primary: "#6b2d5c"
+      color.accent: "#d4a017"
+      font.heading: "Georgia, serif"
+  nav:
+    - { label: Accueil, to: / }
+    - { label: Domaines d'intervention, to: /domaines }
+    - { label: Le cabinet, to: /cabinet }
+    - { label: Honoraires, to: /honoraires }
+    - { label: Recrutement, to: /recrutement }
+    - { label: Contact, to: /contact }
+  footer:
+    text: "Cabinet Garnier & Associés, avocats au Barreau de Bordeaux"
+    links:
+      - { label: Mentions légales, to: /mentions-legales }
+      - { label: Recrutement, to: /recrutement }
+  contact:
+    email: contact@garnier-associes.fr
+    phone: 05 56 00 00 00
+    address: 25 cours de l'Intendance, 33000 Bordeaux

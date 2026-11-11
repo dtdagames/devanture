@@ -1,0 +1,14 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+route: /contact
+seo:
+  title: Contact
+  description: Contactez le cabinet Garnier & Associés à Bordeaux.
+sections:
+  - contact.form:
+      title: Prendre rendez-vous
+      to: contact@garnier-associes.fr
+      success: Merci, le cabinet vous répondra rapidement.
+  - map:
+      title: Nous trouver
+      address: 25 cours de l'Intendance, 33000 Bordeaux

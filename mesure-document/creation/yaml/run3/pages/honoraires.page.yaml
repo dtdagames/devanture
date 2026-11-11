@@ -1,0 +1,43 @@
+page: honoraires
+route: /honoraires
+seo:
+  title: Honoraires | Garnier & Associés
+  description: Honoraires au forfait ou au temps passé, convention d'honoraires systématique, première consultation de 30 minutes offerte.
+sections:
+  - hero:
+      title: Honoraires
+      subtitle: Transparents, convenus par écrit avant toute intervention.
+  - pricelist:
+      title: Nos modes de facturation
+      note: Les montants sont fixés dossier par dossier dans la convention d'honoraires.
+      columns: 1
+      groups:
+        - title: Modes de facturation
+          items:
+            - name: Première consultation
+              price: Offerte
+              description: 30 minutes pour faire le point sur votre situation.
+            - name: Forfait
+              price: "[à compléter]"
+              description: Un prix convenu à l'avance pour une mission définie.
+            - name: Temps passé
+              price: "[à compléter]"
+              description: Facturation selon le temps consacré au dossier, au taux horaire convenu.
+  - steps:
+      title: Comment cela se passe
+      items:
+        - title: Première consultation
+          text: 30 minutes offertes pour exposer votre situation.
+        - title: Convention d'honoraires
+          text: Elle est systématique et précise le mode de facturation retenu.
+        - title: Suivi du dossier
+          text: Votre avocat vous tient informé à chaque étape.
+  - faq:
+      items:
+        - q: Une convention d'honoraires est-elle obligatoire ?
+          a: Au cabinet, elle est établie systématiquement, avant le début de la mission.
+        - q: Forfait ou temps passé ?
+          a: Le mode de facturation est choisi avec vous selon la nature du dossier.
+  - cta:
+      title: Parlons de votre dossier
+      button: { label: Demander un rendez-vous, to: /contact }

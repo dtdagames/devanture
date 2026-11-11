@@ -1,0 +1,163 @@
+{
+ "creation/yaml/run1": {
+  "tours": 11,
+  "produits": 10190,
+  "lus_hors_cache": 22,
+  "ecrits_au_cache": 48907,
+  "relus_du_cache": 833818,
+  "outils": {
+   "Read": 1,
+   "Bash": 9,
+   "Write": 7,
+   "SubagentHandback": 1
+  },
+  "traites": 892937
+ },
+ "creation/yaml/run2": {
+  "tours": 11,
+  "produits": 9828,
+  "lus_hors_cache": 22,
+  "ecrits_au_cache": 47354,
+  "relus_du_cache": 832047,
+  "outils": {
+   "Read": 1,
+   "Bash": 8,
+   "Write": 7,
+   "Edit": 1,
+   "SubagentHandback": 1
+  },
+  "traites": 889251
+ },
+ "creation/yaml/run3": {
+  "tours": 10,
+  "produits": 10354,
+  "lus_hors_cache": 20,
+  "ecrits_au_cache": 47882,
+  "relus_du_cache": 755335,
+  "outils": {
+   "Read": 2,
+   "Bash": 7,
+   "Write": 7,
+   "Edit": 1,
+   "SubagentHandback": 1
+  },
+  "traites": 813591
+ },
+ "creation/document/run1": {
+  "tours": 6,
+  "produits": 4230,
+  "lus_hors_cache": 12,
+  "ecrits_au_cache": 59211,
+  "relus_du_cache": 482862,
+  "outils": {
+   "Read": 1,
+   "Bash": 5,
+   "SubagentHandback": 1
+  },
+  "traites": 546315
+ },
+ "creation/document/run2": {
+  "tours": 4,
+  "produits": 3964,
+  "lus_hors_cache": 8,
+  "ecrits_au_cache": 59008,
+  "relus_du_cache": 286673,
+  "outils": {
+   "Read": 1,
+   "Bash": 3,
+   "SubagentHandback": 1
+  },
+  "traites": 349653
+ },
+ "creation/document/run3": {
+  "tours": 4,
+  "produits": 4604,
+  "lus_hors_cache": 8,
+  "ecrits_au_cache": 60779,
+  "relus_du_cache": 290761,
+  "outils": {
+   "Read": 1,
+   "Bash": 3,
+   "SubagentHandback": 1
+  },
+  "traites": 356152
+ },
+ "edition/yaml/run1": {
+  "tours": 5,
+  "produits": 2470,
+  "lus_hors_cache": 10,
+  "ecrits_au_cache": 36335,
+  "relus_du_cache": 323275,
+  "outils": {
+   "Read": 1,
+   "Bash": 5,
+   "SubagentHandback": 1
+  },
+  "traites": 362090
+ },
+ "edition/yaml/run2": {
+  "tours": 4,
+  "produits": 1947,
+  "lus_hors_cache": 8,
+  "ecrits_au_cache": 74339,
+  "relus_du_cache": 206192,
+  "outils": {
+   "Read": 1,
+   "Bash": 4,
+   "SubagentHandback": 1
+  },
+  "traites": 282486
+ },
+ "edition/yaml/run3": {
+  "tours": 4,
+  "produits": 2065,
+  "lus_hors_cache": 8,
+  "ecrits_au_cache": 38140,
+  "relus_du_cache": 254004,
+  "outils": {
+   "Read": 1,
+   "Bash": 3,
+   "SubagentHandback": 1
+  },
+  "traites": 294217
+ },
+ "edition/document/run1": {
+  "tours": 7,
+  "produits": 3702,
+  "lus_hors_cache": 14,
+  "ecrits_au_cache": 40273,
+  "relus_du_cache": 478225,
+  "outils": {
+   "Read": 1,
+   "Bash": 6,
+   "SubagentHandback": 1
+  },
+  "traites": 522214
+ },
+ "edition/document/run2": {
+  "tours": 4,
+  "produits": 2329,
+  "lus_hors_cache": 8,
+  "ecrits_au_cache": 38584,
+  "relus_du_cache": 251812,
+  "outils": {
+   "Read": 1,
+   "Bash": 4,
+   "SubagentHandback": 1
+  },
+  "traites": 292733
+ },
+ "edition/document/run3": {
+  "tours": 5,
+  "produits": 2435,
+  "lus_hors_cache": 10,
+  "ecrits_au_cache": 35684,
+  "relus_du_cache": 321459,
+  "outils": {
+   "Read": 1,
+   "Bash": 4,
+   "SubagentHandback": 1
+  },
+  "traites": 359588
+ }
+}

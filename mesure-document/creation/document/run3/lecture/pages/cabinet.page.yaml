@@ -1,0 +1,40 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+route: /cabinet
+seo:
+  title: Le cabinet
+  description: "Le cabinet Garnier & Associés, fondé en 2011 à Bordeaux : trois associés, deux collaboratrices et une assistante."
+sections:
+  - hero:
+      title: Le cabinet
+      subtitle: Fondé en 2011, installé cours de l'Intendance à Bordeaux.
+  - richtext:
+      title: Notre cabinet
+      text: |-
+        Le cabinet Garnier & Associés a été fondé en 2011 à Bordeaux. Il réunit trois associés, deux collaboratrices et une assistante.
+
+        Nous intervenons à Bordeaux, Libourne et Arcachon.
+      image: cabinet.svg
+  - team:
+      title: Les associés
+      members:
+        - name: Me Hélène Garnier
+          role: Associée, droit du travail
+          photo: garnier.svg
+        - name: Me Thomas Ruiz
+          role: Associé, droit des affaires
+          photo: ruiz.svg
+        - name: Me Inès Kaddour
+          role: Associée, droit de la famille
+          photo: kaddour.svg
+  - stats:
+      items:
+        - value: "2011"
+          label: année de fondation
+        - value: "3"
+          label: associés
+        - value: "2"
+          label: collaboratrices
+  - map:
+      title: Nous trouver
+      access: Cabinet situé au 25 cours de l'Intendance, à Bordeaux.

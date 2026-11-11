@@ -1,0 +1,43 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+route: /domaines
+seo:
+  title: Domaines d'intervention
+  description: Droit du travail, droit des affaires et droit de la famille au cabinet Garnier & Associés.
+sections:
+  - features:
+      title: Nos trois domaines
+      intro: Chaque domaine est suivi par un associé dédié.
+      columns: 3
+      items:
+        - icon: users
+          title: Droit du travail
+          text: Me Hélène Garnier
+        - icon: euro
+          title: Droit des affaires
+          text: Me Thomas Ruiz
+        - icon: heart
+          title: Droit de la famille
+          text: Me Inès Kaddour
+  - steps:
+      title: Le déroulé d'un dossier
+      items:
+        - title: Première consultation
+          text: Trente minutes offertes pour comprendre votre situation.
+        - title: Convention d'honoraires
+          text: Un écrit systématique fixe le mode de rémunération.
+        - title: Suivi du dossier
+          text: Le cabinet intervient à Bordeaux, Libourne et Arcachon.
+  - faq:
+      title: Questions fréquentes
+      items:
+        - q: Quel avocat pour mon dossier ?
+          a: Me Hélène Garnier traite le droit du travail, Me Thomas Ruiz le droit des affaires et Me Inès Kaddour le droit de la famille.
+        - q: Où intervenez-vous ?
+          a: À Bordeaux, Libourne et Arcachon.
+  - cta:
+      title: Parlons de votre dossier
+      text: Première consultation de 30 minutes offerte.
+      button:
+        label: Prendre rendez-vous
+        to: /contact
