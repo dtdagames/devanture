@@ -103,8 +103,8 @@ try {
   d = page('## products.grid : Nos savons\nFiltre : category = savons, featured = oui\nColonnes : 3');
   const d2 = page('## products.grid : Nos savons\nFiltre :\n- category | savons\n- featured | oui');
   ok('lecture : un groupe de données sur une ligne (« nom = valeur ») ou en puces (« nom | valeur »), typé par sa déclaration', !d.errors.length && same(first(d).filter, { category: 'savons', featured: true }) && !d2.errors.length && same(first(d2).filter, first(d).filter), JSON.stringify([d, d2]));
-  d = page('## custom\nphp : custom/promo.php\nProps :\n- text | -15 % sur l\'entretien\n- code | ENTRETIEN15\n- jours | 30\n- visible | oui');
-  ok('lecture : données libres en puces « nom | valeur » (oui / non, nombre, texte)', !d.errors.length && same(first(d).props, { text: '-15 % sur l\'entretien', code: 'ENTRETIEN15', jours: 30, visible: true }), JSON.stringify(d));
+  d = page('## Liste : Réalisations\nsource : realisations\nFiltre :\n- category | salle-de-bain\n- annee | 2024\n- vedette | oui');
+  ok('lecture : données libres en puces « nom | valeur » (oui / non, nombre, texte)', !d.errors.length && same(first(d).filter, { category: 'salle-de-bain', annee: 2024, vedette: true }), JSON.stringify(d));
   d = page('## Bandeau : Plombier à Lyon\nDépannage 7j/7.\nAppeler → tel:0472001122\nVariantes :\n- mobile | Appeler maintenant → tel:0472001122\n- recurrent | sous-titre : Content de vous revoir.\n- prix | Dépannage dès 95 € | Devis gratuit.');
   ok('lecture : variantes d\'une section, « segment | données du composant »', !d.errors.length && same(first(d).variants, { mobile: { cta: { label: 'Appeler maintenant', to: 'tel:0472001122' } }, recurrent: { subtitle: 'Content de vous revoir.' }, prix: { title: 'Dépannage dès 95 €', subtitle: 'Devis gratuit.' } }), JSON.stringify(d));
   d = page('## Questions\n- Quel délai ? | Une semaine.\n- Comment obtenir un devis ? | Envoyez-nous la date.\n\n  Un acompte de 30 % est demandé.\n  Le solde au retrait.\n- Livrez-vous ? | Oui.');

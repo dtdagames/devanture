@@ -391,6 +391,7 @@ export function validateProject(project, catalog) {
       if (!comp) {
         const s = cat.suggest(name);
         if (project.brokenComponents?.has(name)) return;
+        if (name === 'custom') { errors.push(err('E_UNKNOWN_COMPONENT', { file, path: base, message: 'Le bloc custom (un fichier PHP du projet) n\'existe plus.', hint: 'Écrivez un composant du site : components/<nom>/ au format langage (données, forme, apparence, fonctionnement), puis « - <nom>: { … } » dans la page. sitec component new <dossier> <nom> en pose le squelette.' })); return; }
         errors.push(err('E_UNKNOWN_COMPONENT', { file, path: base, message: `Composant inconnu : ${name}.`, expected: cat.names(), hint: s ? `Vouliez-vous dire ${s} ?` : 'sitec catalog pour la liste.', fix: s ? { rename: { from: name, to: s } } : undefined }));
         return;
       }
@@ -481,19 +482,12 @@ function locateInDocuments(project, errors) {
   });
 }
 
-/** Avertissements (n'empêchent pas la compilation) : blocs custom hors validation, paquets hors du dossier avec l'atelier embarqué, version de langage implicite. */
+/** Avertissements (n'empêchent pas la compilation) : paquets hors du dossier avec l'atelier embarqué, version de langage implicite. */
 export function collectWarnings(project) {
   const out = [];
   out.push(...(project.componentWarnings || []));
   if (project.site && typeof project.site === 'object' && project.site.language === undefined) out.push({ level: 'warning', code: 'W_LANGUAGE', file: project.siteFile, path: 'language', message: 'Version du langage non déclarée : lue comme 1. « sitec migrate <dossier> » l\'ajoute en tête de site.yaml.' });
   if (project.site?.site?.studio?.enabled === true) for (const pkg of project.packages || []) if (!pkg.missing && !pkg.dir.replaceAll('\\', '/').startsWith(project.root.replaceAll('\\', '/') + '/')) out.push({ level: 'warning', code: 'W_PACKAGE_STUDIO', file: project.siteFile, path: 'packages', message: `Le paquet ${pkg.spec} est hors du dossier du site : l'atelier embarqué (/_studio) ne pourra pas compiler. Copiez-le sous le site (./paquets/…).` });
-  for (const page of project.pages) {
-    (Array.isArray(page.data?.sections) ? page.data.sections : []).forEach((s, i) => {
-      if (s && typeof s === 'object' && 'custom' in s) {
-        out.push({ level: 'warning', code: 'W_CUSTOM', file: page.file, path: `sections[${i}].custom`, message: `Bloc custom (${s.custom?.php ?? '?'}) : contenu non validé par check, à relire à la main.` });
-      }
-    });
-  }
   return out;
 }
 

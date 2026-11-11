@@ -310,9 +310,9 @@ async function claims() {
     const users = []; for (const n of catalogNames) { const m = await read(`components/${n}/manifest.yaml`); if (nativeWords.some(w => new RegExp('^\\s*- ' + w + '(:|,|$)', 'm').test(m))) users.push(n); }
     claim('LANGAGE.md : natifs écrits avec les mots natifs', ticks(grab(l, /; les natifs (.*?) sont écrits avec eux/) || ''), users);
     claim('CLAUDE.md : mots natifs cités', words(grab(C, /Mots natifs : ([^.]*)\./) || ''), nativeWords); }
-  { const l = lineWith(L, /^Composants natifs écrits sans code de la cible/); const [a, b] = l ? l.split('Composants natifs écrits pour la cible') : [null, null];
-    claim('LANGAGE.md § 8 : natifs écrits sans code de la cible', a && ticks(a), catalogNames.filter(n => !targetNatives.includes(n)));
-    claim('LANGAGE.md § 8 : natifs écrits pour la cible (template.php)', b && ticks(b.split('. Leur contrat')[0]), targetNatives); }
+  { const l = lineWith(L, /^Composants natifs écrits sans code de la cible/); const a = l ? l.split('Aucun composant natif n\'est écrit pour la cible')[0] : null;
+    claim('LANGAGE.md § 8 : natifs écrits sans code de la cible', a && ticks(a), catalogNames);
+    ok('LANGAGE.md § 8 : aucun composant natif n\'est écrit pour la cible (plus de template.php)', l && /Aucun composant natif n'est écrit pour la cible/.test(l) && !targetNatives.length, targetNatives.join(', ')); }
   { const src = (await Promise.all(['src/cli.js', 'src/keywords.js', 'src/component-gen.js', 'src/review.js', 'src/lang/rewrite.js', 'package.json'].map(read))).join('\n'); ok('le compilateur n\'appelle aucun modèle : ni SDK, ni clé d\'API, ni adresse d\'API dans son code', !/anthropic|api[._ ]?key|api\.[a-z]+\.com\/v1/i.test(src), (/.{0,40}(anthropic|api[._ ]?key).{0,40}/i.exec(src) || [''])[0]); }
   { const last = Math.max(...LANGUAGE_VERSIONS); ok('LANGAGE.md : version du langage du titre et des exemples = dernière version connue', new RegExp(`^# Devanture, langage version ${last}$`, 'm').test(L) && new RegExp(`^- \\*\\*${last}\\*\\*`, 'm').test(L) && uniq([...(L + C).matchAll(/\blanguage: (\d+)/g)].map(m => +m[1])).every(v => LANGUAGE_VERSIONS.includes(v)), 'versions connues : ' + LANGUAGE_VERSIONS.join(', ')); }
 
@@ -416,8 +416,7 @@ async function explainComponents() {
   }
   const files = Object.values(where); const elsewhere = errors.filter(e => !files.some(f => norm(e.file).endsWith(f)));
   ok(`explain <composant> : aucune erreur hors des exemples (site complété par le banc : ${added.length} pages, images ou fichiers)`, !elsewhere.length, elsewhere.map(tell));
-  const unexpected = warnings.filter(w => w.code !== 'W_CUSTOM');
-  ok('explain <composant> : aucun avertissement sur les exemples (hors W_CUSTOM, attendu pour le bloc libre)', !unexpected.length, unexpected.map(tell));
+  ok('explain <composant> : aucun avertissement sur les exemples', !warnings.length, warnings.map(tell));
   ok('explain <composant> : les exemples des fiches se compilent ensemble (build)', build.code === 0, build.out.trim().slice(0, 600));
 }
 

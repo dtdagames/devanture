@@ -177,7 +177,7 @@ Test local : \`php -S localhost:8080 -t dist dist/index.php\` (ou l'atelier : \`
 
 ## Règles
 
-- Aucun fichier PHP dans ce dépôt : la vérification \`no-php\` refuse le commit en intégration continue. Le bloc \`custom\` du DSL est donc exclu ici ; un besoin non couvert se traite par un composant dans le compilateur.
+- Aucun fichier PHP dans ce dépôt : la vérification \`no-php\` refuse le commit en intégration continue. Un besoin non couvert se traite par un composant du site (components/<nom>/), ou dans le compilateur.
 - \`brief.md\` est la source de vérité : n'inventez ni prix, ni délai, ni distinction ; écrivez \`[à compléter]\`.
 - Le mode d'emploi complet du DSL pour un auteur, humain ou modèle : \`CLAUDE.md\`.
 
@@ -190,7 +190,7 @@ Back-office du site compilé : \`/_admin\` (jeton \`ADMIN_TOKEN\`). Version text
   let manual = await fs.readFile(path.join(SITEC_ROOT, 'CLAUDE.md'), 'utf8');
   manual = manual.replace(/```\nnode bin\/sitec\.js catalog[\s\S]*?```/, '```\nnpx sitec catalog              # liste des composants (1 ligne chacun)\nnpx sitec explain <composant>  # props détaillées + exemple\nnpx sitec check .              # valide, erreurs en JSON (1 par ligne), code 1 si erreurs\nnpx sitec build .              # valide puis génère dist/ (PHP + JS + CSS), jamais versionné\nnpx sitec review .             # relecture éditoriale contre brief.md\n```')
     .replaceAll('node bin/sitec.js', 'npx sitec')
-    .replace('# Devanture — mode d\'emploi pour l\'agent', `# ${siteName} — mode d'emploi pour l'agent\n\nCe dépôt ne contient que la source du site (YAML, brief, images). **Aucun fichier PHP, JS ou CSS n'y est accepté** : le bloc \`custom\` est interdit ici. \`dist/\` est produit par \`npx sitec build .\` et n'est jamais versionné.`);
+    .replace('# Devanture — mode d\'emploi pour l\'agent', `# ${siteName} — mode d'emploi pour l'agent\n\nCe dépôt ne contient que la source du site (YAML, brief, images). **Aucun fichier PHP, JS ou CSS n'y est accepté.** \`dist/\` est produit par \`npx sitec build .\` et n'est jamais versionné.`);
   files['CLAUDE.md'] = manual;
   files['assets/.gitkeep'] = '';
 

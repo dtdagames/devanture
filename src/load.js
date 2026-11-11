@@ -142,7 +142,7 @@ export async function loadProject(root, { catalog = null } = {}) {
     project.pages.sort((a, b) => (rank(a) < rank(b) ? -1 : rank(a) > rank(b) ? 1 : 0));
   }
 
-  // Tous les fichiers du projet (pour les blocs custom). Parcours manuel : dist/, node_modules/ et .git/ sont élagués avant d'y entrer
+  // Tous les fichiers du projet (pour l'atelier embarqué et les contrôles de chemins). Parcours manuel : dist/, node_modules/ et .git/ sont élagués avant d'y entrer
   // et les liens symboliques ne sont pas suivis (un dépôt de site installe le compilateur sous node_modules/, parfois par lien vers un dossier qui contient le site : boucle).
   project.files = new Set();
   const SKIP = new Set(['dist', 'node_modules', '.git']);

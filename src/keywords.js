@@ -18,7 +18,6 @@ export function collectSections(project, catalog, { all = false } = {}) {
     (page.data.sections || []).forEach((s, i) => {
       const name = Object.keys(s)[0];
       const props = s[name] || {};
-      if (name === 'custom') return;
       const existing = Array.isArray(props.keywords) ? props.keywords : [];
       if (!all && existing.length) return;
       const texts = [];

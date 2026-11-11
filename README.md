@@ -83,7 +83,7 @@ src/segments.js segments, objectifs et expériences (segments.yaml)
 src/collections.js  collections génériques ; src/composition.js  composants composés (components.yaml)
 src/images/     pipeline d'images : dimensions, variantes WebP (sharp sous Node, canvas dans l'atelier), manifeste
 src/studio/     remplaçants Node pour l'atelier navigateur (fichiers en mémoire, chemins, sha256, canvas)
-components/     un dossier par composant natif : manifest.yaml (format langage) et styles.css ; seul custom garde un template.php ; vocabulaire.yaml : les mots natifs
+components/     un dossier par composant natif : manifest.yaml (format langage) et styles.css, aucun fichier PHP ; vocabulaire.yaml : les mots natifs
 studio/         atelier navigateur (index.html, app.js ; sitec-browser.js est produit par npm run build:studio)
 examples/       sites de démonstration (plomberie, boutique savonnerie, cabinet, fournil, hôte multi-sites) et paquets/vitrine (paquet de composants partagé)
 scripts/        bancs de vérification (sites produits, outillage, expériences, documentation) et scripts de mesure
