@@ -101,9 +101,23 @@ node scripts/verify-docs.mjs                                      # documentatio
 node bin/sitec.js test examples/plomberie-martin --catalog        # rend les cas et exemples de tous les composants à gabarit
 node scripts/verify-apache.mjs examples/savonnerie/dist 8085      # même site sous un vrai Apache (Docker, php:8.3-apache) : cache statique, .htaccess, déploiement
 node scripts/verify-apache.mjs examples/hote/dist 8087 --host savonnerie-du-port.fr   # hôte multi-sites, un domaine à la fois
+node scripts/linux-simultane.mjs examples/le-fournil/dist 8097 --fois 3   # le banc des registres contre six processus PHP sous Linux (Docker) : écritures réellement simultanées
 ```
 
 Les bancs démarrent eux-mêmes un serveur PHP de développement ; indiquer le chemin de `php` dans `PHP_BIN` s'il n'est pas dans le `PATH`.
+
+Sous Windows, ce serveur de développement n'a qu'un processus : des envois simultanés y passent l'un après l'autre, et un défaut d'écritures concurrentes y reste invisible. `scripts/linux-simultane.mjs` sert le site compilé dans un conteneur Linux par plusieurs processus PHP (stockage SQLite) et lance un banc contre lui ; c'est ce que fait l'intégration continue, reproduit sur le poste. À lancer avant de pousser tout changement qui touche au stockage, aux formulaires ou aux registres.
+
+## Publier une version
+
+Une étiquette publiée ne se déplace pas : les dépôts de sites l'épinglent. Elle se pose donc en dernier, quand l'intégration continue a dit oui.
+
+1. Travailler sur une branche, pousser, ouvrir une pull request : le flux « Compilateur » tourne sur la PR (exemples compilés, bancs HTTP, Apache).
+2. Dans la PR, monter la version partout où elle est écrite (`package.json`, `package-lock.json`, `src/init.js`, `CLAUDE.md`, `CHANGELOG.md` avec son entrée) ; `scripts/verify-docs.mjs` refuse un écart.
+3. Fusionner la PR une fois le flux vert. Il tourne de nouveau sur `main`.
+4. Depuis `main` à jour : `node scripts/release.mjs --attendre`. Le script vérifie l'état du dépôt, la version, l'absence de l'étiquette et le succès de l'intégration continue sur ce commit précis, puis pose et pousse l'étiquette. `--dry-run` fait les contrôles sans rien écrire. S'il refuse, il dit quel contrôle et pourquoi.
+
+Une version dont l'intégration continue échoue n'a donc jamais d'étiquette : on corrige sur une branche et on recommence. La v0.12.0, étiquetée avant ce garde-fou, est restée publiée avec un défaut que seul Linux montrait ; la v0.12.1 la remplace.
 
 Les variantes WebP des images demandent `sharp` (dépendance optionnelle, installée avec `npm install` quand un binaire existe pour la plateforme) ; sans lui, le compilateur déclare les dimensions et sert les originaux. Historique des versions : [CHANGELOG.md](CHANGELOG.md).
 
