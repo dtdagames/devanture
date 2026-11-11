@@ -15,6 +15,7 @@ import YAML from 'yaml';
 import { compileDonnees } from './donnees.js';
 import { readDocument } from './document.js';
 import { parseFieldSpec } from './fonctionnement.js';
+import { parseComponentOutline } from './outline.js';
 
 const norm = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[’`]/g, "'").replace(/\s+/g, ' ').trim();
 function lev(a, b) { const d = Array.from({ length: a.length + 1 }, (_, i) => [i]); for (let j = 1; j <= b.length; j++) d[0][j] = j; for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[a.length][b.length]; }
@@ -568,7 +569,7 @@ export function componentSchemas(project, catalog) {
   for (const c of catalog.list()) out.set(c.name, c.manifest.props || { properties: {} });
   const fromSource = src => {
     try {
-      const m = src.documentText !== undefined ? readDocument(src.documentText, { name: src.name }).manifest : YAML.parse(src.manifestText || '') || {};
+      const m = src.documentText !== undefined ? readDocument(src.documentText, { name: src.name }).manifest : src.outlineText !== undefined ? parseComponentOutline(src.outlineText).value : YAML.parse(src.manifestText || '') || {};
       const s = m['données'] ? compileDonnees(m['données']).schema : (m.props && typeof m.props === 'object' ? m.props : { properties: {} });
       return { ...s, properties: { ...(s.properties || {}), ...COMMON } };
     } catch { return { properties: { ...COMMON } }; }

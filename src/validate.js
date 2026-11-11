@@ -257,7 +257,7 @@ export function validateProject(project, catalog) {
   // --- composants de projet (components/<nom>/manifest.yaml + template.html) et des paquets : construits, vérifiés, ajoutés au catalogue
   const entries = [];
   for (const src of [...sources, ...(project.componentSources || [])]) {
-    const mf = src.dir + (src.documentText !== undefined ? '/lecture.yaml' : '/manifest.yaml');
+    const mf = src.dir + (src.documentText !== undefined ? '/lecture.yaml' : src.outlineText !== undefined ? '/composant.md' : '/manifest.yaml');
     if (!src.pkg && prefixes.has(src.name.split('.')[0]) && src.name.includes('.')) { errors.push(err('E_COMPONENT_CONFLICT', { file: mf, path: '', message: `Le préfixe ${src.name.split('.')[0]} appartient à un paquet.` })); continue; }
     const { entry, details: ce } = buildComponent({ ...src, project: true, words: src.pkg ? wordsOf.get(src.pkg) : siteVocab.words });
     for (const d of ce) errors.push(err(d.code || 'E_COMPONENT', { file: d.file ? src.dir + '/' + d.file : mf, path: d.line ? `ligne ${d.line}` : '', message: `Composant ${src.name} : ${d.message}${/[.?!…»]$/.test(d.message) ? '' : '.'}`, ...(d.hint ? { hint: d.hint } : {}) }));
@@ -313,12 +313,12 @@ export function validateProject(project, catalog) {
     for (const [store, list] of writers) {
       const sig = c => JSON.stringify(c.manifest.effects.form.rules || null);
       const other = list.find(c => sig(c) !== sig(list[0]));
-      if (other) errors.push(err('E_STORE_RULES', { file: other.dir + (other.document ? '/lecture.yaml' : '/manifest.yaml'), path: 'fonctionnement.formulaire', message: `Le registre ${store} reçoit les envois de ${list[0].name} et de ${other.name} avec des règles différentes (places, liste d'attente, une fois par).`, hint: 'Un registre n\'a qu\'une série de règles : écrivez les mêmes dans les deux composants, ou donnez un autre nom de registre.' }));
+      if (other) errors.push(err('E_STORE_RULES', { file: other.dir + (other.document ? '/lecture.yaml' : other.outline ? '/composant.md' : '/manifest.yaml'), path: 'fonctionnement.formulaire', message: `Le registre ${store} reçoit les envois de ${list[0].name} et de ${other.name} avec des règles différentes (places, liste d'attente, une fois par).`, hint: 'Un registre n\'a qu\'une série de règles : écrivez les mêmes dans les deux composants, ou donnez un autre nom de registre.' }));
     }
     for (const c of cat.list()) for (const src of c.manifest?.sources || []) {
       if (src.id !== 'register' || !src.args.store) continue;
       const name = String(src.args.store).replace(/'/g, '');
-      if (!writers.has(name)) errors.push(err('E_UNKNOWN_STORE', { file: c.dir + (c.document ? '/lecture.yaml' : '/manifest.yaml'), path: `fonctionnement.lit.${src.key}`, message: `Composant ${c.name} : registre inconnu « ${name} ».`, expected: [...writers.keys()], hint: 'Un registre est créé par le formulaire d\'un composant (« enregistre dans: »).' }));
+      if (!writers.has(name)) errors.push(err('E_UNKNOWN_STORE', { file: c.dir + (c.document ? '/lecture.yaml' : c.outline ? '/composant.md' : '/manifest.yaml'), path: `fonctionnement.lit.${src.key}`, message: `Composant ${c.name} : registre inconnu « ${name} ».`, expected: [...writers.keys()], hint: 'Un registre est créé par le formulaire d\'un composant (« enregistre dans: »).' }));
     }
   }
   // Gabarits neutres (template.html) : compilés dès la vérification, erreurs avec numéro de ligne.
@@ -327,7 +327,7 @@ export function validateProject(project, catalog) {
     const r = compileTemplate(c.files['template.html'], { name: c.name, props: c.manifest.props, effects: c.manifest.effects || null, sources: c.manifest.sources || null });
     c.compiled = r;
     // Gabarit produit par la forme : l'erreur renvoie au manifeste, seul fichier que l'auteur a écrit.
-    if (c.manifest._generated?.template) { for (const e of r.errors) errors.push(err('E_COMPONENT', { file: c.dir + (c.document ? '/lecture.yaml' : '/manifest.yaml'), path: c.produced?.formeLine ? `ligne ${c.produced.formeLine}` : 'forme', message: `Composant ${c.name} : forme : ${e.message}`, hint: `Ce que la forme produit : sitec component show <dossier> ${c.name}.` })); continue; }
+    if (c.manifest._generated?.template) { for (const e of r.errors) errors.push(err('E_COMPONENT', { file: c.dir + (c.document ? '/lecture.yaml' : c.outline ? '/composant.md' : '/manifest.yaml'), path: c.produced?.formeLine ? `ligne ${c.produced.formeLine}` : 'forme', message: `Composant ${c.name} : forme : ${e.message}`, hint: `Ce que la forme produit : sitec component show <dossier> ${c.name}.` })); continue; }
     for (const e of r.errors) errors.push(err('E_TEMPLATE', { file: c.dir + '/template.html', path: `ligne ${e.line}`, message: `Gabarit ${c.name} : ${e.message}`, hint: 'Vocabulaire : {{ expr }}, {% if %}, {% for x in liste %}, {% set %}, {% form %} ; variables p, site, page, item, product, order, form, loop.' }));
   }
   // Composants composés (components.yaml) : assemblages nommés, développés page par page avant la validation des sections.

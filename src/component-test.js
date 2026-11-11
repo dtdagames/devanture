@@ -61,7 +61,7 @@ async function casesOf(c) {
   if (!out.length && c.manifest.example) {
     let props = null, error = null;
     try { const ex = YAML.parse(c.manifest.example); props = Array.isArray(ex) && ex[0] && typeof ex[0] === 'object' ? Object.values(ex[0])[0] ?? {} : null; } catch (e) { error = `exemple du manifeste illisible : ${e.message.split('\n')[0]}`; }
-    if (props || error) out.push({ component: c.name, name: 'exemple', file: path.join(c.dir, 'manifest.yaml'), snapshot: null, props, error });
+    if (props || error) out.push({ component: c.name, name: 'exemple', file: path.join(c.dir, c.outline ? 'composant.md' : 'manifest.yaml'), snapshot: null, props, error });
   }
   return out;
 }

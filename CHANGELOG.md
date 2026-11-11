@@ -1,6 +1,15 @@
 # Journal des versions
 
-Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.15.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.16.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+
+## v0.16.0 — 2026-11-11 — un composant écrit en plan, catalogue natif sans YAML
+
+- **Composant écrit en plan** : `components/<nom>/composant.md` à la place de `manifest.yaml`. Les mêmes lignes en français que le format langage, en puces et sans YAML : `# nom`, la description, `Mots-clés :`, puis `## Données`, `## Calculé`, `## Fonctionnement`, `## Forme` (avec sa ligne d'ouverture), `## Apparence`, et `## Exemple` où le composant s'écrit comme une section de page. Le lecteur (`src/lang/outline.js`) rend la structure du manifeste et la ligne de chaque clé : les erreurs des blocs citent la ligne de `composant.md`.
+- **Catalogue natif** : les 23 composants sont écrits en plan. Preuve : `scripts/empreinte-catalogue.mjs` compare tout ce que le catalogue compile (données, effets, sources, gabarit, feuilles, PHP) avant et après, 35 composants identiques sur 35 avec ceux des exemples.
+- **Bloc données** : types `e-mail`, `liste de champs`, `liste de plages horaires`, et « un parmi » sur une `liste de textes`. Les quatre composants natifs qui décrivaient encore leurs données en schéma JSON (`contact.form`, `hours`, `products.grid`, `recent`) les disent en français, avec les mêmes données compilées.
+- `sitec rediger <dossier> --composants`, `sitec rediger <dossier-paquet>` et `sitec rediger --catalogue` récrivent les manifestes en plans ; chaque plan est relu et doit rendre le manifeste d'origine. `sitec component new` pose un `composant.md` ; `component show` montre un plan avec ses lignes.
+- L'exemple du composant `comptoir` (le-fournil) portait une virgule non protégée en notation `{ }`, lue comme une donnée de plus : corrigé. C'est la conversion qui l'a montré.
+- Restent en YAML : `vocabulaire.yaml`, `components.yaml`, les cas de test, `package.yaml`, `hosts.yaml`, et les composants des sites d'exemple (qui se convertissent, le banc le vérifie sur une copie). Le générateur (`component new --describe`) demande encore un manifeste.
 
 ## v0.15.0 — 2026-11-11 — plus aucun appel à un modèle ; lecteur de site fermé aux réglages mal nommés
 

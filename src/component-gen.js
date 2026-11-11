@@ -105,7 +105,18 @@ export async function buildSystemPromptLang() {
   const { PRIMITIVE_HELP } = await import('./lang/forme.js');
   const { INTENT_NAMES } = await import('./lang/apparence.js');
   const { FIELD_TYPE_WORDS, FIELD_MODIFIERS, FORM_SETTINGS } = await import('./lang/fonctionnement.js');
-  const manifestOf = async n => (await readText(path.join(COMPONENTS_DIR, n, 'manifest.yaml')) || '').trim();
+  // Les natifs de référence sont écrits en plan (composant.md) : la consigne les montre dans l'écriture demandée au modèle, le manifeste.
+  const manifestOf = async n => {
+    const yaml = await readText(path.join(COMPONENTS_DIR, n, 'manifest.yaml'));
+    if (yaml) return yaml.trim();
+    const plan = await readText(path.join(COMPONENTS_DIR, n, 'composant.md'));
+    if (!plan) return '';
+    const { parseComponentOutline } = await import('./lang/outline.js');
+    const { loadCatalog } = await import('./catalog.js');
+    const v = parseComponentOutline(plan).value;
+    if (v.example) v.example = (await loadCatalog()).get(n)?.manifest.example ?? '';
+    return YAML.stringify(v, { lineWidth: 0 }).trim();
+  };
   return `Tu écris des composants pour Devanture, un langage déclaratif de sites vitrines. Un composant se décrit dans un seul fichier, manifest.yaml, en français contrôlé : ce qu'il accepte (données), sa structure (forme), son allure (apparence) et, s'il recueille une saisie, ce qu'il en fait (fonctionnement). Le compilateur en tire le HTML, la CSS et le PHP ; tu n'écris jamais de HTML, de CSS, de JavaScript ni de PHP.
 
 # Ce que tu produis
@@ -182,7 +193,7 @@ Réponds uniquement par l'objet JSON demandé.`;
 /** Guide du langage des composants, construit depuis le code du compilateur (toujours à jour). */
 export async function buildSystemPrompt(format = 'langage') {
   if (format !== 'html') return buildSystemPromptLang();
-  const icons = (await readText(path.join(COMPONENTS_DIR, 'features', 'manifest.yaml')))?.match(/enum: \[([^\]]+)\]/)?.[1] || '';
+  const icons = (await import('./lang/donnees.js')).ICON_NAMES.join(', ');
   const tokens = Object.keys(THEME_PRESETS.clair).map(k => `var(--${k.replace(/\./g, '-')})`).join(', ');
   const { loadCatalog } = await import('./catalog.js');
   const cat = await loadCatalog();

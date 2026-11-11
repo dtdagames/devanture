@@ -18,6 +18,8 @@ const TYPES = [
   ['texte ou nombre', () => ({ type: ['string', 'number'] })],
   ['nombre entier', () => ({ type: 'integer' })],
   ['oui ou non', () => ({ type: 'boolean' })],
+  ['liste de plages horaires', () => ({ type: 'array', items: { type: 'string', pattern: '^([01]\\d|2[0-3]):[0-5]\\d-([01]\\d|2[0-3]):[0-5]\\d$' } })],
+  ['liste de champs', () => ({ type: 'array', items: { $comment: 'champ de formulaire' } })],
   ['liste de textes', () => ({ type: 'array', items: { type: 'string' } })],
   ['liste de liens', () => ({ type: 'array', items: { $ref: '#/$defs/link' } })],
   ['liste d\'images', () => ({ type: 'array', items: { type: 'string', format: 'asset' } })],
@@ -30,6 +32,7 @@ const TYPES = [
   ['image', () => ({ type: 'string', format: 'asset' })],
   ['icône', () => ({ type: 'string', enum: [...ICON_NAMES] })],
   ['date', () => ({ type: 'string' })],
+  ['e-mail', () => ({ type: 'string', format: 'email' })],
   ['liste', () => ({ type: 'array' })],
   ['groupe', () => ({ type: 'object' })],
 ];
@@ -76,6 +79,8 @@ export function parseSpec(spec, { hasChildren = false } = {}) {
     const isNum = schema.type === 'integer' || schema.type === 'number';
     schema.enum = values.map(v => (isNum ? num(v) : v));
     if (isNum && schema.enum.some(v => v === null)) errors.push(`« un parmi » : valeurs non numériques pour un nombre (${enumPart})`);
+    // Sur une liste de textes, « un parmi » dit les valeurs permises de chaque élément.
+    if (schema.type === 'array' && schema.items && schema.items.type === 'string') { schema.items = { ...schema.items, enum: schema.enum }; delete schema.enum; }
   }
   // au moins / au plus : éléments d'une liste, longueur d'un texte, valeur d'un nombre.
   const isArr = schema.type === 'array', isStr = schema.type === 'string';

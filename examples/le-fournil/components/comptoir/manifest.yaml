@@ -31,6 +31,6 @@ example: |
       title: Au comptoir
       items:
         - { name: Tourte de meule, category: Pains, image: pains.svg, note: 500 g et 1 kg }
-        - { name: Croissant, category: Viennoiseries, detail: Feuilleté à la main, pur beurre. }
+        - { name: Croissant, category: Viennoiseries, detail: "Feuilleté à la main, pur beurre." }
       phone: 02 40 00 00 00
 intents: [comptoir, produits, pains, viennoiseries, pâtisseries, filtrer, commander]

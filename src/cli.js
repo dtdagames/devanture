@@ -30,7 +30,7 @@ Usage :
   sitec catalog [dossier-projet]             Liste compacte des composants (natifs, puis ceux du projet : composés et gabarits)
   sitec explain <composant> [dossier-projet] [--document]
                                              Fiche détaillée d'un composant (ou : explain site, explain langage, explain document) ; --document ajoute son exemple écrit en document
-  sitec component new <dossier> <nom>        Squelette d'un composant de projet : components/<nom>/ (manifest.yaml, template.html, styles.css)
+  sitec component new <dossier> <nom>        Squelette d'un composant de projet : components/<nom>/composant.md (données, forme, apparence, exemple) ; --format html : manifest.yaml, template.html, styles.css
   sitec component new <dossier> <nom> --describe "texte" | --from f.md [--format langage|html] [--force] --export p.json
                                              Écrit la consigne qui fait écrire le composant par un modèle depuis une description ; --import r.json écrit sa réponse et la vérifie (--export p2.json : consigne de réparation). Le compilateur n'appelle aucun modèle
   sitec component edit <dossier> <nom> --ask "modification" [--package chemin] --export p.json | --import r.json
@@ -42,7 +42,9 @@ Usage :
   sitec lire <dossier> [composant] [--accepter] [--json] | sitec lire --tournures
                                              Composants au format document (document.md) : ce que le compilateur comprend de chaque phrase ; --accepter fige cette lecture (lecture.yaml)
   sitec lire <dossier> [--accepter] [--tout] Site au format document (site.md, pages/<id>.md) : ce que vaut chaque document, section par section, et ce qui a changé depuis la lecture acceptée (lecture/)
-  sitec rediger <dossier> [--dry-run]        Récrit un site YAML en documents (site.md, pages/<id>.md) ; chaque document est relu et doit rendre les données d'origine, sinon rien n'est écrit
+  sitec rediger <dossier> [--composants] [--dry-run]
+                                             Récrit en documents ce qui est encore en YAML dans un site ou un paquet (site.md, pages/<id>.md, data/<nom>.md, segments.md, components/<nom>/composant.md) ;
+                                             chaque document est relu et doit rendre les données d'origine, sinon rien n'est écrit (--composants : les composants seulement ; --catalogue : les composants natifs)
   sitec lire <dossier> [composant] --recrire [--dry-run] --export p.json | --import r.json
                                              Consigne pour faire récrire par un modèle les phrases refusées d'un document.md, puis import de sa réponse ; le lecteur relit chaque réécriture et reste seul juge, la lecture reste à accepter
   sitec schema <dossier> [--no-vscode]       Schémas JSON du site pour l'éditeur (.devanture/schema) et réglages VS Code : complétion des composants, props, assets et routes
@@ -218,46 +220,80 @@ export async function run(argv) {
       return bad || siteBad ? 1 : 0;
     }
     case 'rediger': {
-      // Du YAML aux documents : site.md et pages/<id>.md, chacun relu ; la lecture doit rendre les données d'origine, à la lettre.
-      const dir = args[0];
-      if (!dir) { console.error('Usage : sitec rediger <dossier-projet> [--dry-run]'); return 2; }
-      const root = path.resolve(dir), dry = flags.has('--dry-run');
-      const project = await loadProject(root, { catalog });
-      if (project.documents?.site || project.documents?.pages.length || project.documents?.data.length) { console.error('Ce site est déjà écrit en documents (site.md, pages/<id>.md).'); return 1; }
-      if (project.loadErrors.length) { for (const e of project.loadErrors) console.log(JSON.stringify(e)); console.error('Corrigez d\'abord le YAML (sitec check).'); return 1; }
-      const tokens = Object.keys(THEME_PRESETS.clair), groups = SITE_SCHEMA.properties.site.properties, schemas = componentSchemas(project, catalog);
+      // Du YAML aux documents : tout ce qui est encore en YAML est récrit, relu, et doit rendre les données d'origine.
+      //   site     : site.md, pages/<id>.md, data/<nom>.md, segments.md (lecture figée dans lecture/), components/<nom>/composant.md
+      //   paquet   : components/<nom>/composant.md
+      //   --catalogue : les composants natifs du compilateur
+      const dir = args[0], dry = flags.has('--dry-run'), natives = flags.has('--catalogue'), only = flags.has('--composants');
+      if (!dir && !natives) { console.error('Usage : sitec rediger <dossier-projet | dossier-paquet> [--composants] [--dry-run] | sitec rediger --catalogue [--dry-run]'); return 2; }
+      const cat = await import('./catalog.js');
+      const { outlineOf } = await import('./component-rediger.js');
+      const root = natives ? cat.COMPONENTS_DIR : path.resolve(dir);
       const out = [], failed = [];
-      const s = writeSiteDocument(project.site, { tokens, groups });
-      if (s.error) failed.push(`site.yaml : ${s.error}`); else out.push({ from: project.siteFile, to: path.join(root, 'site.md'), text: s.text, frozen: path.join(root, 'lecture', 'site.yaml'), yaml: readSiteDocument(s.text, { tokens, groups }).yaml });
-      for (const p of project.pages) {
+      const exists = p => fs.access(p).then(() => true, () => false);
+      const component = async (cdir, name, props) => {
+        const from = path.join(cdir, 'manifest.yaml');
+        if (!await exists(from)) return;
+        if (!props) { failed.push(`${path.relative(root, from).replaceAll('\\', '/')} : composant refusé par check, corrigez-le d'abord`); return; }
+        const r = outlineOf(await fs.readFile(from, 'utf8'), { name, props });
+        if (r.error) failed.push(`${path.relative(root, from).replaceAll('\\', '/')} : ${r.error}`);
+        else out.push({ from, to: path.join(cdir, 'composant.md'), text: r.text, note: r.comments.lost ? `${r.comments.lost} ligne(s) de commentaire non reprise(s)` : '' });
+      };
+      const isPackage = !natives && await exists(path.join(root, 'package.yaml')) && !await exists(path.join(root, 'site.yaml')) && !await exists(path.join(root, 'site.md'));
+      if (natives) {
+        for (const c of catalog.list()) await component(c.dir, c.name, c.manifest.props);
+      } else if (isPackage) {
+        const meta = YAML.parse(await fs.readFile(path.join(root, 'package.yaml'), 'utf8')) || {};
+        const dirs = await fs.readdir(path.join(root, 'components'), { withFileTypes: true }).catch(() => []);
+        for (const d of dirs) {
+          if (!d.isDirectory() || d.name.startsWith('.')) continue;
+          const src = await cat.readComponentDir(path.join(root, 'components', d.name));
+          if (!src || src.manifestText === undefined) continue;
+          const name = `${meta.name}.${src.name}`;
+          await component(src.dir, name, cat.buildComponent({ ...src, name, shortName: src.name, pkg: meta.name, project: true, words: catalog.words }).entry?.manifest.props);
+        }
+      } else {
+        const project = await loadProject(root, { catalog });
+        if (project.loadErrors.length) { for (const e of project.loadErrors) console.log(JSON.stringify(e)); console.error('Corrigez d\'abord le site (sitec check).'); return 1; }
+        const tokens = Object.keys(THEME_PRESETS.clair), groups = SITE_SCHEMA.properties.site.properties, schemas = componentSchemas(project, catalog);
+        if (!project.documents.site && !only) {
+          const s = writeSiteDocument(project.site, { tokens, groups });
+          if (s.error) failed.push(`site.yaml : ${s.error}`); else out.push({ from: project.siteFile, to: path.join(root, 'site.md'), text: s.text, frozen: path.join(root, 'lecture', 'site.yaml'), yaml: readSiteDocument(s.text, { tokens, groups }).yaml });
+        }
         const pageOf = id => project.pages.find(x => x.id === id)?.data || null;
-        const r = writePageDocument(p.data, { schemas, pageOf });
-        if (r.error) failed.push(`pages/${path.basename(p.file)} : ${r.error}`);
-        else out.push({ from: p.file, to: path.join(root, 'pages', p.id + '.md'), text: r.text, frozen: path.join(root, 'lecture', 'pages', p.id + '.page.yaml'), yaml: readPageDocument(r.text, { schemas, pageOf }).yaml });
-      }
-      // Données : les produits de la boutique et les éléments de chaque collection.
-      const datas = [];
-      if (project.productsRaw) datas.push({ name: 'products', file: project.productsFile, items: Array.isArray(project.productsRaw) ? project.productsRaw : project.productsRaw.products, kind: PRODUCTS, heading: 'Produits' });
-      for (const [name, col] of Object.entries(project.collections || {})) if (col.raw) datas.push({ name, file: col.file, items: Array.isArray(col.raw) ? col.raw : col.raw[name], kind: collectionData(name, project.site.collections?.[name]), heading: project.site.collections?.[name]?.label || name });
-      for (const d of datas) {
-        const w = writeDataDocument(d.items, d.kind, d.heading);
-        if (w.error) failed.push(`data/${d.name}.yaml : ${w.error}`);
-        else out.push({ from: d.file, to: path.join(root, 'data', d.name + '.md'), text: w.text, frozen: path.join(root, 'lecture', 'data', d.name + '.yaml'), yaml: readDataDocument(w.text, d.kind).yaml });
-      }
-      if (project.segmentsRaw) {
-        const w = writeSegmentsDocument(project.segmentsRaw, { events: EVENTS });
-        if (w.error) failed.push(`segments.yaml : ${w.error}`);
-        else out.push({ from: project.segmentsFile, to: path.join(root, 'segments.md'), text: w.text, frozen: path.join(root, 'lecture', 'segments.yaml'), yaml: readSegmentsDocument(w.text, { events: EVENTS }).yaml });
+        for (const p of project.pages.filter(x => !x.document && !only)) {
+          const r = writePageDocument(p.data, { schemas, pageOf });
+          if (r.error) failed.push(`pages/${path.basename(p.file)} : ${r.error}`);
+          else out.push({ from: p.file, to: path.join(root, 'pages', p.id + '.md'), text: r.text, frozen: path.join(root, 'lecture', 'pages', p.id + '.page.yaml'), yaml: readPageDocument(r.text, { schemas, pageOf }).yaml });
+        }
+        // Données : les produits de la boutique et les éléments de chaque collection.
+        const datas = [];
+        if (!only && project.productsRaw && /\.yaml$/.test(project.productsFile)) datas.push({ name: 'products', file: project.productsFile, items: Array.isArray(project.productsRaw) ? project.productsRaw : project.productsRaw.products, kind: PRODUCTS, heading: 'Produits' });
+        for (const [name, col] of Object.entries(project.collections || {})) if (!only && col.raw && /\.yaml$/.test(col.file)) datas.push({ name, file: col.file, items: Array.isArray(col.raw) ? col.raw : col.raw[name], kind: collectionData(name, project.site.collections?.[name]), heading: project.site.collections?.[name]?.label || name });
+        for (const d of datas) {
+          const w = writeDataDocument(d.items, d.kind, d.heading);
+          if (w.error) failed.push(`data/${d.name}.yaml : ${w.error}`);
+          else out.push({ from: d.file, to: path.join(root, 'data', d.name + '.md'), text: w.text, frozen: path.join(root, 'lecture', 'data', d.name + '.yaml'), yaml: readDataDocument(w.text, d.kind).yaml });
+        }
+        if (!only && project.segmentsRaw && /\.yaml$/.test(project.segmentsFile)) {
+          const w = writeSegmentsDocument(project.segmentsRaw, { events: EVENTS });
+          if (w.error) failed.push(`segments.yaml : ${w.error}`);
+          else out.push({ from: project.segmentsFile, to: path.join(root, 'segments.md'), text: w.text, frozen: path.join(root, 'lecture', 'segments.yaml'), yaml: readSegmentsDocument(w.text, { events: EVENTS }).yaml });
+        }
+        // Composants du site encore écrits en manifeste : leur plan, composant.md.
+        validateProject(project, catalog);
+        for (const src of project.componentSources || []) if (src.manifestText !== undefined) await component(src.dir, src.name, project.catalog?.get(src.name)?.manifest.props);
       }
       if (failed.length) { for (const m of failed) console.error('Ne s\'écrit pas en document : ' + m); console.error('Rien n\'est écrit.'); return 1; }
+      if (!out.length) { console.log('Rien à convertir : plus aucun fichier YAML d\'auteur ici.'); return 0; }
       for (const o of out) {
         const blocks = (o.text.match(/^```yaml/gm) || []).length;
-        console.log(`${path.relative(root, o.from).replaceAll('\\', '/')} → ${path.relative(root, o.to).replaceAll('\\', '/')}${blocks ? ` (${blocks} bloc${blocks > 1 ? 's' : ''} yaml gardé${blocks > 1 ? 's' : ''})` : ''}`);
+        console.log(`${path.relative(root, o.from).replaceAll('\\', '/')} → ${path.relative(root, o.to).replaceAll('\\', '/')}${blocks ? ` (${blocks} bloc${blocks > 1 ? 's' : ''} yaml gardé${blocks > 1 ? 's' : ''})` : ''}${o.note ? ` ; ${o.note}` : ''}`);
         if (dry) continue;
-        await fs.mkdir(path.dirname(o.frozen), { recursive: true });
-        await fs.writeFile(o.to, o.text); await fs.writeFile(o.frozen, o.yaml); await fs.rm(o.from);
+        if (o.frozen) { await fs.mkdir(path.dirname(o.frozen), { recursive: true }); await fs.writeFile(o.frozen, o.yaml); }
+        await fs.writeFile(o.to, o.text); await fs.rm(o.from);
       }
-      console.log(dry ? `${out.length} documents s'écriraient (--dry-run : rien n'est modifié).` : `${out.length} documents écrits, relus (chacun rend les données de son YAML) et leur lecture figée dans lecture/. Les fichiers YAML d'origine sont supprimés ; les commentaires qu'ils portaient ne sont pas repris.`);
+      console.log(dry ? `${out.length} documents s'écriraient (--dry-run : rien n'est modifié).` : `${out.length} documents écrits et relus : chacun rend les données de son YAML. La lecture du site, des pages et des données est figée dans lecture/. Les fichiers YAML d'origine sont supprimés.`);
       return 0;
     }
     case 'schema': {
@@ -389,49 +425,48 @@ export async function run(argv) {
       await fs.mkdir(path.join(cdir, 'fixtures'), { recursive: true });
       // Squelette au format langage (défaut) : un seul manifeste, données, forme, apparence.
       if ((opt('--format') || 'langage') !== 'html') {
-        await fs.writeFile(path.join(cdir, 'manifest.yaml'), `name: ${target.manifestName}
-description: "[à compléter] une phrase : ce que montre ce composant et quand l'utiliser"
-# Ce que le composant accepte : une ligne par champ, « nom: type, précisions — description ».
-données:
-  title: texte, facultatif — titre de la section
-  intro: texte, facultatif — phrase sous le titre
-  items (liste, au moins 1):
-    title: texte
-    text: texte, facultatif
-    image: image, facultatif
-  cta: lien, facultatif — bouton sous la liste
-# La structure : primitives (sitec explain langage). Un nom entre « » donne une classe.
-forme:
-  - en-tête: title, intro
-  - grille de items, 3 colonnes:
-      - carte:
-          - image: image, title
-          - titre: title
-          - texte discret: text
-  - bouton: cta
-# L'allure, par partie : intentions liées au thème.
-apparence:
-  cartes: compactes, coins arrondis
-# Ce que le composant fait d'une saisie (facultatif) : retirez les « # », puis ajoutez « - formulaire, bouton Envoyer » à la forme.
-# fonctionnement:
-#   formulaire:
-#     enregistre dans: demandes
-#     prévient par e-mail: oui
-#     confirmation: Merci, nous vous répondons rapidement.
-#     champs:
-#       name:
-#       email:
-#       sujet: choix, un parmi Devis, Question — Votre demande
-#       message: texte long, facultatif
-example: |
-  - ${target.name}:
-      title: Un titre
-      items:
-        - { title: Premier point, text: Une phrase. }
-intents: [mots, que, tapent, les, visiteurs]
+        await fs.writeFile(path.join(cdir, 'composant.md'), `# ${target.manifestName}
+
+[à compléter] une phrase : ce que montre ce composant et quand l'utiliser
+
+Mots-clés : mots, que, tapent, les, visiteurs
+
+## Données
+> Ce que le composant accepte : une puce par champ, « nom : type, précisions — description ».
+- title : texte, facultatif — titre de la section
+- intro : texte, facultatif — phrase sous le titre
+- items (liste, au moins 1) :
+  - title : texte
+  - text : texte, facultatif
+  - image : image, facultatif
+- cta : lien, facultatif — bouton sous la liste
+
+## Forme
+> La structure : primitives (sitec explain langage). Un nom entre « » donne une classe.
+- en-tête : title, intro
+- grille de items, 3 colonnes :
+  - carte :
+    - image : image, title
+    - titre : title
+    - texte discret : text
+- bouton : cta
+
+## Apparence
+> L'allure, par partie : intentions liées au thème.
+- cartes : compactes, coins arrondis
+
+> Ce que le composant fait d'une saisie (facultatif) : ajoutez une section « ## Fonctionnement » avec
+> « - formulaire : » puis, en retrait, « - enregistre dans : demandes », « - prévient par e-mail : oui »,
+> « - confirmation : Merci. », « - champs : » et une puce par champ (« - name », « - sujet : choix, un parmi Devis, Question — Votre demande ») ;
+> et « - formulaire, bouton Envoyer » dans la forme.
+
+## Exemple
+\`\`\`
+## ${target.name} : Un titre
+- Premier point | Une phrase.
+\`\`\`
 `);
-        await fs.writeFile(path.join(cdir, 'fixtures', 'simple.yaml'), 'title: Un titre\nitems:\n  - { title: Premier point, text: Une phrase. }\n  - { title: Second point }\n');
-        console.log(`OK  ${relDir} : manifest.yaml (données, forme, apparence ; fonctionnement en commentaire) et un cas de test. Ensuite : décrire, ajuster, puis sitec check ${dir}, sitec component show ${dir} ${name} (ce que chaque bloc produit) et sitec component preview ${dir} ${name}.`);
+        console.log(`OK  ${relDir} : composant.md (données, forme, apparence ; fonctionnement en commentaire) et un cas de test. Ensuite : décrire, ajuster, puis sitec check ${dir}, sitec component show ${dir} ${name} (ce que chaque bloc produit) et sitec component preview ${dir} ${name}.`);
         return 0;
       }
       const cls = name.replace(/\./g, '-');
@@ -674,7 +709,8 @@ Constantes : site.yaml › constants: { delai: 1 h, zone: Lyon } → {{ const.de
 Collections : site.yaml › collections: { nom: { label, fields: { champ: type }, sort } } ; data/<nom>.yaml ; page route: /chemin/[id] + source: nom ; composant collection.list.
   types de champ : string, text, number, boolean, date, asset, list, link.
 Composants composés : components.yaml › components: { nom: { params, sections } } ; dans sections, {{ p.param }} et { for: p.liste, as: x, item: {…} }.
-Composants de projet, format langage (défaut) : un seul manifest.yaml avec données, forme, apparence, fonctionnement (docs/LANGAGE.md, section 6).
+Composants de projet, format langage (défaut) : un seul fichier avec données, forme, apparence, fonctionnement (docs/LANGAGE.md, section 6) :
+  composant.md (un plan : « # nom », la description, puis « ## Données », « ## Forme »… avec une puce « - nom : valeur » par ligne), ou manifest.yaml.
   données : nom: ${TYPE_WORDS.join(' | ')}, puis facultatif, au moins N, au plus N, de A à B, un parmi a, b — description ; « items (liste): » puis les champs.
   forme : ${Object.keys(PRIMITIVE_HELP).join(', ')}.
     comportements posés par la forme, sans rien déclarer : défilement, onglets, accordéon, repli, filtres de x selon champ, image agrandissable, copier.
@@ -693,7 +729,7 @@ Composants de projet, format langage (défaut) : un seul manifest.yaml avec donn
       « places: 12 par atelier, comptées par personnes » (un champ nombre) ; « si complet: message » ou « liste d'attente: oui | message » ;
       « une fois par: email » ou « email, atelier » ; « si déjà inscrit: message ». Lire où en est le registre : « lit: places: état du registre ».
       Le back-office annule un envoi (la place est rendue), le rétablit, ou donne la place à un envoi en attente.
-  ce que chaque bloc produit (schéma, effets, gabarit, feuille) : sitec component show <dossier> <nom> [--php]. Toute erreur renvoie à une ligne de manifest.yaml.
+  ce que chaque bloc produit (schéma, effets, gabarit, feuille) : sitec component show <dossier> <nom> [--php]. Toute erreur renvoie à une ligne du plan ou du manifeste.
 Format html (porte de sortie) : components/<nom>/manifest.yaml + template.html (+ styles.css) ; sitec component new <dossier> <nom> [--describe "texte"] [--format html].
   CSS : sélecteurs préfixés du nom du composant, jetons du thème (var(--color-…), var(--font-…)), rien d'externe.
   comportements : behaviors: [${Object.keys(BEHAVIORS).join(', ')}] et attributs data-sl-… dans le gabarit (docs/LANGAGE.md).

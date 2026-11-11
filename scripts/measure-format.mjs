@@ -7,11 +7,14 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import YAML from 'yaml';
 import { encode } from 'gpt-tokenizer';
+import { parseComponentOutline } from '../src/lang/outline.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const rev = process.argv[2] || 'v0.6.0';
 const git = p => { try { return execFileSync('git', ['show', `${rev}:${p}`], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }); } catch { return ''; } };
-const now = p => { try { return fs.readFileSync(path.join(ROOT, p), 'utf8'); } catch { return ''; } };
+// Un composant écrit en plan (composant.md) : ses blocs sont ceux d'un manifeste, rendus en YAML pour être mesurés à l'identique.
+const planAsManifest = p => { try { const v = parseComponentOutline(fs.readFileSync(path.join(ROOT, p.replace(/manifest\.yaml$/, 'composant.md')), 'utf8')).value; delete v.example; return YAML.stringify(v, { lineWidth: 0 }); } catch { return ''; } };
+const now = p => { try { return fs.readFileSync(path.join(ROOT, p), 'utf8'); } catch { return /manifest\.yaml$/.test(p) ? planAsManifest(p) : ''; } };
 // Partie « à écrire » d'un manifeste : props ou données + forme + apparence (description, exemple, intentions sont communs aux deux formats).
 const authored = (text, keys) => { const m = YAML.parse(text) || {}; return keys.filter(k => m[k] !== undefined).map(k => YAML.stringify({ [k]: m[k] }, { lineWidth: 0 })).join(''); };
 const stat = t => ({ lignes: t ? t.trim().split('\n').length : 0, caracteres: t.length, tokens: encode(t).length });

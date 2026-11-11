@@ -11,9 +11,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import YAML from 'yaml';
 import { encode } from 'gpt-tokenizer';
+import { parseComponentOutline } from '../src/lang/outline.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const at = (rev, p) => { if (!rev) { try { return fs.readFileSync(path.join(ROOT, p), 'utf8'); } catch { return ''; } } try { return execFileSync('git', ['show', `${rev}:${p}`], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }); } catch { return ''; } };
+// Un composant écrit en plan (composant.md) : ses blocs sont ceux d'un manifeste, rendus en YAML pour être mesurés à l'identique.
+const planAsManifest = p => { try { const v = parseComponentOutline(fs.readFileSync(path.join(ROOT, p.replace(/manifest\.yaml$/, 'composant.md')), 'utf8')).value; delete v.example; return YAML.stringify(v, { lineWidth: 0 }); } catch { return ''; } };
+const at = (rev, p) => { if (!rev) { try { return fs.readFileSync(path.join(ROOT, p), 'utf8'); } catch { return /manifest\.yaml$/.test(p) ? planAsManifest(p) : ''; } } try { return execFileSync('git', ['show', `${rev}:${p}`], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }); } catch { return ''; } };
 const authored = (text, keys) => { const m = YAML.parse(text) || {}; return keys.filter(k => m[k] !== undefined).map(k => YAML.stringify({ [k]: m[k] }, { lineWidth: 0 })).join(''); };
 const tok = t => encode(t).length, lin = t => (t.trim() ? t.trim().split('\n').length : 0);
 const FILES = ['template.html', 'template.php', 'styles.css', 'module.js'];

@@ -234,6 +234,58 @@ components/<nom>/
   module.js        comportement navigateur (optionnel, signalé)
 ```
 
+### Le même composant, écrit en plan
+
+Le format langage s'écrit aussi sans YAML, dans `components/<nom>/composant.md` à la place de `manifest.yaml` (l'un ou l'autre). Ce sont les mêmes lignes en français, en puces : un titre (le nom), la description, puis une section par bloc. Rien ne se met entre guillemets, et il n'y a pas de bloc « | ». C'est l'écriture du catalogue natif et celle du squelette que pose `sitec component new`.
+
+<!-- sitec: components/annonce/composant.md -->
+````markdown
+# annonce
+
+Bandeau d'annonce : un texte, un code à donner et une date de fin.
+
+Mots-clés : annonce, offre, promotion
+
+## Données
+> Une note pour qui lit : les lignes qui commencent par « > » ne sont pas lues.
+- text : texte — l'annonce
+- code : texte, facultatif — code à donner au téléphone
+- until : texte, facultatif — date de fin (ex. 30 novembre)
+
+## Forme
+section, conteneur « annonce-inner » :
+- texte : **À noter :** {{ text }}
+- si code :
+  - texte « annonce-code » : Code **{{ code }}**
+- si until :
+  - texte discret : jusqu'au {{ until }}
+
+## Apparence
+- annonce-inner : fond d'accent, coins arrondis, en ligne, compactes
+- annonce-code : gras
+- sur téléphone :
+  - annonce-inner : empilés
+
+## Exemple
+```
+## annonce
+-15 % sur l'entretien annuel de chaudière
+Code : ENTRETIEN15
+Until : 30 novembre
+```
+````
+
+| Dans un plan | Ce que le lecteur en fait |
+|---|---|
+| `# nom`, puis un paragraphe | le nom du composant et sa description |
+| `Ordre : 10`, `Mots-clés : a, b`, `Comportements : tabs` | `order`, `intents`, `behaviors` |
+| `## Données`, `## Calculé`, `## Fonctionnement`, `## Apparence` | les blocs du même nom : une puce « nom : valeur » par ligne, des puces en retrait pour ce qui est dessous |
+| `## Forme` | une ligne d'ouverture facultative qui finit par « : », puis les éléments en puces ; les éléments d'un élément en retrait |
+| `## Exemple` | un bloc entre accents graves : le composant écrit comme une section de page (section 6 sexies), lu avec ses propres données |
+| `> …` | une note, non lue |
+
+Une ligne qui n'est pas une puce sous une section, une section inconnue, une clé dite deux fois sont des erreurs, à leur ligne ; les erreurs des blocs citent la ligne de `composant.md`. `sitec rediger <dossier> --composants` récrit en plans les composants d'un site, `sitec rediger <dossier-paquet>` ceux d'un paquet ; chaque plan est relu et doit rendre le manifeste d'origine, clé pour clé.
+
 Le nom ne peut pas être celui d'un composant natif. `template.php` est interdit : un composant de projet ne contient pas de code de la cible. `sitec component new <dossier> <nom>` crée le squelette.
 
 ### Données
@@ -242,9 +294,9 @@ Ce que le composant accepte, une ligne par champ : « nom: type, précisions —
 
 | Écrit | Signifie |
 |---|---|
-| `texte`, `texte long`, `texte ou nombre`, `nombre`, `nombre entier` (ou `entier`), `oui ou non`, `date` | types simples |
+| `texte`, `texte long`, `texte ou nombre`, `nombre`, `nombre entier` (ou `entier`), `oui ou non`, `date`, `e-mail` | types simples |
 | `lien`, `image`, `icône` | lien `{ label, to }`, fichier d'`assets/`, pictogramme du catalogue |
-| `liste de textes` (ou `liste`), `liste de liens`, `liste d'images` | listes simples |
+| `liste de textes` (ou `liste`), `liste de liens`, `liste d'images`, `liste de champs`, `liste de plages horaires` | listes simples ; `liste de champs` reçoit les champs d'un formulaire, `liste de plages horaires` des plages `HH:MM-HH:MM` ; sur une `liste de textes`, « un parmi a, b » dit les valeurs permises |
 | `items (liste, au moins 1):` puis des champs en dessous | liste d'éléments ; `nom (groupe):` puis des champs pour un objet (`groupe`) ; `groupe libre`, sans champs en dessous, pour un objet dont la page choisit les clés (un filtre `{ champ: valeur }`) |
 | `facultatif` | champ non obligatoire (tout champ est obligatoire sinon) |
 | `au moins N`, `au plus N`, `de A à B` | bornes (éléments d'une liste, longueur d'un texte, valeur d'un nombre) |
@@ -972,4 +1024,4 @@ Composants natifs écrits sans code de la cible, tous au format langage (aucun g
 `sitec migrate <dossier>` fait passer un site à la dernière version, étape par étape, en modifiant le texte des fichiers (commentaires et mise en forme conservés), puis vérifie que le site migré passe `check`. `--dry-run` montre les changements sans écrire. Chaque migration propose aussi des suggestions non appliquées : ce que la nouvelle version permet d'écrire mieux (coordonnées recopiées en dur, valeurs répétées à mettre en constantes). Un site sans `language` est lu comme version 1 avec l'avertissement `W_LANGUAGE`.
 
 - **0** : sites écrits avant la déclaration de version (compilateur ≤ 0.1.3). Migration vers 1 : ajout de `language: 1`, aucune construction ne change.
-- **1** (2026-11-08) : première version écrite. Expressions, constantes, collections, composants composés, composants de projet avec gabarit neutre et effet `form`, paquets de composants, tests de composants, feuille de style encadrée, comportements déclarés. Ajouts compatibles, sans changement de version : composants en français contrôlé (compilateur 0.7.0 et 0.8.0), objectifs et expériences dans `segments.yaml` (0.9.0), vocabulaire ouvert (`vocabulaire.yaml`, 0.10.0), lectures à la visite (`fonctionnement: lit:`, 0.11.0), registres à règles (`places`, `liste d'attente`, `une fois par`, 0.12.0), composant et site écrits en documents (0.13.0 à 0.15.0). Retrait, sans changement de version : le bloc `custom` (0.15.0), qui incluait un fichier PHP du projet hors de toute validation ; une page qui l'emploie encore reçoit `E_UNKNOWN_COMPONENT` avec la marche à suivre (un composant du site).
+- **1** (2026-11-08) : première version écrite. Expressions, constantes, collections, composants composés, composants de projet avec gabarit neutre et effet `form`, paquets de composants, tests de composants, feuille de style encadrée, comportements déclarés. Ajouts compatibles, sans changement de version : composants en français contrôlé (compilateur 0.7.0 et 0.8.0), objectifs et expériences dans `segments.yaml` (0.9.0), vocabulaire ouvert (`vocabulaire.yaml`, 0.10.0), lectures à la visite (`fonctionnement: lit:`, 0.11.0), registres à règles (`places`, `liste d'attente`, `une fois par`, 0.12.0), composant et site écrits en documents (0.13.0 à 0.15.0), composant écrit en plan (`composant.md`, 0.16.0). Retrait, sans changement de version : le bloc `custom` (0.15.0), qui incluait un fichier PHP du projet hors de toute validation ; une page qui l'emploie encore reçoit `E_UNKNOWN_COMPONENT` avec la marche à suivre (un composant du site).
