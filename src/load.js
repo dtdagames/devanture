@@ -3,9 +3,10 @@ import path from 'node:path';
 import YAML from 'yaml';
 import { err } from './errors.js';
 import { readComponentDir, loadCatalog } from './catalog.js';
-import { readSiteDocument, readPageDocument, componentSchemas } from './lang/site-document.js';
+import { readSiteDocument, readPageDocument, componentSchemas, baseOf } from './lang/site-document.js';
 import { readingDiff } from './lang/document.js';
 import { THEME_PRESETS } from './emit/php/css.js';
+import { SITE_SCHEMA } from './validate.js';
 
 const LIRE = 'sitec lire <dossier> redit ce que le compilateur comprend et ce qui a changé ; --accepter fige cette lecture';
 /** Erreurs d'un document (site.md, pages/<id>.md) et de sa lecture figée (lecture/…), au format des erreurs de chargement. */
@@ -34,7 +35,7 @@ export async function loadProject(root, { catalog = null } = {}) {
     const yamlFile = project.siteFile;
     project.siteFile = path.join(root, 'site.md');
     if (await text(yamlFile) !== undefined) project.loadErrors.push(err('E_DOCUMENT', { file: project.siteFile, path: '', message: 'site.md et site.yaml à la fois : un site n\'a qu\'une source.', hint: 'Gardez le document, supprimez site.yaml.' }));
-    const r = readSiteDocument(siteMd, { tokens: Object.keys(THEME_PRESETS.clair) });
+    const r = readSiteDocument(siteMd, { tokens: Object.keys(THEME_PRESETS.clair), groups: SITE_SCHEMA.properties.site.properties });
     const frozenFile = path.join(root, 'lecture', 'site.yaml');
     project.documents.site = { file: project.siteFile, text: siteMd, yaml: r.yaml, errors: r.errors, where: r.where, frozenFile, frozen: await text(frozenFile) };
     documentErrors(project.documents.site, project.loadErrors);
@@ -124,11 +125,13 @@ export async function loadProject(root, { catalog = null } = {}) {
   // les composants du site et des paquets. Elles prennent le rang qu'aurait leur .page.yaml.
   if (pageDocs.length) {
     const schemas = componentSchemas(project, catalog || await loadCatalog());
-    for (const f of pageDocs) {
+    // Une page dérivée (« Dérive de : accueil ») se lit après sa page de base, dont elle remplace des sections.
+    const sources = []; for (const f of pageDocs) sources.push({ f, source: await text(path.join(pagesDir, f)) ?? '' });
+    const pageOf = id => project.pages.find(p => p.id === id)?.data || null;
+    for (const { f, source } of [...sources.filter(s => !baseOf(s.source)), ...sources.filter(s => baseOf(s.source))]) {
       const file = path.join(pagesDir, f), id = f.replace(/\.md$/, '');
       if (project.pages.some(p => p.id === id)) { project.loadErrors.push(err('E_DOCUMENT', { file, path: '', message: `${f} et ${id}.page.yaml à la fois : une page n'a qu'une source.` })); continue; }
-      const source = await text(file) ?? '';
-      const r = readPageDocument(source, { schemas });
+      const r = readPageDocument(source, { schemas, pageOf });
       const frozenFile = path.join(root, 'lecture', 'pages', id + '.page.yaml');
       const doc = { id, file, text: source, yaml: r.yaml, errors: r.errors, where: r.where, frozenFile, frozen: await text(frozenFile) };
       project.documents.pages.push(doc);

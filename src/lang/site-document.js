@@ -33,7 +33,7 @@ export const PROP_NAMES = {
   fields: 'champs', required: 'obligatoires', success: 'confirmation', members: 'membres', address: 'adresse', access: 'accès',
   limit: 'limite', sort: 'tri', days: 'jours', groups: 'groupes', icon: 'icône', tone: 'ton', label: 'libellé', value: 'valeur',
   q: 'question', a: 'réponse', name: 'nom', role: 'rôle', src: 'fichier', caption: 'légende', price: 'prix', badge: 'mention',
-  back: 'retour', unit: 'unité', timezone: 'fuseau', closed: 'fermé', slots: 'plages', day: 'jour', id: 'ancre', keywords: 'mots-clés', empty: 'vide',
+  back: 'retour', unit: 'unité', variants: 'variantes', filter: 'filtre', constants: 'constantes', enabled: 'actif', currency: 'devise', payment: 'paiement', summary: 'résumé', quality: 'qualité', widths: 'largeurs', business_type: "type d'activité", manual_instructions: 'instructions de paiement', order_email: 'e-mail des commandes', short_name: 'nom court', theme_color: 'couleur du thème', requires_consent: 'consentement requis', consent_text: 'texte du consentement', title_field: 'champ du titre', placeholder: 'invite', timezone: 'fuseau', closed: 'fermé', slots: 'plages', day: 'jour', id: 'ancre', keywords: 'mots-clés', empty: 'vide',
 };
 /** Valeurs d'un choix dites en français. */
 const VALUE_NAMES = { gauche: 'left', droite: 'right', centre: 'center', 'centré': 'center' };
@@ -77,6 +77,10 @@ const toNumber = s => Number(String(s).trim().replace(',', '.'));
 const inEnum = (values, raw) => { const r = String(raw).trim(); const hit = values.find(v => String(v) === r) ?? values.find(v => norm(v) === norm(r)); if (hit !== undefined) return { value: hit }; const al = VALUE_NAMES[norm(r)]; return al !== undefined && values.includes(al) ? { value: al } : null; };
 const toBool = raw => { const r = norm(raw); return ['oui', 'true', 'vrai'].includes(r) ? { value: true } : ['non', 'false', 'faux'].includes(r) ? { value: false } : null; };
 
+/** Valeur d'une donnée libre (sans type déclaré) : oui / non, un nombre écrit sans détour, sinon le texte. */
+const scalarOf = raw => { const s = String(raw).trim(); if (/^(oui|non)$/i.test(s)) return /^oui$/i.test(s); if (/^-?\d+(\.\d+)?$/.test(s) && String(Number(s)) === s) return Number(s); return s; };
+const freeText = v => (typeof v === 'boolean' ? (v ? 'oui' : 'non') : typeof v === 'number' ? (scalarOf(String(v)) === v ? String(v) : null) : typeof v === 'string' && v.trim() === v && v !== '' && !/\n| \| /.test(v) && scalarOf(v) === v ? v : null);
+
 /** Valeur d'une ligne « Nom : valeur », selon le genre de la donnée. Renvoie { value } ou { error }. */
 function parseValue(kind, raw) {
   const s = String(raw).trim();
@@ -87,9 +91,22 @@ function parseValue(kind, raw) {
     case 'enum': return inEnum(kind.values, s) || { error: `une valeur parmi ${kind.values.join(', ')} est attendue (lu : « ${s} »)` };
     case 'list': {
       if (['text', 'free', 'image', 'field'].includes(kind.item.k)) return { value: s.split(/\s*,\s*/).filter(Boolean) };
+      if (kind.item.k === 'number') { const parts = s.split(/\s*,\s+|\s+/).filter(Boolean); return parts.every(isNumber) ? { value: parts.map(toNumber) } : { error: `des nombres séparés par des virgules sont attendus (lu : « ${s} »)` }; }
       return { error: 'cette liste s\'écrit en dessous, une ligne « - » par élément' };
     }
-    case 'group': case 'free': return { error: 'cette donnée ne se dit pas sur une ligne : écrivez-la dans un bloc ```yaml' };
+    case 'group': case 'free': {
+      // « category = savons, featured = oui » : les données du groupe, par leur nom.
+      const GP = kind.k === 'group' ? kind.schema.properties || {} : null, L = GP ? labelsOf(GP) : null, out = {};
+      for (const part of s.split(/\s*,\s+/)) {
+        const m = /^([^=]{1,40}?)\s*=\s*(.+)$/.exec(part);
+        if (!m) return { error: 'un groupe s\'écrit « nom = valeur, nom = valeur », ou en dessous : son nom suivi de « : » seul sur la ligne, puis une puce « nom | valeur » par donnée' };
+        const k = L ? L.get(norm(m[1])) : m[1].trim();
+        if (!k) return { error: `donnée inconnue : ${m[1].trim()} (données : ${Object.keys(GP).join(', ')})` };
+        if (k in out) return { error: `« ${m[1].trim()} » est dit deux fois` };
+        if (GP) { const v = parseValue(kindOf(GP[k]), m[2]); if (v.error) return { error: `${m[1].trim()} : ${v.error}` }; out[k] = v.value; } else out[k] = scalarOf(m[2]);
+      }
+      return { value: out };
+    }
     default: return { value: s };
   }
 }
@@ -111,21 +128,21 @@ function fitItem(text, schema) {
   const P = schema.properties || {}, keys = Object.keys(P), labels = labelsOf(P), out = {};
   const kinds = Object.fromEntries(keys.map(k => [k, kindOf(P[k])]));
   const later = (from, k) => keys.slice(from).some(x => !(x in out) && kinds[x].k === k);
-  let p = 0;
+  let p = 0, lastText = null;
   for (const raw of split(text)) {
     if (raw === '') return { error: 'valeur vide entre deux « | » : écrivez « rien » pour sauter un champ' };
     // Valeur nommée : « réponse : Oui » remplit le champ réponse, où qu'il soit.
     const m = /^([^:|]{1,40}?)\s*:\s+(.+)$/.exec(raw), named = m && labels.get(norm(m[1]));
-    if (named && !(named in out)) { const v = parseValue(kinds[named], m[2]); if (!v.error) { out[named] = v.value; continue; } }
+    if (named && !(named in out)) { const v = parseValue(kinds[named], m[2]); if (!v.error) { out[named] = v.value; lastText = kinds[named].k === 'text' ? named : null; continue; } }
     if (norm(raw) === SKIP) { while (p < keys.length && keys[p] in out) p++; p++; continue; }
     let j = p;
     for (; j < keys.length; j++) { if (keys[j] in out) continue; if (accepts(kinds[keys[j]], raw, later(j + 1, 'link'), later(j + 1, 'image'))) break; }
     if (j >= keys.length) return { error: `« ${raw} » ne trouve pas de champ : après ${keys.slice(0, p).filter(k => k in out).join(', ') || 'le début'}, il reste ${keys.slice(p).filter(k => !(k in out)).join(', ') || 'aucun champ'}` };
     const v = parseValue(kinds[keys[j]], raw);
     if (v.error) return { error: v.error };
-    out[keys[j]] = v.value; p = j + 1;
+    out[keys[j]] = v.value; p = j + 1; lastText = kinds[keys[j]].k === 'text' ? keys[j] : null;
   }
-  return { value: out };
+  return { value: out, lastText };
 }
 /** Un champ accepte-t-il cette valeur ? Un lien va à un champ lien, un fichier image à un champ image, tant qu'il en reste un. */
 function accepts(kind, raw, linkLater, imageLater) {
@@ -137,19 +154,50 @@ function accepts(kind, raw, linkLater, imageLater) {
     case 'number': return isNumber(raw) && (!kind.integer || /^-?\d+$/.test(raw.trim()));
     case 'bool': return !!toBool(raw);
     case 'list': return (kind.item.k === 'text' || kind.item.k === 'free') && !link && !file;
+    case 'group': case 'free': return /^[^=|]{1,40}=/.test(raw);
     case 'text': return !(link && linkLater) && !(file && imageLater);
     default: return false;
   }
 }
 
 /** Arbre de puces (par retrait) → valeurs d'une liste dont les éléments suivent itemSchema. */
+/** Puces « nom | … » d'une donnée nommée : valeur libre (« nom | valeur »), ou données d'un schéma (variantes, champs d'une collection). */
+function readMap(nodes, map0, fail, where, base) {
+  const out = {};
+  for (const n of nodes) {
+    let map = map0;
+    const parts = split(n.text), key = parts[0];
+    if (!key || key in out) { fail(n.line, key ? `« ${key} » est dit deux fois` : 'nom manquant avant « | »'); continue; }
+    where[`${base}.${key}`] = n.line;
+    if (n.children.length || n.more?.length) { fail((n.children[0] || n).line, 'rien ne se met en retrait sous une donnée nommée'); continue; }
+    if (map.group) {
+      const GP = map.group.properties || {}, k = labelsOf(GP).get(norm(key));
+      if (!k) { const s = near(key, Object.keys(GP)); fail(n.line, `donnée inconnue : ${key}${s ? ` (vouliez-vous dire ${s} ?)` : ''}`, `Données : ${Object.keys(GP).join(', ')}.`); continue; }
+      if (parts.length !== 2) { fail(n.line, `« ${key} » s'écrit « nom | valeur »`); continue; }
+      const v = parseValue(kindOf(GP[k]), parts[1]);
+      if (v.error) { fail(n.line, `${key} : ${v.error}`); continue; }
+      delete where[`${base}.${key}`]; where[`${base}.${k}`] = n.line; out[k] = v.value; continue;
+    }
+    if (map.schemaFor) { const sch = map.schemaFor(key); if (!sch) { fail(n.line, `« ${key} » : ${map.unknown || 'nom inconnu'}`); continue; } map = { ...map, schema: sch, schemaFor: null }; }
+    if (!map.schema) { if (parts.length !== 2) { fail(n.line, `une donnée libre s'écrit « nom | valeur » (lu : ${parts.length} partie${parts.length > 1 ? 's' : ''})`); continue; } out[key] = scalarOf(parts[1]); continue; }
+    if (parts.length < 2) { fail(n.line, `« ${key} » : ses données manquent après « | »`, `Données : ${Object.keys(map.schema.properties).join(', ')}.`); continue; }
+    const r = fitItem(parts.slice(1).join(' | '), map.schema);
+    if (r.error) { fail(n.line, `${key} : ${r.error}`, `Données : ${Object.keys(map.schema.properties).join(', ')}.`); continue; }
+    out[key] = map.short && Object.keys(r.value).length === 1 && map.short in r.value ? r.value[map.short] : r.value;
+  }
+  return out;
+}
+
 function readItems(nodes, kind, fail, where, base) {
   const out = [];
   nodes.forEach((n, i) => {
     const at = `${base}[${i}]`; where[at] = n.line;
+    if (n.more?.length && kind.k !== 'group') fail(n.line + 1, 'des lignes en retrait sous une valeur simple');
     if (kind.k === 'group') {
       const r = fitItem(n.text, kind.schema);
       if (r.error) { fail(n.line, r.error, `Champs, dans l'ordre : ${Object.keys(kind.schema.properties || {}).join(' | ')}.`); out.push({}); return; }
+      // Lignes en retrait sous la puce : la suite du dernier texte de la ligne (une ligne vide fait un paragraphe).
+      if (n.more?.length) { if (!r.lastText) fail(n.line + 1, 'des lignes en retrait, mais la puce ne finit pas par un texte'); else r.value[r.lastText] += n.more.map(p => (p.gap ? '\n\n' : '\n') + p.text).join(''); }
       if (n.children.length) {
         const lists = Object.entries(kind.schema.properties || {}).filter(([k, s]) => kindOf(s).k === 'list' && !(k in r.value));
         if (lists.length !== 1) fail(n.children[0].line, lists.length ? `des puces en retrait, mais ${lists.length} listes possibles (${lists.map(x => x[0]).join(', ')}) : écrivez cet élément dans un bloc \`\`\`yaml` : 'des puces en retrait, mais cet élément n\'a pas de liste');
@@ -193,7 +241,7 @@ export function splitBlocks(text) {
     let m;
     if ((m = /^(#{1,6})\s+(.*)$/.exec(l))) { out.push({ kind: 'h' + m[1].length, line: n, text: m[2].trim(), raw: l }); continue; }
     if ((m = /^(\s*)[-*]\s+(.*)$/.exec(raw))) { out.push({ kind: 'item', line: n, indent: m[1].replace(/\t/g, '  ').length, text: m[2].trim(), raw: l }); continue; }
-    out.push({ kind: 'text', line: n, text: l, raw: l });
+    out.push({ kind: 'text', line: n, text: l, raw: l, indent: /^(\s*)/.exec(raw)[1].replace(/\t/g, '  ').length });
   }
   return out;
 }
@@ -216,6 +264,20 @@ export function readBody(blocks, schema, opts = {}) {
   const defaultList = lists.length === 1 ? lists[0] : structured.length === 1 ? structured[0] : null;
   const links = keys.filter(k => kinds[k].k === 'link');
   const what = opts.what || 'ce composant';
+  // Données nommées, écrites en puces « nom | … » : groupe libre, ou données d'un schéma (variantes).
+  const mapOf = k => (opts.maps && k in opts.maps ? opts.maps[k] : kinds[k]?.k === 'free' ? {} : kinds[k]?.k === 'group' ? { group: kinds[k].schema } : null);
+  /** Les puces qui se suivent à partir du bloc i : un arbre par le retrait ; les lignes en retrait sans puce prolongent la puce. */
+  const takeRun = i => {
+    const root = { children: [], indent: -1 }, stack = [root]; let j = i, last = null, gap = false, first = blocks[i].line;
+    for (; j < blocks.length; j++) {
+      const x = blocks[j];
+      if (x.kind === 'item') { while (stack.length > 1 && x.indent <= stack[stack.length - 1].indent) stack.pop(); last = { text: x.text, line: x.line, indent: x.indent, children: [], more: [] }; stack[stack.length - 1].children.push(last); stack.push(last); gap = false; }
+      else if (x.kind === 'text' && x.indent >= 2 && last) { last.more.push({ text: x.text, gap }); gap = false; }
+      else if (x.kind === 'blank' && (blocks[j + 1]?.kind === 'item' || (blocks[j + 1]?.kind === 'text' && blocks[j + 1].indent >= 2 && last))) gap = true;
+      else break;
+    }
+    return { nodes: root.children, next: j, first };
+  };
   const paragraphs = {}; // donnée → [[lignes]]
   let target = null, open = false; // donnée texte ou liste choisie par « Nom : » ; paragraphe en cours
   let verbatim = false; // un texte annoncé par « Nom : » se lit tel quel, jusqu'à l'annonce d'une autre donnée ou la fin du bloc
@@ -242,6 +304,13 @@ export function readBody(blocks, schema, opts = {}) {
       if (!(al && ['list', 'text'].includes(kinds[al].k))) { say(target, b.line).push(b.raw); continue; }
     }
     if (/^h[13-6]$/.test(b.kind)) { fail(b.line, b.kind === 'h1' ? 'un seul « # » par document : c\'est son titre' : 'intertitre non lu : une section s\'ouvre par « ## composant : titre », une liste par « Nom : »', 'Dans un texte, annoncez-le d\'abord : « Texte : » seul sur sa ligne.'); continue; }
+    if (b.kind === 'item' && target && mapOf(target)) {
+      open = false;
+      const run = takeRun(i); i = run.next - 1;
+      if (target in props) { fail(run.first, `« ${target} » est déjà dit ligne ${where[target]}`); continue; }
+      props[target] = readMap(run.nodes, mapOf(target), fail, where, target); where[target] = run.first;
+      continue;
+    }
     if (b.kind === 'item') {
       const list = target && kinds[target]?.k === 'list' ? target : (!target || kinds[target]?.k !== 'text') ? defaultList : null;
       if (!list) {
@@ -253,11 +322,8 @@ export function readBody(blocks, schema, opts = {}) {
       }
       open = false;
       // Les puces qui se suivent forment la liste ; le retrait fait les éléments d'un élément.
-      const run = []; let j = i;
-      for (; j < blocks.length; j++) { if (blocks[j].kind === 'item') run.push(blocks[j]); else if (blocks[j].kind === 'blank' && blocks[j + 1]?.kind === 'item') continue; else break; }
-      i = j - 1;
-      const root = { children: [], indent: -1 }, stack = [root];
-      for (const it of run) { while (stack.length > 1 && it.indent <= stack[stack.length - 1].indent) stack.pop(); const node = { text: it.text, line: it.line, indent: it.indent, children: [] }; stack[stack.length - 1].children.push(node); stack.push(node); }
+      const taken = takeRun(i); i = taken.next - 1;
+      const root = { children: taken.nodes }, run = [{ line: taken.first }];
       const values = readItems(root.children, kinds[list].item, fail, where, list);
       if (list in props) { fail(run[0].line, `« ${list} » est déjà dit ligne ${where[list]}`); continue; }
       props[list] = values; where[list] = run[0].line;
@@ -270,10 +336,11 @@ export function readBody(blocks, schema, opts = {}) {
       open = false;
       const value = (m[2] || '').trim(), kind = kinds[label];
       if (!value) {
-        if (kind.k === 'list' || kind.k === 'text') { target = label; verbatim = kind.k === 'text'; if (kind.k === 'text') { if (label in props || paragraphs[label]) fail(b.line, `« ${label} » est déjà dit ligne ${where[label]}`); } continue; }
+        if (kind.k === 'list' || kind.k === 'text' || mapOf(label)) { target = label; verbatim = kind.k === 'text'; if (kind.k === 'text') { if (label in props || paragraphs[label]) fail(b.line, `« ${label} » est déjà dit ligne ${where[label]}`); } continue; }
         fail(b.line, `« ${m[1].trim()} : » attend une valeur sur la même ligne`); continue;
       }
       target = null;
+      if (opts.maps && label in opts.maps) { fail(b.line, `« ${m[1].trim()} » s'écrit en dessous : « ${m[1].trim()} : » seul sur la ligne, puis une puce « nom | donnée : valeur | … » par nom`); continue; }
       const v = parseValue(kind, value);
       if (v.error) { fail(b.line, `${m[1].trim()} : ${v.error}`); continue; }
       set(label, v.value, b.line); continue;
@@ -307,8 +374,21 @@ export function readBody(blocks, schema, opts = {}) {
 // ---------------------------------------------------------------------------------------------------------------------------
 // Le document d'une page.
 
-const PAGE_HEAD = { open: true, properties: { description: { type: 'string' }, route: { type: 'string', pattern: '^/' }, source: { type: 'string', pattern: '^[a-z]' } } };
-const PAGE_LABELS = [['adresse', 'route'], ['description', 'description'], ['source', 'source']];
+const PAGE_HEAD = { open: true, properties: { description: { type: 'string' }, route: { type: 'string', pattern: '^/' }, source: { type: 'string', pattern: '^[a-z]' }, extends: { type: 'string', pattern: '^[a-z]' }, remove: { type: 'array', items: { type: 'string' } }, override: { type: 'object' }, variants: { type: 'object' } } };
+/** Assemblage par segment d'une page : « Variantes : » puis « - segment | first : a, b | hide : c ». */
+const PAGE_MAPS = { variants: { schema: { properties: { first: { type: 'array', items: { type: 'string' } }, hide: { type: 'array', items: { type: 'string' } } } } } };
+/** Variantes d'une section : « Variantes : » puis « - segment | donnée : valeur | … », les données du composant lui-même. */
+const sectionMaps = schema => ({ variants: { schema: { properties: Object.fromEntries(Object.entries(schema.properties || {}).filter(([k]) => !['id', 'keywords', 'variants'].includes(k))) } } });
+const PAGE_LABELS = [['adresse', 'route'], ['description', 'description'], ['source', 'source'], ['dérive de', 'extends'], ['retire', 'remove'], ['remplace', 'override']];
+/** Données nommées de l'en-tête d'une page. Une page dérivée remplace des sections de sa page de base : « Remplace : » puis
+ *  « - ancre | donnée : valeur | … », lues d'après le composant de la section qui porte cette ancre. */
+function pageMaps(base, schemas) {
+  const maps = { ...PAGE_MAPS };
+  if (base) maps.override = { unknown: 'aucune section de cette ancre dans la page de base', schemaFor: id => { const s = (Array.isArray(base.sections) ? base.sections : []).find(x => x && typeof x === 'object' && Object.values(x)[0]?.id === id); const sch = s ? schemas.get(Object.keys(s)[0]) : null; return sch ? { properties: Object.fromEntries(Object.entries(sch.properties || {}).filter(([k]) => !['id', 'variants'].includes(k))) } : null; } };
+  return maps;
+}
+/** Page de base annoncée par le document (« Dérive de : accueil »), sans le lire en entier. */
+export const baseOf = text => (/^(?:d[ée]rive de|extends)\s*:\s*([a-z][a-z0-9-]*)\s*$/im.exec(String(text)) || [])[1] || null;
 const PAGE_KEYS = ['variants', 'extends', 'override', 'remove', 'prepend', 'append', 'seo', 'page'];
 const HEADER = what => `# Lecture de ${what} par sitec : le YAML que ce document vaut.\n# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).\n`;
 
@@ -325,8 +405,9 @@ function componentOf(said, schemas) {
  * Lit le document d'une page. schemas : Map nom de composant → schéma de ses données.
  * Renvoie { data (la page, comme lue d'un .page.yaml), yaml (la lecture, texte), errors: [{ line, message, hint }], where: { chemin → ligne } }.
  */
-export function readPageDocument(text, { schemas }) {
+export function readPageDocument(text, { schemas, pageOf = null }) {
   const blocks = splitBlocks(text), errors = [], where = {};
+  const baseId = baseOf(text), base = baseId && pageOf ? pageOf(baseId) : null;
   const fail = (line, message, hint) => errors.push({ line, message, ...(hint ? { hint } : {}) });
   const firstSection = blocks.findIndex(b => b.kind === 'h2');
   const head = firstSection < 0 ? blocks : blocks.slice(0, firstSection);
@@ -335,7 +416,7 @@ export function readPageDocument(text, { schemas }) {
   const h1 = head.findIndex(b => b.kind === 'h1');
   if (head.slice(0, Math.max(h1, 0)).some(b => b.kind !== 'blank') && h1 >= 0) fail(head[0].line, 'rien ne précède le titre de la page (« # Titre »)');
   if (head.filter(b => b.kind === 'h1').length > 1) fail(head.filter(b => b.kind === 'h1')[1].line, 'un seul « # » par page : c\'est son titre');
-  const r = readBody(head.filter((b, i) => i !== h1), PAGE_HEAD, { title: null, prose: 'description', labels: PAGE_LABELS, what: 'la page' });
+  const r = readBody(head.filter((b, i) => i !== h1), PAGE_HEAD, { title: null, prose: 'description', labels: PAGE_LABELS, what: 'la page', maps: pageMaps(base, schemas) });
   errors.push(...r.errors);
   const { description, route, source, ...rest } = r.props;
   if (route !== undefined) { data.route = route; where.route = r.where.route; }
@@ -362,7 +443,7 @@ export function readPageDocument(text, { schemas }) {
       }
       const schema = schemas.get(hit.name), P = schema.properties || {};
       const titleProp = ['title', 'titre'].find(k => kindOf(P[k]).k === 'text' && k in P) || null;
-      const rb = readBody(body, schema, { what: hit.name });
+      const rb = readBody(body, schema, { what: hit.name, maps: sectionMaps(schema) });
       errors.push(...rb.errors);
       const props = {};
       if (title !== undefined && title !== '') { if (!titleProp) fail(h.line, `${hit.name} n'a pas de titre : rien après « : » dans l'intitulé`); else if (titleProp in rb.props) fail(rb.where[titleProp], `le titre est déjà dans l'intitulé de la section (ligne ${h.line})`); else props[titleProp] = title; }
@@ -374,9 +455,11 @@ export function readPageDocument(text, { schemas }) {
       sections.push({ [hit.name]: ordered });
     });
   }
-  if (sections.length) data.sections = sections;
+  // Une page dérivée n'a pas de sections propres : celles qu'elle écrit s'ajoutent après celles de sa page de base.
+  if (sections.length && data.extends !== undefined) { if (data.append !== undefined) fail(where['sections[0]'], 'des sections sont déjà ajoutées par « append » dans le bloc yaml'); else data.append = sections; }
+  else if (sections.length) data.sections = sections;
   else if (data.extends === undefined) fail(blocks.find(b => b.kind !== 'blank')?.line || 1, 'la page n\'a aucune section', 'Une section s\'ouvre par « ## composant : titre ».');
-  const ordered = {}; for (const k of ['route', 'source', 'seo', 'sections']) if (k in data) ordered[k] = data[k]; for (const k of Object.keys(data)) if (!(k in ordered)) ordered[k] = data[k];
+  const ordered = {}; for (const k of ['route', 'extends', 'source', 'seo', 'override', 'remove', 'sections', 'append']) if (k in data) ordered[k] = data[k]; for (const k of Object.keys(data)) if (!(k in ordered)) ordered[k] = data[k];
   return { data: ordered, yaml: HEADER('ce document') + YAML.stringify(ordered, { lineWidth: 0 }), errors: errors.sort((a, b) => (a.line || 0) - (b.line || 0)), where };
 }
 
@@ -391,23 +474,39 @@ function siteSchema(tokens) {
     nav: { type: 'array', items: { $ref: '#/$defs/link' } },
     footer_text: { type: 'string' }, footer_links: { type: 'array', items: { $ref: '#/$defs/link' } },
     email: { type: 'string' }, phone: { type: 'string' }, address: { type: 'string' },
-    packages: { type: 'array', items: { type: 'string' } }, language: { type: 'integer' },
+    packages: { type: 'array', items: { type: 'string' } }, language: { type: 'integer' }, constants: { type: 'object' },
   };
   return { open: true, properties };
 }
 const SITE_LABELS = [['langue', 'locale'], ['thème', 'preset'], ['menu', 'nav'], ['pied de page', 'footer_text'], ['liens du pied de page', 'footer_links'], ['liens du pied', 'footer_links'], ['e-mail', 'email'], ['courriel', 'email'], ['téléphone', 'phone'], ['adresse', 'address'], ['paquets', 'packages'], ['langage', 'language']];
 
+/** Noms français des réglages du site, chacun dans sa section : « ## Boutique », « ## Recherche »… */
+export const GROUP_NAMES = { intent: 'recherche', agents: 'agents', personalization: 'personnalisation', static: 'statique', studio: 'atelier', images: 'images', offline: 'hors ligne', shop: 'boutique' };
+/** Un réglage du site se lit à plat : un groupe dans le groupe prend un nom pointé (« shipping.flat »), comme un jeton de thème. */
+const flatSchema = s => { const P = {}; for (const [k, v] of Object.entries(s.properties || {})) { if (v && v.type === 'object' && v.properties) for (const [k2, v2] of Object.entries(v.properties)) P[`${k}.${k2}`] = v2; else P[k] = v; } return { properties: P }; };
+const flatData = (o, s) => { const out = {}; for (const [k, v] of Object.entries(o)) { const sub = s.properties?.[k]; if (sub && sub.type === 'object' && sub.properties && v && typeof v === 'object' && !Array.isArray(v)) for (const [k2, v2] of Object.entries(v)) out[`${k}.${k2}`] = v2; else out[k] = v; } return out; };
+const unflat = o => { const out = {}; for (const [k, v] of Object.entries(o)) { const i = k.indexOf('.'); if (i < 0) out[k] = v; else (out[k.slice(0, i)] ||= {})[k.slice(i + 1)] = v; } return out; };
+const groupLabel = k => (k.includes('.') ? k : null);
+/** Une collection : « ## Collection realisations : Réalisations », puis « Tri : -date » et « Champs : » avec une puce « nom | type | oui » par champ. */
+const COLLECTION = { properties: { label: { type: 'string' }, description: { type: 'string' }, sort: { type: 'string' }, title_field: { type: 'string' }, fields: { type: 'object' } } };
+const COLLECTION_OPTS = { title: null, prose: 'description', what: 'la collection', maps: { fields: { short: 'type', schema: { properties: { type: { type: 'string' }, required: { type: 'boolean' }, label: { type: 'string' }, default: { type: 'string' }, description: { type: 'string' } } } } } };
+
 /**
- * Lit le document du site. tokens : noms des jetons de thème (« color.primary : #123456 » se dit sur une ligne).
+ * Lit le document du site. tokens : noms des jetons de thème (« color.primary : #123456 » se dit sur une ligne) ;
+ * groups : schémas des réglages du site (boutique, agents…), chacun lu dans sa section « ## nom ».
  * Renvoie { data (comme lue de site.yaml), yaml, errors, where }.
  */
-export function readSiteDocument(text, { tokens = [] } = {}) {
-  const blocks = splitBlocks(text), errors = [], where = {};
+export function readSiteDocument(text, { tokens = [], groups = {} } = {}) {
+  const all = splitBlocks(text), errors = [], where = {};
+  const firstSection = all.findIndex(b => b.kind === 'h2');
+  const blocks = firstSection < 0 ? all : all.slice(0, firstSection);
+  const sections = [];
+  if (firstSection >= 0) { const starts = all.map((b, i) => (b.kind === 'h2' ? i : -1)).filter(i => i >= 0); starts.forEach((s, n) => sections.push({ h: all[s], body: all.slice(s + 1, starts[n + 1] ?? all.length) })); }
   const fail = (line, message, hint) => errors.push({ line, message, ...(hint ? { hint } : {}) });
   const h1 = blocks.findIndex(b => b.kind === 'h1');
   if (h1 < 0) fail(1, 'le document du site commence par son nom : « # Nom du site »');
-  for (const b of blocks) if (b.kind === 'h2' || (b.kind === 'h1' && b !== blocks[h1])) fail(b.line, 'le document du site n\'a qu\'un titre, son nom ; les pages s\'écrivent dans pages/<id>.md');
-  const r = readBody(blocks.filter((b, i) => i !== h1 && b.kind !== 'h2' && b.kind !== 'h1'), siteSchema(tokens), { title: null, prose: 'tagline', labels: SITE_LABELS, what: 'le site' });
+  for (const b of blocks) if (b.kind === 'h1' && b !== blocks[h1]) fail(b.line, 'le document du site n\'a qu\'un titre, son nom ; les pages s\'écrivent dans pages/<id>.md');
+  const r = readBody(blocks.filter((b, i) => i !== h1 && b.kind !== 'h2' && b.kind !== 'h1'), siteSchema(tokens), { title: null, prose: 'tagline', labels: SITE_LABELS, what: 'ce site' });
   errors.push(...r.errors);
   const p = r.props, site = {};
   if (h1 >= 0) { site.name = blocks[h1].text; where['site.name'] = blocks[h1].line; }
@@ -425,12 +524,30 @@ export function readSiteDocument(text, { tokens = [] } = {}) {
   const data = { language: p.language ?? 1 };
   if (p.packages !== undefined) { data.packages = p.packages; where.packages = r.where.packages; }
   const said = new Set(['tagline', 'locale', 'preset', ...tokens, 'nav', 'footer_text', 'footer_links', 'email', 'phone', 'address', 'packages', 'language']);
+  if (p.collections !== undefined) { if (!p.collections || typeof p.collections !== 'object' || Array.isArray(p.collections)) fail(r.where.collections, 'collections: attend des collections nommées'); else data.collections = { ...p.collections }; said.add('collections'); }
   const merge = (into, from, path, line) => { for (const [k, v] of Object.entries(from)) { if (v && typeof v === 'object' && !Array.isArray(v) && into[k] && typeof into[k] === 'object' && !Array.isArray(into[k])) merge(into[k], v, `${path}${k}.`, line); else if (k in into) fail(line, `« ${path}${k} » est dit deux fois : en ligne et dans le bloc yaml`); else { into[k] = v; where[`${path}${k}`] = line; } } };
   for (const [k, v] of Object.entries(p)) {
     if (said.has(k)) continue;
     if (k === 'site') { if (!v || typeof v !== 'object' || Array.isArray(v)) fail(r.where[k], 'site: attend des données nommées'); else merge(site, v, 'site.', r.where[k]); continue; }
     if (k in data) { fail(r.where[k], `« ${k} » est dit deux fois`); continue; }
     data[k] = v; where[k] = r.where[k];
+  }
+  // Sections : un réglage du site (« ## Boutique ») ou une collection (« ## Collection realisations : Réalisations »).
+  for (const { h, body } of sections) {
+    const col = /^collection\s+([a-z][a-z0-9_]*)\s*(?::\s*(.*))?$/i.exec(h.text);
+    if (col) {
+      const r2 = readBody(body, COLLECTION, COLLECTION_OPTS); errors.push(...r2.errors);
+      const spec = { ...(col[2] ? { label: col[2].trim() } : {}), ...r2.props };
+      if (col[2] && 'label' in r2.props) fail(r2.where.label, `le libellé est déjà dans l'intitulé (ligne ${h.line})`);
+      const ordered = {}; for (const k of ['label', 'description', 'fields', 'sort', 'title_field']) if (k in spec) ordered[k] = spec[k];
+      if ((data.collections ||= {})[col[1]]) fail(h.line, `collection dite deux fois : ${col[1]}`); else { data.collections[col[1]] = ordered; where[`collections.${col[1]}`] = h.line; for (const [k, l] of Object.entries(r2.where)) where[`collections.${col[1]}.${k}`] = l; }
+      continue;
+    }
+    const key = Object.keys(groups).find(k => norm(k) === norm(h.text) || (GROUP_NAMES[k] && norm(GROUP_NAMES[k]) === norm(h.text)));
+    if (!key || !groups[key] || groups[key].type !== 'object' || !GROUP_NAMES[key]) { const names = Object.keys(GROUP_NAMES).filter(k => groups[k]).map(k => GROUP_NAMES[k]); fail(h.line, `« ${h.text} » n'est pas un réglage du site${near(h.text, names) ? ` : vouliez-vous dire « ${near(h.text, names)} » ?` : ''}`, `Sections de site.md : ${names.join(', ')}, ou « Collection <nom> : Libellé ». Les pages s'écrivent dans pages/<id>.md.`); continue; }
+    if (key in site) { fail(h.line, `« ${h.text} » est dit deux fois`); continue; }
+    const r2 = readBody(body, flatSchema(groups[key]), { title: null, prose: null, what: `la section ${GROUP_NAMES[key]}` }); errors.push(...r2.errors);
+    site[key] = unflat(r2.props); where[`site.${key}`] = h.line; for (const [k, l] of Object.entries(r2.where)) where[`site.${key}.${k}`] = l;
   }
   data.site = site;
   // Ordre de lecture : celui d'un site.yaml.
@@ -478,12 +595,17 @@ export function componentSchemas(project, catalog) {
 // L'écriture : d'un site en YAML à ses documents. Chaque document écrit est relu ; ce qui ne revient pas à l'identique passe
 // dans un bloc ```yaml, si bien que la lecture du document rend toujours les données d'origine.
 
-const same = (a, b) => JSON.stringify(canon(a)) === JSON.stringify(canon(b));
-/** Forme de comparaison : clés triées, fins de texte ignorées (un bloc « | » de YAML finit par un saut de ligne). */
-export function canon(v) {
+const same = (a, b) => JSON.stringify(canon(a, true)) === JSON.stringify(canon(b, true));
+/**
+ * Forme de comparaison : clés triées, fins de texte ignorées (un bloc « | » de YAML finit par un saut de ligne).
+ * loose : un nombre vaut son écriture (1999 et « 1999 »). Un document ne dit pas la différence, et elle n'existe que là où le
+ * composant accepte les deux (une valeur affichée) : ailleurs la validation refuse l'un des deux.
+ */
+export function canon(v, loose = false) {
   if (typeof v === 'string') return v.replace(/\s+$/, '');
-  if (Array.isArray(v)) return v.map(canon);
-  if (v && typeof v === 'object') return Object.fromEntries(Object.keys(v).sort().map(k => [k, canon(v[k])]));
+  if (typeof v === 'number' && loose) return String(v);
+  if (Array.isArray(v)) return v.map(x => canon(x, loose));
+  if (v && typeof v === 'object') return Object.fromEntries(Object.keys(v).sort().map(k => [k, canon(v[k], loose)]));
   return v;
 }
 const oneLine = v => typeof v === 'string' && v.trim() === v && v !== '' && !/\n/.test(v);
@@ -492,8 +614,15 @@ const scalarText = (kind, v) => {
   if (kind.k === 'bool') return typeof v === 'boolean' ? (v ? 'oui' : 'non') : null;
   if (kind.k === 'number') return typeof v === 'number' ? String(v) : null;
   if (kind.k === 'enum') return typeof v === 'string' || typeof v === 'number' ? String(v) : null;
+  if (kind.k === 'list' && kind.item.k === 'number') return Array.isArray(v) && v.length && v.every(x => typeof x === 'number') ? v.join(', ') : null;
   if (kind.k === 'list') return Array.isArray(v) && v.length && v.every(x => oneLine(x) && !/[,|]/.test(x)) && ['text', 'free', 'image', 'field'].includes(kind.item.k) ? v.join(', ') : null;
-  if (kind.k === 'text' || kind.k === 'image') return oneLine(v) ? v : null;
+  if (kind.k === 'text' || kind.k === 'image') { const s = typeof v === 'string' ? v.replace(/\s+$/, '') : v; return oneLine(s) ? s : typeof v === 'number' && kind.k === 'text' ? String(v) : null; }
+  if (kind.k === 'group' || kind.k === 'free') {
+    if (!v || typeof v !== 'object' || Array.isArray(v) || !Object.keys(v).length) return null;
+    const GP = kind.k === 'group' ? kind.schema.properties || {} : null, parts = [];
+    for (const [k, val] of Object.entries(v)) { if (GP && !(k in GP)) return null; if (!GP && !/^[\w.-]+$/.test(k)) return null; const x = GP ? scalarText(kindOf(GP[k]), val) : freeText(val); if (x === null || /,\s|\s=\s|=/.test(x)) return null; parts.push(`${GP ? labelFor(k, GP).toLowerCase() : k} = ${x}`); }
+    return parts.join(', ');
+  }
   return null;
 };
 const capital = s => s[0].toUpperCase() + s.slice(1);
@@ -520,16 +649,21 @@ function writeItem(item, kind) {
   if (Object.keys(item).some(k => !(k in P))) return null;
   const sub = keys.filter(k => k in item && kindOf(P[k]).k === 'list' && scalarText(kindOf(P[k]), item[k]) === null);
   const flat = keys.filter(k => k in item && !sub.includes(k));
-  const texts = {};
-  for (const k of flat) { const t = scalarText(kindOf(P[k]), item[k]); if (t === null || / \| /.test(t) || norm(t) === SKIP) return null; texts[k] = t; }
+  const texts = {}; let tail = null;
+  for (const k of flat) {
+    let v = item[k];
+    // Le dernier champ de la ligne, s'il est un texte de plusieurs lignes, se poursuit en retrait sous la puce.
+    if (k === flat[flat.length - 1] && kindOf(P[k]).k === 'text' && typeof v === 'string' && /\n/.test(v.replace(/\s+$/, '')) && !sub.length) { const ls = v.replace(/\s+$/, '').split('\n'); if (ls.some((l, i) => i > 0 && l !== '' && l.trim() !== l) || ls[0].trim() !== ls[0] || ls[0] === '') return null; v = ls[0]; tail = ls.slice(1).map(l => (l === '' ? '' : '  ' + l)); }
+    const t = scalarText(kindOf(P[k]), v); if (t === null || / \| /.test(t) || norm(t) === SKIP) return null; texts[k] = t;
+  }
   // Essais, du plus court au plus sûr : valeurs à la suite ; puis les champs mal rangés dits par leur nom.
   const named = new Set();
   for (let round = 0; round <= flat.length; round++) {
     const line = flat.map(k => (named.has(k) ? `${labelFor(k, P).toLowerCase()} : ${texts[k]}` : texts[k])).join(' | ');
     const r = fitItem(line, kind.schema);
     const want = Object.fromEntries(flat.map(k => [k, item[k]]));
-    if (!r.error && same(r.value, want)) {
-      const lines = [line];
+    if (!r.error && same(r.value, tail ? { ...want, [flat[flat.length - 1]]: texts[flat[flat.length - 1]] } : want)) {
+      const lines = [line, ...(tail || [])];
       for (const k of sub) {
         if (sub.length > 1) return null;
         const ik = kindOf(P[k]).item;
@@ -537,7 +671,7 @@ function writeItem(item, kind) {
       }
       return lines;
     }
-    const bad = flat.find(k => !named.has(k) && (r.error || !same(r.value?.[k], item[k])));
+    const bad = flat.find(k => !named.has(k) && (r.error || !same(r.value?.[k], tail && k === flat[flat.length - 1] ? texts[k] : item[k])));
     if (bad === undefined) return null;
     named.add(bad);
   }
@@ -545,6 +679,25 @@ function writeItem(item, kind) {
 }
 
 /** Écrit les lignes d'un bloc d'après son schéma. fenced : données à écrire dans le bloc yaml. Renvoie { lines, fence }. */
+/** Écrit une donnée nommée en puces « nom | … », ou null si une valeur ne s'y écrit pas. */
+function writeMap(v, map) {
+  if (!v || typeof v !== 'object' || Array.isArray(v) || !Object.keys(v).length) return null;
+  const lines = [];
+  for (const [key, val] of Object.entries(v)) {
+    if (!oneLine(key) || / \| /.test(key) || /^[-*]\s/.test(key)) return null;
+    if (map.group) { const GP = map.group.properties || {}; if (!(key in GP)) return null; const t = scalarText(kindOf(GP[key]), val); if (t === null || / \| /.test(t)) return null; lines.push(`- ${labelFor(key, GP).toLowerCase()} | ${t}`); continue; }
+    const schema = map.schemaFor ? map.schemaFor(key) : map.schema;
+    if (map.schemaFor && !schema) return null;
+    if (!schema) { const t = freeText(val); if (t === null) return null; lines.push(`- ${key} | ${t}`); continue; }
+    const obj = map.short && typeof val === 'string' ? { [map.short]: val } : val;
+    if (map.short && val && typeof val === 'object' && Object.keys(val).length === 1 && map.short in val) return null; // se relirait en écriture courte
+    const w = writeItem(obj, { k: 'group', schema });
+    if (!w || w.length !== 1) return null;
+    lines.push(`- ${key} | ${w[0]}`);
+  }
+  return lines;
+}
+
 function writeBody(props, schema, opts, fenced, announced = new Set()) {
   const P = schema.properties || {}, keys = Object.keys(P), kinds = Object.fromEntries(keys.map(k => [k, kindOf(P[k])]));
   const titleProp = opts.title !== undefined ? opts.title : ['title', 'titre'].find(k => kinds[k]?.k === 'text') || null;
@@ -560,6 +713,8 @@ function writeBody(props, schema, opts, fenced, announced = new Set()) {
     const v = props[k], kind = kinds[k] || { k: 'free' };
     if (fenced.has(k)) { fence[k] = v; continue; }
     if (k === proseProp && typeof v === 'string' && v.trim() !== '' && v.trim() === v.replace(/\s+$/, '')) { if (announced.has(k)) long.push(`${label(k)} :`, ...v.replace(/\s+$/, '').split('\n')); else prose.push(...v.replace(/\s+$/, '').split('\n')); continue; }
+    const map = opts.maps && k in opts.maps ? opts.maps[k] : kind.k === 'free' ? {} : kind.k === 'group' ? { group: kind.schema } : null;
+    if (map) { const one = !(opts.maps && k in opts.maps) ? scalarText(kind, v) : null; if (one !== null) { named.push(`${label(k)} : ${one}`); continue; } const ls = writeMap(v, map); if (ls) listed.push({ k, lines: [`${label(k)} :`, ...ls] }); else fence[k] = v; continue; }
     if (kind.k === 'link') { const t = scalarText(kind, v); if (t === null) { fence[k] = v; continue; } if (links.slice(0, links.indexOf(k)).every(o => o in props && !fenced.has(o))) bare.push(t); else named.push(`${label(k)} : ${t}`); continue; }
     if (kind.k === 'list') {
       const t = scalarText(kind, v);
@@ -610,7 +765,7 @@ export function writeSectionDocument(section, { schemas }) {
     const inTitle = tr.t && titleProp && oneLine(p[titleProp]), inId = tr.i && typeof p.id === 'string' && /^[a-z][a-z0-9-]*$/.test(p.id);
     const heading = `## ${said}${inId ? ' #' + p.id : ''}${inTitle ? ' : ' + p[titleProp] : ''}`;
     const skip = [...(inTitle ? [titleProp] : []), ...(inId ? ['id'] : [])];
-    const body = writeChecked(p, schema, { skip, what: name }, lines => readBody(splitBlocks(lines.join('\n')), schema, { what: name }));
+    const body = writeChecked(p, schema, { skip, what: name, maps: sectionMaps(schema) }, lines => readBody(splitBlocks(lines.join('\n')), schema, { what: name, maps: sectionMaps(schema) }));
     if (!body) continue;
     const back = readPageDocument(`Adresse : /x\n\n${[heading, ...body].join('\n')}\n`, { schemas });
     if (back.errors.length || !same(back.data.sections?.[0], { [name]: p })) continue;
@@ -620,28 +775,29 @@ export function writeSectionDocument(section, { schemas }) {
 }
 
 /** Écrit le document d'une page. Renvoie { text } ou { error }. */
-export function writePageDocument(data, { schemas }) {
+export function writePageDocument(data, { schemas, pageOf = null }) {
   const out = [], d = data || {};
+  const base = typeof d.extends === 'string' && pageOf ? pageOf(d.extends) : null, derived = d.extends !== undefined && d.sections === undefined;
   const title = d.seo && typeof d.seo === 'object' ? d.seo.title : undefined;
   if (title !== undefined && !oneLine(title)) return { error: 'titre de page sur plusieurs lignes' };
   if (title !== undefined) out.push(`# ${title}`, '');
   const headProps = { ...(d.seo && d.seo.description !== undefined ? { description: d.seo.description } : {}), ...(d.route !== undefined ? { route: d.route } : {}), ...(d.source !== undefined ? { source: d.source } : {}) };
-  for (const k of Object.keys(d)) if (!['seo', 'route', 'source', 'sections', 'page'].includes(k)) headProps[k] = d[k];
+  for (const k of Object.keys(d)) if (!['seo', 'route', 'source', 'sections', 'page'].includes(k) && !(derived && k === 'append')) headProps[k] = d[k];
   const seoRest = d.seo && typeof d.seo === 'object' ? Object.fromEntries(Object.entries(d.seo).filter(([k]) => !['title', 'description'].includes(k))) : {};
   if (Object.keys(seoRest).length) headProps.seo = seoRest;
-  const headOpts = { title: null, prose: 'description', what: 'la page', label: k => ({ route: 'Adresse', source: 'Source' }[k] || null) };
+  const headOpts = { title: null, prose: 'description', what: 'la page', maps: pageMaps(base, schemas), label: k => ({ route: 'Adresse', source: 'Source', extends: 'Dérive de', remove: 'Retire', override: 'Remplace', variants: 'Variantes' }[k] || null) };
   const head = writeChecked(headProps, PAGE_HEAD, headOpts, lines => readBody(splitBlocks(lines.join('\n')), PAGE_HEAD, { ...headOpts, labels: PAGE_LABELS }));
   if (!head) return { error: 'en-tête de page qui ne se relit pas' };
   // La description d'abord, sur son paragraphe ; puis les réglages.
-  const descEnd = headProps.description !== undefined && head.length && !/^(Adresse|Source) : |^```/.test(head[0]) ? String(headProps.description).replace(/\s+$/, '').split('\n').length : 0;
+  const descEnd = headProps.description !== undefined && head.length && !/^(Adresse|Source|Dérive de|Retire) : |^(Remplace|Variantes) :$|^```/.test(head[0]) ? String(headProps.description).replace(/\s+$/, '').split('\n').length : 0;
   out.push(...head.slice(0, descEnd), ...(descEnd ? [''] : []), ...head.slice(descEnd));
-  for (const section of Array.isArray(d.sections) ? d.sections : []) {
+  for (const section of derived ? (Array.isArray(d.append) ? d.append : []) : Array.isArray(d.sections) ? d.sections : []) {
     const w = writeSectionDocument(section, { schemas });
     if (w.error) return { error: w.error };
     out.push('', ...w.lines);
   }
   const text = out.join('\n').replace(/\n{3,}/g, '\n\n').replace(/^\n+/, '') + '\n';
-  const back = readPageDocument(text, { schemas });
+  const back = readPageDocument(text, { schemas, pageOf });
   const { page: _page, ...want } = d;
   if (back.errors.length) return { error: `le document écrit ne se relit pas : ligne ${back.errors[0].line}, ${back.errors[0].message}` };
   if (!same(back.data, want)) return { error: 'le document écrit ne rend pas la page d\'origine' };
@@ -649,7 +805,7 @@ export function writePageDocument(data, { schemas }) {
 }
 
 /** Écrit le document du site. Renvoie { text } ou { error }. */
-export function writeSiteDocument(data, { tokens = [] } = {}) {
+export function writeSiteDocument(data, { tokens = [], groups = {} } = {}) {
   const d = data || {}, site = d.site && typeof d.site === 'object' ? d.site : {};
   if (!oneLine(site.name)) return { error: 'site.name manquant ou sur plusieurs lignes' };
   const props = {}, rest = {};
@@ -670,19 +826,40 @@ export function writeSiteDocument(data, { tokens = [] } = {}) {
   const contact = site.contact && typeof site.contact === 'object' ? site.contact : {};
   take('email', contact.email); take('phone', contact.phone); take('address', contact.address);
   const contactRest = Object.fromEntries(Object.entries(contact).filter(([k]) => !['email', 'phone', 'address'].includes(k))); if (Object.keys(contactRest).length) rest.contact = contactRest;
-  for (const [k, v] of Object.entries(site)) if (!['name', 'tagline', 'locale', 'theme', 'nav', 'footer', 'contact'].includes(k)) rest[k] = v;
+  // Réglages et collections : chacun dans sa section, s'il s'y écrit sans bloc yaml ; sinon il reste dans le bloc.
+  const sections = [];
+  for (const [k, v] of Object.entries(site)) {
+    if (['name', 'tagline', 'locale', 'theme', 'nav', 'footer', 'contact'].includes(k)) continue;
+    const g = GROUP_NAMES[k] && groups[k] && groups[k].type === 'object' && v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length ? flatSchema(groups[k]) : null;
+    const gopts = { title: null, prose: null, what: `la section ${GROUP_NAMES[k]}`, label: groupLabel };
+    const lines = g ? writeChecked(flatData(v, groups[k]), g, gopts, ls => readBody(splitBlocks(ls.join('\n')), g, gopts)) : null;
+    if (lines && !lines.some(l => /^```/.test(l))) sections.push([`## ${capital(GROUP_NAMES[k])}`, ...lines]); else rest[k] = v;
+  }
+  let collections = d.collections;
+  if (collections && typeof collections === 'object' && !Array.isArray(collections) && Object.keys(collections).length) {
+    const cs = [];
+    for (const [name, spec] of Object.entries(collections)) {
+      if (!/^[a-z][a-z0-9_]*$/.test(name) || !spec || typeof spec !== 'object' || Array.isArray(spec)) { cs.length = 0; break; }
+      const { label, ...others } = spec, inTitle = oneLine(label);
+      const lines = writeChecked(inTitle ? others : spec, COLLECTION, COLLECTION_OPTS, ls => readBody(splitBlocks(ls.join('\n')), COLLECTION, COLLECTION_OPTS));
+      if (!lines || lines.some(l => /^```/.test(l))) { cs.length = 0; break; }
+      cs.push([`## Collection ${name}${inTitle ? ' : ' + label : ''}`, ...lines]);
+    }
+    if (cs.length === Object.keys(collections).length) { sections.push(...cs); collections = undefined; }
+  }
   take('packages', d.packages);
   if (d.language !== undefined && d.language !== 1) props.language = d.language;
-  for (const [k, v] of Object.entries(d)) if (!['site', 'packages', 'language'].includes(k)) props[k] = v;
+  for (const [k, v] of Object.entries(d)) if (!['site', 'packages', 'language', 'collections'].includes(k)) props[k] = v;
+  if (collections !== undefined && d.collections !== undefined) props.collections = collections;
   if (Object.keys(rest).length) props.site = rest;
   const schema = siteSchema(tokens);
   const label = k => ({ locale: 'Langue', preset: 'Thème', nav: 'Menu', footer_text: 'Pied de page', footer_links: 'Liens du pied de page', email: 'E-mail', phone: 'Téléphone', address: 'Adresse', packages: 'Paquets', language: 'Langage' }[k] || (tokens.includes(k) ? k : null));
-  const opts = { title: null, prose: 'tagline', what: 'le site', label };
+  const opts = { title: null, prose: 'tagline', what: 'ce site', label };
   const body = writeChecked(props, schema, opts, lines => readBody(splitBlocks(lines.join('\n')), schema, { ...opts, labels: SITE_LABELS }));
   if (!body) return { error: 'document du site qui ne se relit pas' };
   const tagEnd = props.tagline !== undefined && body[0] === String(props.tagline).split('\n')[0] ? String(props.tagline).replace(/\s+$/, '').split('\n').length : 0;
-  const text = [`# ${site.name}`, '', ...body.slice(0, tagEnd), ...(tagEnd ? [''] : []), ...body.slice(tagEnd)].join('\n').replace(/\n{3,}/g, '\n\n') + '\n';
-  const back = readSiteDocument(text, { tokens });
+  const text = [`# ${site.name}`, '', ...body.slice(0, tagEnd), ...(tagEnd ? [''] : []), ...body.slice(tagEnd), ...sections.flatMap(s => ['', ...s])].join('\n').replace(/\n{3,}/g, '\n\n') + '\n';
+  const back = readSiteDocument(text, { tokens, groups });
   if (back.errors.length) return { error: `le document écrit ne se relit pas : ligne ${back.errors[0].line}, ${back.errors[0].message}` };
   if (!same(back.data, { language: 1, ...d })) return { error: 'le document écrit ne rend pas le site d\'origine' };
   return { text };

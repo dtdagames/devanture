@@ -857,7 +857,11 @@ Prendre rendez-vous → /contact
 | puces en retrait | la liste d'un élément (les lignes d'un groupe de tarifs) |
 | `Nom :` seul sur sa ligne | annonce la liste qui suit, si le composant en a plusieurs, ou un texte, lu alors tel quel jusqu'à la fin de la section |
 | `Champs :` puis des puces | les champs d'un formulaire : un nom connu, ou `societe : facultatif — Entreprise`, dans l'écriture du bloc `fonctionnement` (type, « facultatif », « si champ vaut valeur », « un parmi a, b ») |
-| un bloc `yaml` | ce qui ne se dit pas en lignes : `variants`, groupes libres |
+| `Filtre : category = savons` | un groupe de données sur une ligne, « nom = valeur, nom = valeur » ; ou `Filtre :` puis une puce « nom \| valeur » par donnée (c'est aussi l'écriture d'un groupe libre : oui / non, un nombre, sinon le texte) |
+| `Variantes :` puis des puces | les variantes de la section : `- segment \| donnée : valeur \| …`, lues avec les données du composant |
+| lignes en retrait sous une puce | la suite du dernier texte de la puce ; une ligne vide fait un paragraphe |
+| `Dérive de : accueil` | une page dérivée : `Retire : ancre, ancre`, `Remplace :` puis `- ancre \| donnée : valeur \| …` (lu d'après le composant de la section de base), et ses sections `##` s'ajoutent à la fin |
+| un bloc `yaml` | en dernier recours, une donnée trop imbriquée pour une ligne |
 
 Dans une puce, un champ dont le type ne convient pas à la valeur est sauté : un nom d'icône va au champ icône, un fichier image au champ image, un « Libellé → /cible » au champ lien. « rien » saute un champ, « nom : valeur » en vise un. Rien ne se protège : « : », « , », « # », `{{ … }}` et les nombres s'écrivent tels quels, sans guillemets ni indentation. Les trois pièges YAML du mode d'emploi n'existent pas dans un document.
 
@@ -883,7 +887,7 @@ Liens du pied de page :
 - Mentions légales → /mentions-legales
 ```
 
-Le reste de `site.yaml` (constantes, collections, boutique, agents…) s'écrit dans un bloc `yaml` du document, tel qu'en YAML.
+Le reste de `site.yaml` se dit de la même façon : `Constantes :` puis une puce `- delai | 48 h` par constante ; une section par réglage du site, `## Boutique`, `## Agents`, `## Recherche`, `## Images`, `## Hors ligne`, `## Atelier`, `## Personnalisation`, `## Statique`, avec ses données en « Nom : valeur » (un groupe dans le groupe prend un nom pointé, `shipping.flat : 4.9`, comme un jeton de thème) ; une section `## Collection realisations : Réalisations` par collection, avec `Tri : -date` et `Champs :` suivi d'une puce `- title | string | oui` par champ (nom, type, « oui » s'il est obligatoire).
 
 ### Les garde-fous
 
@@ -903,8 +907,8 @@ Hors du format à ce jour : `sitec migrate`, `sitec keywords --import`, les sch�
 
 ### Ce qui est mesuré
 
-- **Même site.** `examples/garnier-document` est `examples/garnier-associes` écrit en documents : mêmes données, mêmes fichiers compilés à l'octet hors pages PHP (qui gardent l'ordre des données de leur source), même HTML rendu sur toutes les pages. `scripts/verify-site-document.mjs` le vérifie. Les quatre sites d'exemple s'écrivent en documents et se relisent à l'identique.
-- **Texte à écrire.** `scripts/measure-site-document.mjs` : la source des quatre sites d'exemple pèse 17 079 tokens en YAML (hors commentaires) et 14 193 en documents, soit 17 % de moins (de 14 à 23 % selon le site ; le plus fort gain là où aucun bloc `yaml` ne reste). Les quatre modifications du test de maintenance demandent 916 tokens écrits en YAML et 734 en documents, 20 % de moins.
+- **Même site.** `examples/garnier-document` est `examples/garnier-associes` écrit en documents : mêmes données, mêmes fichiers compilés à l'octet hors pages PHP (qui gardent l'ordre des données de leur source), même HTML rendu sur toutes les pages. `scripts/verify-site-document.mjs` le vérifie. Les quatre sites d'exemple (29 pages) s'écrivent en documents sans aucun bloc `yaml` et se relisent à l'identique, à ceci près qu'un nombre y devient son écriture (`1999` et « 1999 ») là où le composant accepte les deux.
+- **Texte à écrire.** `scripts/measure-site-document.mjs` : la source des quatre sites d'exemple pèse 17 079 tokens en YAML (hors commentaires) et 13 686 en documents, soit 20 % de moins (de 18 à 23 % selon le site). Les quatre modifications du test de maintenance demandent 916 tokens écrits en YAML et 734 en documents, 20 % de moins.
 - **Travail d'un agent.** Douze agents Sonnet sans contexte, trois par case, tous réussis (`mesure-document/`, `scripts/measure-site-document-agents.mjs`). Création d'un site depuis un brief : 58 % de tokens produits en moins et 52 % de tokens traités en moins en documents. Cet écart tient pour partie à un seuil : les trois sites YAML dépassaient la longueur d'une commande sous Windows, leur écriture groupée a échoué et ils ont été écrits deux fois ; les trois sites en documents tenaient dessous. Éditions (quatre modifications) : aucun gain, 31 % de tokens produits en plus et 25 % de tokens traités en plus en documents (10 % et 4 % sans l'essai où le script de l'agent n'avait rien écrit), parce que la relecture ajoute une commande et que le champ de formulaire libre retombe en YAML. Trois essais par case, un seul modèle, un seul site : des ordres de grandeur.
 - **Une lecture fausse passée.** Sur les trois créations en documents, une portait une ligne de réglage mal nommée, lue comme du texte et affichée sur la page ; `check` et le banc ne la voyaient pas, l'agent l'a vue dans la lecture redite. Depuis la v0.15.0, le lecteur refuse toute ligne « nom : suite » courte dont le nom n'est pas une donnée ; cinq des six sites en documents laissés par les agents, écrits avant cette règle, ne passent plus `check` (leurs mentions légales commencent par « Éditeur du site : … ») et gardent leurs mesures d'alors.
 

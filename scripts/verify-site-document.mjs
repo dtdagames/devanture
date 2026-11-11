@@ -17,6 +17,7 @@ import { loadCatalog } from '../src/catalog.js';
 import { loadProject } from '../src/load.js';
 import { componentSchemas, readPageDocument, readSiteDocument, writePageDocument, writeSiteDocument, canon, parseLink, COMPONENT_NAMES, PROP_NAMES } from '../src/lang/site-document.js';
 import { THEME_PRESETS } from '../src/emit/php/css.js';
+import { SITE_SCHEMA } from '../src/validate.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SITEC = path.join(ROOT, 'bin', 'sitec.js');
@@ -27,6 +28,9 @@ const run = (...args) => { try { return { code: 0, out: execFileSync(process.exe
 const jsonLines = out => out.split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
 const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'sitec-site-document-'));
 const same = (a, b) => JSON.stringify(canon(a)) === JSON.stringify(canon(b));
+// À la conversion d'un site YAML, un nombre vaut son écriture (1999 et « 1999 ») : un document ne dit pas la différence.
+const sameLoose = (a, b) => JSON.stringify(canon(a, true)) === JSON.stringify(canon(b, true));
+const groups = SITE_SCHEMA.properties.site.properties;
 const tokens = Object.keys(THEME_PRESETS.clair);
 const catalog = await loadCatalog();
 const schemas = new Map(catalog.list().map(c => [c.name, c.manifest.props]));
@@ -65,11 +69,13 @@ try {
   // --- aller-retour : tout site d'exemple s'écrit en documents et se relit à l'identique
   for (const site of ['garnier-associes', 'plomberie-martin', 'le-fournil', 'savonnerie']) {
     const project = await loadProject(path.join(ROOT, 'examples', site));
-    const sch = componentSchemas(project, catalog), bad = [];
-    const s = writeSiteDocument(project.site, { tokens });
-    if (s.error || !same(readSiteDocument(s.text, { tokens }).data, { language: 1, ...project.site })) bad.push('site : ' + (s.error || 'relu différent'));
-    for (const p of project.pages) { const w = writePageDocument(p.data, { schemas: sch }); if (w.error || !same(readPageDocument(w.text, { schemas: sch }).data, strip(p.data))) bad.push(`${p.id} : ${w.error || 'relu différent'}`); }
-    ok(`aller-retour : ${site} (${project.pages.length} pages) s'écrit en documents et se relit à l'identique`, !bad.length, bad.join(' | '));
+    const sch = componentSchemas(project, catalog), bad = []; let blocs = 0;
+    const pageOf = id => project.pages.find(x => x.id === id)?.data || null;
+    const s = writeSiteDocument(project.site, { tokens, groups });
+    if (s.error || !sameLoose(readSiteDocument(s.text, { tokens, groups }).data, { language: 1, ...project.site })) bad.push('site : ' + (s.error || 'relu différent'));
+    blocs += ((s.text || '').match(/^```yaml/gm) || []).length;
+    for (const p of project.pages) { const w = writePageDocument(p.data, { schemas: sch, pageOf }); if (w.error || !sameLoose(readPageDocument(w.text, { schemas: sch, pageOf }).data, strip(p.data))) bad.push(`${p.id} : ${w.error || 'relu différent'}`); blocs += ((w.text || '').match(/^```yaml/gm) || []).length; }
+    ok(`aller-retour : ${site} (${project.pages.length} pages) s'écrit en documents, sans aucun bloc yaml, et se relit à l'identique`, !bad.length && blocs === 0, bad.join(' | ') + (blocs ? ` ${blocs} bloc(s) yaml` : ''));
   }
 
   // --- règles de lecture
@@ -94,8 +100,23 @@ try {
   ok('lecture : nombres, texte de plusieurs paragraphes annoncé par « Nom : »', !d.errors.length && first(d).lat === 45.7745 && first(d).access === 'Métro C.\n\nParking à 200 m.', JSON.stringify(d));
   d = page('## Formulaire de contact : Écrivez-nous\nDestinataire : a@b.fr\nChamps : name, email, message\n```yaml\nvariants:\n  mobile: { title: Appelez-nous }\n```');
   ok('lecture : bloc yaml pour ce qui ne se dit pas en lignes', !d.errors.length && same(first(d), { title: 'Écrivez-nous', to: 'a@b.fr', fields: ['name', 'email', 'message'], variants: { mobile: { title: 'Appelez-nous' } } }), JSON.stringify(d));
+  d = page('## products.grid : Nos savons\nFiltre : category = savons, featured = oui\nColonnes : 3');
+  const d2 = page('## products.grid : Nos savons\nFiltre :\n- category | savons\n- featured | oui');
+  ok('lecture : un groupe de données sur une ligne (« nom = valeur ») ou en puces (« nom | valeur »), typé par sa déclaration', !d.errors.length && same(first(d).filter, { category: 'savons', featured: true }) && !d2.errors.length && same(first(d2).filter, first(d).filter), JSON.stringify([d, d2]));
+  d = page('## custom\nphp : custom/promo.php\nProps :\n- text | -15 % sur l\'entretien\n- code | ENTRETIEN15\n- jours | 30\n- visible | oui');
+  ok('lecture : données libres en puces « nom | valeur » (oui / non, nombre, texte)', !d.errors.length && same(first(d).props, { text: '-15 % sur l\'entretien', code: 'ENTRETIEN15', jours: 30, visible: true }), JSON.stringify(d));
+  d = page('## Bandeau : Plombier à Lyon\nDépannage 7j/7.\nAppeler → tel:0472001122\nVariantes :\n- mobile | Appeler maintenant → tel:0472001122\n- recurrent | sous-titre : Content de vous revoir.\n- prix | Dépannage dès 95 € | Devis gratuit.');
+  ok('lecture : variantes d\'une section, « segment | données du composant »', !d.errors.length && same(first(d).variants, { mobile: { cta: { label: 'Appeler maintenant', to: 'tel:0472001122' } }, recurrent: { subtitle: 'Content de vous revoir.' }, prix: { title: 'Dépannage dès 95 €', subtitle: 'Devis gratuit.' } }), JSON.stringify(d));
+  d = page('## Questions\n- Quel délai ? | Une semaine.\n- Comment obtenir un devis ? | Envoyez-nous la date.\n\n  Un acompte de 30 % est demandé.\n  Le solde au retrait.\n- Livrez-vous ? | Oui.');
+  ok('lecture : lignes en retrait sous une puce, la suite de son dernier texte', !d.errors.length && first(d).items.length === 3 && first(d).items[1].a === 'Envoyez-nous la date.\n\nUn acompte de 30 % est demandé.\nLe solde au retrait.', JSON.stringify(d));
+  const der = readPageDocument('# Savon de Marseille\n\nAdresse : /savons-marseille\nDérive de : accueil\nRetire : avis\nRemplace :\n- entree | Le savon de Marseille | Voir → /boutique\n\n## Questions : Trois questions\n- Pourquoi ? | Parce que.\n', { schemas, pageOf: id => (id === 'accueil' ? { route: '/', sections: [{ hero: { id: 'entree', title: 'A' } }, { testimonials: { id: 'avis', items: [] } }] } : null) });
+  ok('lecture : page dérivée (« Dérive de », « Retire », « Remplace : » lu d\'après le composant de la section, sections ajoutées)', !der.errors.length && same(der.data, { route: '/savons-marseille', extends: 'accueil', seo: { title: 'Savon de Marseille' }, override: { entree: { title: 'Le savon de Marseille', cta: { label: 'Voir', to: '/boutique' } } }, remove: ['avis'], append: [{ faq: { title: 'Trois questions', items: [{ q: 'Pourquoi ?', a: 'Parce que.' }] } }] }), JSON.stringify(der));
+  ok('refus : section remplacée dont l\'ancre n\'existe pas dans la page de base', readPageDocument('# T\n\nAdresse : /x\nDérive de : accueil\nRemplace :\n- absente | Titre\n', { schemas, pageOf: () => ({ sections: [] }) }).errors.some(e => /aucune section de cette ancre/.test(e.message)));
   ok('lecture : cibles de lien (route, ancre, URL, mailto, tel) ; un texte à flèche sans cible n\'est pas un lien', same(parseLink('Voir → #tarifs'), { label: 'Voir', to: '#tarifs' }) && parseLink('Appeler -> tel:+33472001122').to === 'tel:+33472001122' && parseLink('Paris → Lyon') === null && parseLink('Site → https://exemple.fr/a').to === 'https://exemple.fr/a');
   const sd = readSiteDocument('# Mon site\n\nUn slogan.\n\nLangue : fr-FR\nThème : sombre\ncolor.primary : #6b2d5c\nE-mail : a@b.fr\nMenu :\n- Accueil → /\n- Contact → /contact\nLiens du pied de page :\n- Mentions → /mentions\n```yaml\nconstants: { delai: 1 h }\nsite:\n  agents: { enabled: true }\n```\n', { tokens });
+  const sg = readSiteDocument('# Maison Dubois\n\nThème : chaleureux\nConstantes :\n- delai | 48 h\n- seuil | 50\n\n## Boutique\nDevise : €\nPaiement : manual\nshipping.flat : 4.9\nshipping.free_from : 50\n\n## Agents\nActif : oui\nType d\'activité : Store\n\n## Images\nLargeurs : 480, 960\n\n## Collection realisations : Réalisations\nTri : -date\nChamps :\n- title | string | oui\n- image | asset\n- date | date\n', { tokens, groups });
+  ok('lecture : site.md, constantes, réglages et collections dans leurs sections, sans bloc yaml', !sg.errors.length && same(sg.data, { language: 1, constants: { delai: '48 h', seuil: 50 }, collections: { realisations: { label: 'Réalisations', fields: { title: { type: 'string', required: true }, image: 'asset', date: 'date' }, sort: '-date' } }, site: { name: 'Maison Dubois', theme: { preset: 'chaleureux' }, shop: { currency: '€', payment: 'manual', shipping: { flat: 4.9, free_from: 50 } }, agents: { enabled: true, business_type: 'Store' }, images: { widths: [480, 960] } } }), JSON.stringify(sg));
+  ok('refus : section de site inconnue, réglage inconnu dans une section', readSiteDocument('# S\n\n## Boutiqu\nDevise : €\n', { tokens, groups }).errors.some(e => /n'est pas un réglage du site.*boutique/.test(e.message)) && readSiteDocument('# S\n\n## Boutique\nMonnaie : €\n', { tokens, groups }).errors.some(e => /« Monnaie » n'est pas une donnée/.test(e.message)));
   ok('lecture : site.md (nom, slogan, thème, jeton sans guillemets, menu, pied, bloc yaml fusionné)', !sd.errors.length && same(sd.data, { language: 1, constants: { delai: '1 h' }, site: { name: 'Mon site', tagline: 'Un slogan.', locale: 'fr-FR', theme: { preset: 'sombre', tokens: { 'color.primary': '#6b2d5c' } }, nav: [{ label: 'Accueil', to: '/' }, { label: 'Contact', to: '/contact' }], footer: { links: [{ label: 'Mentions', to: '/mentions' }] }, contact: { email: 'a@b.fr' }, agents: { enabled: true } } }), JSON.stringify(sd));
 
   // --- garde-fou 1 : toute ligne a un rôle, sinon elle est refusée à sa ligne
@@ -163,7 +184,7 @@ try {
   r = run('rediger', y, '--dry-run');
   ok('rediger --dry-run : dit ce qui s\'écrirait sans rien modifier', r.code === 0 && /site\.yaml → site\.md/.test(r.out) && /rien n'est modifié/.test(r.out) && await fs.access(path.join(y, 'site.yaml')).then(() => true, () => false), r.out);
   r = run('rediger', y); const r5 = run('check', y); const r6 = run('lire', y);
-  ok('rediger : écrit les documents et leur lecture, retire le YAML, et le site passe check', r.code === 0 && r5.code === 0 && /"ok":true/.test(r5.out) && !/à accepter|a changé/.test(r6.out) && await fs.access(path.join(y, 'site.yaml')).then(() => false, () => true) && await fs.access(path.join(y, 'lecture', 'site.yaml')).then(() => true, () => false), r.out + r5.out);
+  ok('rediger : écrit les documents et leur lecture, retire le YAML, sans garder de bloc yaml, et le site passe check', r.code === 0 && !/bloc/.test(r.out) && r5.code === 0 && /"ok":true/.test(r5.out) && !/à accepter|a changé/.test(r6.out) && await fs.access(path.join(y, 'site.yaml')).then(() => false, () => true) && await fs.access(path.join(y, 'lecture', 'site.yaml')).then(() => true, () => false), r.out + r5.out);
   r = run('rediger', y);
   ok('rediger : refuse un site déjà en documents', r.code === 1 && /déjà écrit en documents/.test(r.out), r.out);
   r = run('explain', 'features', '--document');

@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { loadCatalog } from './catalog.js';
 import { loadProject } from './load.js';
-import { validateProject, collectWarnings } from './validate.js';
+import { validateProject, collectWarnings, SITE_SCHEMA } from './validate.js';
 import { emit, TARGETS } from './emit/index.js';
 import { formatErrors } from './errors.js';
 import { THEME_PRESETS } from './emit/php/css.js';
@@ -12,7 +12,7 @@ import { TYPE_WORDS } from './lang/donnees.js';
 import { PRIMITIVE_HELP, nearest } from './lang/forme.js';
 import { wordUsage, WORD_KEYS } from './lang/vocabulaire.js';
 import { readDocument, readingDiff, TOURNURES } from './lang/document.js';
-import { writeSiteDocument, writePageDocument, writeSectionDocument, componentSchemas, readSiteDocument, readPageDocument, COMPONENT_NAMES, PROP_NAMES } from './lang/site-document.js';
+import { writeSiteDocument, writePageDocument, writeSectionDocument, componentSchemas, readSiteDocument, readPageDocument, COMPONENT_NAMES, PROP_NAMES, GROUP_NAMES } from './lang/site-document.js';
 import { SOURCES, SOURCE_NAMES, PUBLIC_SOURCE_NAMES, sourceUsage, sourceFields } from './lang/sources.js';
 import YAML from 'yaml';
 import { INTENT_NAMES } from './lang/apparence.js';
@@ -225,14 +225,15 @@ export async function run(argv) {
       const project = await loadProject(root, { catalog });
       if (project.documents?.site || project.documents?.pages.length) { console.error('Ce site est déjà écrit en documents (site.md, pages/<id>.md).'); return 1; }
       if (project.loadErrors.length) { for (const e of project.loadErrors) console.log(JSON.stringify(e)); console.error('Corrigez d\'abord le YAML (sitec check).'); return 1; }
-      const tokens = Object.keys(THEME_PRESETS.clair), schemas = componentSchemas(project, catalog);
+      const tokens = Object.keys(THEME_PRESETS.clair), groups = SITE_SCHEMA.properties.site.properties, schemas = componentSchemas(project, catalog);
       const out = [], failed = [];
-      const s = writeSiteDocument(project.site, { tokens });
-      if (s.error) failed.push(`site.yaml : ${s.error}`); else out.push({ from: project.siteFile, to: path.join(root, 'site.md'), text: s.text, frozen: path.join(root, 'lecture', 'site.yaml'), yaml: readSiteDocument(s.text, { tokens }).yaml });
+      const s = writeSiteDocument(project.site, { tokens, groups });
+      if (s.error) failed.push(`site.yaml : ${s.error}`); else out.push({ from: project.siteFile, to: path.join(root, 'site.md'), text: s.text, frozen: path.join(root, 'lecture', 'site.yaml'), yaml: readSiteDocument(s.text, { tokens, groups }).yaml });
       for (const p of project.pages) {
-        const r = writePageDocument(p.data, { schemas });
+        const pageOf = id => project.pages.find(x => x.id === id)?.data || null;
+        const r = writePageDocument(p.data, { schemas, pageOf });
         if (r.error) failed.push(`pages/${path.basename(p.file)} : ${r.error}`);
-        else out.push({ from: p.file, to: path.join(root, 'pages', p.id + '.md'), text: r.text, frozen: path.join(root, 'lecture', 'pages', p.id + '.page.yaml'), yaml: readPageDocument(r.text, { schemas }).yaml });
+        else out.push({ from: p.file, to: path.join(root, 'pages', p.id + '.md'), text: r.text, frozen: path.join(root, 'lecture', 'pages', p.id + '.page.yaml'), yaml: readPageDocument(r.text, { schemas, pageOf }).yaml });
       }
       if (failed.length) { for (const m of failed) console.error('Ne s\'écrit pas en document : ' + m); console.error('Rien n\'est écrit.'); return 1; }
       for (const o of out) {
@@ -904,7 +905,16 @@ site.md
   - Contact → /contact
   Liens du pied de page :
   - Mentions légales → /mentions-legales
-  Paquets : ./paquets/vitrine          s'il y en a ; le reste (constants, collections, site: { shop, agents… }) dans un bloc \`\`\`yaml
+  Paquets : ./paquets/vitrine          s'il y en a
+  Constantes :                         puis une puce « nom | valeur » par constante
+  - delai | 48 h
+
+  ## Boutique                          un réglage du site par section : ${Object.values(GROUP_NAMES).join(', ')} ; ses données en « Nom : valeur »
+  Devise : €                           (sitec explain site les liste ; un groupe dans le groupe prend un nom pointé : shipping.flat : 4.9)
+  ## Collection realisations : Réalisations
+  Tri : -date
+  Champs :                             une puce « nom | type » par champ, « | oui » s'il est obligatoire
+  - title | string | oui
 
 pages/<id>.md
   # Titre de la page                   la balise title
@@ -921,7 +931,12 @@ pages/<id>.md
   Champs :                             les champs d'un formulaire, une puce chacun : un nom connu (name, email, phone, subject, message),
   - societe : facultatif — Entreprise  ou « nom : type, précisions — Libellé (ex. exemple) » ; types texte, texte long, e-mail, téléphone, nombre, date ;
                                        précisions facultatif, si champ vaut valeur, un parmi a, b, c (en dernier)
-  \`\`\`yaml … \`\`\`                      ce qui ne se dit pas en lignes (variants, groupes libres), en YAML
+  Filtre : category = savons           un groupe de données sur une ligne, « nom = valeur, nom = valeur » ; ou « Filtre : » puis une puce « nom | valeur » par donnée
+  Variantes :                          les variantes de la section : une puce « segment | donnée : valeur | … », avec les données du composant
+  - mobile | titre : Appelez-nous | Appeler → tel:+33400000000
+    suite d'une puce                   des lignes en retrait sous une puce prolongent son dernier texte (une ligne vide fait un paragraphe)
+  Dérive de : accueil                  page dérivée : « Retire : ancre, ancre », « Remplace : » puis « - ancre | donnée : valeur | … » ; ses sections s'ajoutent à la fin
+  \`\`\`yaml … \`\`\`                      en dernier recours, pour une donnée trop imbriquée pour une ligne
 
 Dans une puce, un champ dont le type ne convient pas à la valeur est sauté : un nom d'icône va au champ icône, un fichier image au champ image,
 un « Libellé → /cible » au champ lien. « rien » saute un champ ; « nom : valeur » vise un champ par son nom.
