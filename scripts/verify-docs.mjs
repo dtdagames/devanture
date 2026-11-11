@@ -32,6 +32,7 @@ import { ICON_NAMES, TYPE_WORDS } from '../src/lang/donnees.js';
 import { PRIMITIVES } from '../src/lang/forme.js';
 import { WORD_KEYS, compileVocabulaire } from '../src/lang/vocabulaire.js';
 import { SOURCES, PUBLIC_SOURCE_NAMES } from '../src/lang/sources.js';
+import { TOURNURES, readDocument } from '../src/lang/document.js';
 import { INTENT_NAMES } from '../src/lang/apparence.js';
 import { FIELD_TYPE_WORDS, FORM_SETTINGS, RESERVED_STORES } from '../src/lang/fonctionnement.js';
 import { FILTERS, FUNCTION_NAMES, SAFE_FUNCTIONS } from '../src/lang/expr.js';
@@ -129,7 +130,7 @@ function parseMarker(m) {
   if (/^fragment\s+sections$/.test(m)) return { kind: 'sections' };
   if ((f = /^fragment\s+([\w.-]+)\.(\w+)$/.exec(m))) return { kind: 'prop', component: f[1], prop: f[2] };
   if ((f = /^([\w./-]+\.yaml)\s+\(ajout\)$/.exec(m))) return { kind: 'append', file: f[1] };
-  if (/^[\w./-]+\.(yaml|html|css)$/.test(m)) return { kind: 'file', file: m };
+  if (/^[\w./-]+\.(yaml|html|css|md)$/.test(m)) return { kind: 'file', file: m };
   return { kind: 'bad' };
 }
 
@@ -143,7 +144,7 @@ async function compileDoc(name, text, label = name) {
   const unmarked = [], bad = [], twice = [];
   let n = 0;
   for (const b of fences(text)) {
-    if (!['yaml', 'yml', 'html'].includes(b.lang)) continue;
+    if (!['yaml', 'yml', 'html', 'markdown'].includes(b.lang)) continue;
     if (!b.marker) { unmarked.push(`${name}:${b.line}`); continue; }
     const mk = parseMarker(b.marker);
     if (mk.kind === 'bad') { bad.push(`${name}:${b.line} « ${b.marker} »`); continue; }
@@ -286,6 +287,17 @@ async function claims() {
     const RULE_SETTINGS = ['places', 'si complet', 'liste d\'attente', 'une fois par', 'si déjà inscrit'];
     claim('LANGAGE.md : règles de registre documentées = réglages de règle du formulaire', t && uniq(t.map(r => (ticks(r[0])[0] || '').split(':')[0])), RULE_SETTINGS.filter(x => x !== 'si déjà inscrit'));
     claim('fonctionnement.js : les réglages de règle existent', RULE_SETTINGS.filter(x => FORM_SETTINGS.includes(x)), RULE_SETTINGS); }
+  // Format document : la table des tournures est celle du lecteur, et chaque phrase d'exemple est lue par la tournure qu'elle illustre.
+  { const t = rows(L, /^\| Ce que dit la phrase \| Exemple \| Ce qui est lu \|/);
+    const shown = TOURNURES.filter(x => x.id !== 'message_seul');
+    claim('LANGAGE.md : tournures du format document = TOURNURES', t && t.slice(1).map(r => r[0]), shown.map(x => x.label));
+    const BASE_DOC = '# Atelier\n\nInscription à un atelier.\n\n';
+    const fieldsRow = t && t[0], fieldsLine = fieldsRow ? fieldsRow[1] : "Le visiteur indique son nom.";
+    const wrong = [];
+    for (const r of (t || []).slice(1)) { const tn = shown.find(x => x.label === r[0]); if (!tn) continue; const d = readDocument(BASE_DOC + fieldsLine + '\n' + r[1] + '\n', { name: 'atelier' }); const tr = d.trace[d.trace.length - 1]; if (!tr || tr.error || tr.tournure !== tn.id) wrong.push(`${r[0]} : « ${r[1]} » → ${tr ? tr.error || tr.tournure : 'non lue'}`); else if (tr.said !== r[2].replace(/`/g, '')) wrong.push(`${r[0]} : lu « ${tr.said} », la table dit « ${r[2]} »`); }
+    ok('LANGAGE.md : chaque phrase d\'exemple de la table est lue par sa tournure, et la table dit ce qui est lu', !!t && !wrong.length, wrong);
+    const d0 = t && readDocument(BASE_DOC + fieldsLine + '\n', { name: 'atelier' }); const tr0 = d0 && d0.trace[0];
+    ok('LANGAGE.md : la phrase des champs de la table est lue comme la table le dit', !!tr0 && !tr0.error && tr0.tournure === 'champs' && tr0.said === fieldsRow[2].replace(/`/g, ''), tr0 ? tr0.error || tr0.said : 'table introuvable'); }
   // Lectures à la visite : sources et paramètres de la table = ceux du compilateur ; sources citées par CLAUDE.md.
   { const t = rows(L, /^\| Source \| Paramètres \| Ce qu'elle rend \|/);
     claim('LANGAGE.md : sources lues à la visite = SOURCES', t && t.map(r => ticks(r[0])[0]), PUBLIC_SOURCE_NAMES);

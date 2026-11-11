@@ -44,6 +44,9 @@ jobs:
       - name: Banc des registres (places limitées, unicité, liste d'attente, back-office, envois simultanés)
         env: { PHP_BIN: php }
         run: bash scripts/ci-run.sh "banc registres" node scripts/verify-registre.mjs examples/le-fournil/dist 8975
+      - name: Banc du format document (document.md lu sans modèle, lecture figée, trois garde-fous)
+        env: { PHP_BIN: php }
+        run: bash scripts/ci-run.sh "banc document" node scripts/verify-document.mjs
       - name: Banc de la documentation (exemples compilés, commandes, options et listes comparées au compilateur)
         run: bash scripts/ci-run.sh "banc documentation" node scripts/verify-docs.mjs
       - name: Dépôt de site (sitec init) et compilation dans l'atelier

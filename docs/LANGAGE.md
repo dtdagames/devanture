@@ -709,6 +709,100 @@ Sans clé d'API : `--export prompt.json` écrit le prompt et le schéma de sorti
 
 `sitec component preview <dossier> <nom>` écrit `.devanture/preview/<nom>.html` : tous les cas de test rendus avec la feuille du site et ses comportements, des boutons pour essayer les trois thèmes et une largeur de téléphone. `new` et `edit` la produisent après chaque succès : c'est l'outil de la relecture visuelle, que la vérification ne remplace pas.
 
+## 6 quinquies. Composant écrit comme un document (prototype)
+
+Un composant peut s'écrire en phrases, dans `components/<nom>/document.md`, à la place de `manifest.yaml` (l'un ou l'autre, jamais les deux). Le compilateur lit ce document sans modèle de langage : un lexique, une table de tournures, et trois garde-fous. Ce qu'il en comprend est un manifeste au format langage, figé dans `components/<nom>/lecture.yaml` ; c'est cette lecture qui est compilée, par le chemin habituel.
+
+C'est un prototype, et son domaine est étroit : une section à formulaire avec son registre (titre et introduction, champs, bouton, messages, places, liste d'attente, inscription unique, e-mail au site, affichage des places restantes). Tout le reste s'écrit au format langage.
+
+<!-- sitec: components/degustation/document.md -->
+```markdown
+# Dégustation
+
+Inscription à une dégustation, douze places par date.
+
+La section commence par un titre, donné par la page.
+Le visiteur choisit sa date (14 mars ou 11 avril), indique son nom et son e-mail.
+Il y a 12 places par date.
+Quand une date est complète, l'inscription est refusée et le visiteur lit : « Cette date est complète. »
+Une même adresse e-mail ne s'inscrit qu'une fois par date.
+Les inscriptions sont rangées dans le registre « degustations » et nous sommes prévenus par e-mail.
+```
+
+Le titre `#` nomme le document, la première ligne de texte est la description du composant, les intertitres `##` sont libres et ne sont pas lus, une ligne « Mots-clés : a, b » donne les intentions. Ensuite, une phrase dit une chose (deux, jointes par « et » ou « ; »). `sitec lire <dossier>` redit chaque phrase comme elle est comprise, et `sitec lire <dossier> --accepter` écrit la lecture :
+
+<!-- sitec: components/degustation/lecture.yaml -->
+```yaml
+# Lecture de document.md par sitec : ce que le compilateur a compris, au format langage.
+# Ne modifiez pas ce fichier : corrigez document.md, relisez « sitec lire », puis acceptez (« sitec lire <dossier> --accepter »).
+name: degustation
+description: Inscription à une dégustation, douze places par date.
+données:
+  title: texte, facultatif — titre de la section
+fonctionnement:
+  formulaire:
+    enregistre dans: degustations
+    prévient par e-mail: oui
+    places: 12 par date
+    si complet: Cette date est complète.
+    une fois par: email, date
+    champs:
+      date: choix, un parmi 14 mars, 11 avril — Date
+      name: null
+      email: null
+forme:
+  - en-tête: title
+  - formulaire, bouton Envoyer
+example: |
+  - degustation:
+      title: Dégustation
+```
+
+Les deux fichiers se suivent dans git. `sitec component show <dossier> <nom>` commence alors par le document, phrase par phrase, puis montre la lecture bloc par bloc comme pour un manifeste.
+
+### Ce que le lecteur tolère, et ses trois garde-fous
+
+L'ordre des mots, les synonymes du lexique (« places », « participants » ; « s'appelle », « porte le texte » ; « rangées », « enregistrées »), les nombres en lettres, les mots de liaison et une faute de frappe d'une lettre sont tolérés ; une correction est dite dans la lecture (« lu comme … »).
+
+1. **Tout mot doit avoir un rôle.** Une phrase est lue par une tournure seulement si chacun de ses mots est expliqué par elle. « Il y a 8 places par séance pendant les vacances » n'est pas lue « 8 places par séance » : elle est refusée (`E_DOCUMENT`, à la ligne de `document.md`), avec la tournure la plus proche et les mots restés sans rôle.
+2. **Une seule lecture.** Si deux tournures expliquent la phrase, ou si elle se coupe de deux façons, elle est refusée et les deux lectures sont citées. Aucune n'est choisie.
+3. **La lecture est figée.** Tant que `lecture.yaml` n'existe pas, ou dès que le document ou le lecteur donne une lecture différente, `check` et `build` s'arrêtent (`E_READING`) en citant ce qui a changé (« places: 8 par seance » est maintenant lu « places: 10 par seance »). Rien ne repart sans `sitec lire <dossier> --accepter`, qui n'écrit rien tant qu'une phrase est refusée. Une mise à jour du compilateur ne change donc jamais un site en silence.
+
+Trois choses ne sont jamais devinées : un nombre (il doit être écrit, et un nombre sans rôle fait refuser la phrase), une négation (elle n'est lue que là où une tournure l'attend : « pas de liste d'attente », « n'est pas prévenu »), un destinataire (« nous », « l'équipe », « le site » ; le nom d'un commerce n'est pas reconnu, et un e-mail au visiteur n'existe pas dans cette version).
+
+### Tournures
+
+`sitec lire --tournures` donne la liste tenue par le lecteur. La première ligne est la phrase des champs ; les exemples suivants sont lus dans un document qui la contient.
+
+| Ce que dit la phrase | Exemple | Ce qui est lu |
+|---|---|---|
+| champs du formulaire | Pour s'inscrire, le visiteur choisit sa séance (Matin ou Soir), indique le nombre de personnes (par exemple 2), son nom, son e-mail et sa ville. | formulaire : champs = seance, personnes, name, email, ville |
+| titre et introduction de la section | La section commence par un titre et une introduction, donnés par la page. | données : title, intro ; forme : en-tête |
+| affichage des places restantes | Les places restantes de chaque séance sont affichées, une ligne par séance. | lit : places = état du registre ; forme : une ligne par seance (valeur, places restantes) |
+| présentation des lignes de places | Ces lignes sont présentées côte à côte, avec un espace au-dessus. | apparence : en ligne, espace au-dessus |
+| texte du bouton du formulaire | Le bouton s'appelle « Réserver ». | forme : formulaire, bouton Réserver |
+| message après un envoi réussi | Après l'inscription, le visiteur lit : « Votre place est réservée. » | formulaire : confirmation = « Votre place est réservée. » |
+| nombre de places du registre | Il y a 8 places par séance, comptées par personnes. | formulaire : places = 8 par seance, comptées par personnes |
+| liste d'attente quand c'est complet | Quand une séance est complète, l'inscription va en liste d'attente. | formulaire : liste d'attente = oui |
+| pas de liste d'attente | Il n'y a pas de liste d'attente. | formulaire : liste d'attente = non |
+| refus quand c'est complet | Quand une séance est complète, l'inscription est refusée et le visiteur lit : « Cette séance est complète. » | formulaire : si complet = « Cette séance est complète. » |
+| un seul envoi par personne | Une même adresse e-mail ne s'inscrit qu'une fois par séance. | formulaire : une fois par = email, seance |
+| ce que compte un envoi | Les places sont comptées par personnes. | formulaire : places comptées par personnes |
+| un envoi compte pour une place | Chaque inscription réserve une place. | formulaire : un envoi compte pour une place |
+| pas de limite de places | Il n'y a pas de limite de places. | formulaire : pas de règle de places |
+| champs obligatoires et facultatifs | Le nom et l'e-mail sont obligatoires, la ville est facultative. | formulaire : obligatoires = name, email ; facultatifs = ville |
+| message au second envoi | Si la même adresse s'inscrit de nouveau, le visiteur lit : « Vous êtes déjà inscrit. » | formulaire : si déjà inscrit = « Vous êtes déjà inscrit. » |
+| registre où ranger les envois | Les inscriptions sont rangées dans le registre « ateliers ». | formulaire : enregistre dans = ateliers |
+| e-mail à chaque envoi | Nous sommes prévenus par e-mail. | formulaire : prévient par e-mail = oui |
+
+Dans la phrase des champs, un champ se dit avec son article (« son nom », « la séance », « un message ») ; `name`, `email`, `phone`, `subject` et `message` sont reconnus à leur nom courant, « le nombre de … » est un champ nombre, « la date … » un champ date, des valeurs entre parenthèses font un choix, « (par exemple 2) » donne l'exemple, et « il peut … » rend facultatif ce qui suit. Après la lecture de chaque phrase, le lecteur vérifie leur accord : un message de liste d'attente sans places, deux nombres de places, des places « par salle » quand aucun champ ne s'appelle ainsi sont des erreurs.
+
+### Ce qui est mesuré
+
+- **Même site.** `examples/le-fournil/components/atelier` est écrit en document. Compilé, le site est identique, fichier par fichier, à celui que donne le manifeste écrit à la main qu'il remplace (`scripts/reference/atelier.manifest.yaml`), à l'horodatage de compilation près. `scripts/verify-document.mjs` le vérifie, avec les trois garde-fous.
+- **Pas plus court.** Pour ce composant, le document pèse 301 tokens et le manifeste 307 : le gain n'est pas de volume, il est de lecture par quelqu'un qui ne connaît pas le format.
+- **Tolérance limitée.** Neuf textes, rédigés par des modèles à qui l'on n'avait montré ni le lexique ni les tournures, ont été lus en trois lots, chaque lot par le lecteur tel qu'il était avant de le voir : 3 phrases lues sur 30, puis 13 sur 31, puis 10 sur 30. Le lecteur a été élargi d'après les deux premiers lots (28 sur 30 et 29 sur 31 aujourd'hui) et, pour le troisième, seulement sa phrase des champs (14 sur 30). Un texte libre demande donc encore qu'on reprenne une phrase sur deux, guidé par les refus. Aucune des 23 phrases lues au premier passage des lots 2 et 3 ne l'a été de travers ; pendant la mise au point, deux lectures fausses sont passées, que seule la lecture redite a montrées. Les textes sont dans `scripts/reference/redactions/`, la mesure du lecteur actuel dans `scripts/measure-document.mjs`.
+
 ## 6 ter. Éditeur
 
 `sitec schema <dossier>` produit des schémas JSON dérivés du catalogue réel du site (`.devanture/schema/` : site, pages, composés, manifestes, vocabulaire, paquet, cas de test, chaque collection, produits) et les déclare à l'extension YAML de VS Code (`.vscode/settings.json`, extension recommandée `redhat.vscode-yaml`). L'éditeur propose alors les composants et leurs props avec leur description et leur exemple, les fichiers d'`assets/`, les routes et les sources ; il souligne une prop, un composant, une image ou une route inconnus. Les expressions `{{ … }}` sont acceptées partout, `{ for, as, item }` dans les composés. Les schémas aident à la frappe, `sitec check` reste l'autorité (expressions, références croisées, gabarits).

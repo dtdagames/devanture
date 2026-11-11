@@ -11,6 +11,7 @@ import { BEHAVIORS } from './lang/behaviors.js';
 import { TYPE_WORDS } from './lang/donnees.js';
 import { PRIMITIVE_HELP, nearest } from './lang/forme.js';
 import { wordUsage, WORD_KEYS } from './lang/vocabulaire.js';
+import { readDocument, readingDiff, TOURNURES } from './lang/document.js';
 import { SOURCES, SOURCE_NAMES, PUBLIC_SOURCE_NAMES, sourceUsage, sourceFields } from './lang/sources.js';
 import YAML from 'yaml';
 import { INTENT_NAMES } from './lang/apparence.js';
@@ -36,6 +37,8 @@ Usage :
                                              Page d'aperçu de tous les cas de test, avec le thème du site (.devanture/preview/<nom>.html)
   sitec component show <dossier> <nom> [--php] [--json] [--package chemin]
                                              Chaque bloc du manifeste (données, fonctionnement, forme, apparence) et ce qu'il devient : schéma, effets, gabarit, feuille (--php : le PHP exécuté)
+  sitec lire <dossier> [composant] [--accepter] [--json] | sitec lire --tournures
+                                             Composants au format document (document.md) : ce que le compilateur comprend de chaque phrase ; --accepter fige cette lecture (lecture.yaml)
   sitec schema <dossier> [--no-vscode]       Schémas JSON du site pour l'éditeur (.devanture/schema) et réglages VS Code : complétion des composants, props, assets et routes
   sitec migrate <dossier> [--dry-run] [--to N]
                                              Fait passer le site à la dernière version du langage (texte modifié, commentaires conservés) et suggère ce qu'elle permet d'écrire mieux
@@ -84,6 +87,45 @@ export async function run(argv) {
       return explain(proj?.catalog || catalog, name, words);
     }
 
+    case 'lire': {
+      // Garde-fou n° 3 du format document : le compilateur redit ce qu'il a compris, et rien ne compile tant que ce n'est pas accepté.
+      const dir = args[0];
+      if (flags.has('--tournures')) {
+        // Ce que le lecteur sait lire, tiré de sa table : une ligne par tournure, avec la phrase qui la montre.
+        console.log('Tournures comprises dans un document.md (une phrase chacune ; les mots, l\'ordre et les synonymes sont libres) :\n');
+        console.log('  champs du formulaire\n      Pour s\'inscrire, le visiteur choisit sa séance (Matin ou Soir), indique son nom et son e-mail ; il peut laisser un message.');
+        for (const t of TOURNURES.filter(t => t.id !== 'message_seul')) console.log(`  ${t.label}\n      ${t.exemple}`);
+        console.log('\nJamais devinés : un nombre, une négation, un destinataire. Une phrase dont un mot n\'a pas de rôle est refusée.');
+        return 0;
+      }
+      if (!dir) { console.error('Usage : sitec lire <dossier-projet> [composant] [--accepter] [--json] | sitec lire --tournures'); return 2; }
+      const root = path.resolve(dir), only = args[1] || null, accept = flags.has('--accepter'), json = flags.has('--json');
+      const project = await loadProject(root);
+      const sources = [...(project.componentSources || []), ...(project.packages || []).flatMap(p => p.componentSources || [])].filter(x => x.documentText !== undefined && (!only || x.name === only));
+      if (!sources.length) { console.error(only ? `Aucun composant au format document nommé ${only} (components/${only}/document.md).` : 'Aucun composant au format document dans ce site (components/<nom>/document.md).'); return only ? 1 : 0; }
+      let bad = 0; const report = [];
+      for (const src of sources) {
+        const r = readDocument(src.documentText, { name: src.name });
+        const rel = path.relative(process.cwd(), path.join(src.dir, 'document.md')).replaceAll('\\', '/');
+        const diff = r.errors.length ? null : src.lectureText === undefined ? { absent: true } : readingDiff(src.lectureText, r.yaml);
+        let status = r.errors.length ? 'erreurs' : diff ? (accept ? 'acceptée' : 'à accepter') : 'à jour';
+        if (status === 'acceptée') await fs.writeFile(path.join(src.dir, 'lecture.yaml'), r.yaml);
+        if (status === 'erreurs' || status === 'à accepter') bad++;
+        report.push({ component: src.name, file: rel, status, sentences: r.trace, errors: r.errors, ...(diff && !diff.absent ? { changed: diff } : {}) });
+        if (json) continue;
+        console.log(`# ${src.name} (${rel})`);
+        for (const t of r.trace) console.log(`  ligne ${String(t.line).padStart(2)}  ${t.text}\n            ${t.error ? 'REFUS : ' + t.error : '→ ' + t.said}${t.corrected ? '\n            (' + t.corrected.join(' ; ') + ')' : ''}`);
+        for (const e of r.errors) console.log(`  ERREUR ligne ${e.line} : ${e.message}${e.hint ? '\n            ' + e.hint : ''}`);
+        if (status === 'à jour') console.log('  Lecture à jour : c\'est celle de lecture.yaml.');
+        else if (status === 'acceptée') console.log('  Lecture acceptée : lecture.yaml écrit. Relisez-le, puis suivez-le dans git avec document.md.');
+        else if (status === 'à accepter') console.log(diff.absent ? '  Lecture pas encore acceptée. Si c\'est bien ce que vous voulez dire : sitec lire <dossier> --accepter' : `  La lecture a changé : « ${diff.was} » est maintenant lu « ${diff.now} ». Si c'est voulu : sitec lire <dossier> --accepter`);
+        else console.log(`  ${r.errors.length} phrase${r.errors.length > 1 ? 's' : ''} à reprendre : rien n'est écrit tant qu'une phrase est refusée.`);
+        console.log('');
+      }
+      if (json) console.log(JSON.stringify({ ok: !bad, documents: report }));
+      else if (bad) console.log(`Tournures comprises : ${TOURNURES.filter(t => t.id !== 'message_seul').map(t => t.label).join(' ; ')}.`);
+      return bad ? 1 : 0;
+    }
     case 'schema': {
       const dir = args[0];
       if (!dir) { console.error('Usage : sitec schema <dossier-projet> [--no-vscode]'); return 2; }

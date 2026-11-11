@@ -1,6 +1,16 @@
 # Journal des versions
 
-Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.12.1`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.13.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+
+## v0.13.0 — 2026-11-11 — un composant écrit comme un document (prototype)
+
+- **Format document** : `components/<nom>/document.md` remplace `manifest.yaml` pour une section à formulaire avec registre. Le compilateur lit les phrases sans modèle de langage (`src/lang/document.js` : un lexique, dix-sept tournures, la phrase des champs) et en tire un manifeste au format langage, compilé par le chemin habituel. Tolérés : l'ordre des mots, les synonymes du lexique, les nombres en lettres, une faute de frappe d'une lettre (dite dans la lecture).
+- **Trois garde-fous.** Tout mot doit avoir un rôle dans la tournure, sinon la phrase est refusée avec la tournure la plus proche (`E_DOCUMENT`, à la ligne du document). Une phrase que deux tournures expliquent est refusée, les deux lectures citées. La lecture est figée dans `lecture.yaml` : absente ou différente de ce que le document donne, elle arrête `check` et `build` (`E_READING`) en citant ce qui a changé, jusqu'à `sitec lire <dossier> --accepter`. Un nombre, une négation, un destinataire ne sont jamais devinés.
+- **Commande** `sitec lire <dossier> [composant] [--accepter] [--json]` : chaque phrase et ce qui en est compris ; `sitec lire --tournures` : ce que le lecteur sait lire. `component show` commence par le document, phrase par phrase.
+- **Exemple** : `examples/le-fournil/components/atelier` est écrit en document. Le site compilé est identique, fichier par fichier, à celui du manifeste écrit à la main (gardé dans `scripts/reference/`), à l'horodatage près.
+- **Ce que le prototype montre, chiffres compris.** Pas de gain de volume : 301 tokens en document, 307 en manifeste. Tolérance limitée : sur trois lots de trois textes rédigés par des modèles sans connaissance du lecteur, lus chacun par le lecteur tel qu'il était avant de les voir, 3 phrases sur 30, puis 13 sur 31, puis 10 sur 30 sont lues au premier passage ; le lecteur n'a pas progressé du deuxième au troisième lot, chaque rédacteur apportant ses tours (négation de contraste « pas en personnes », nombre redit « les trois horaires », nom du commerce comme destinataire). Aucune des 23 phrases lues au premier passage des lots 2 et 3 n'est lue de travers ; deux lectures fausses sont passées pendant la mise au point, vues par la lecture redite et corrigées. Lecteur actuel : 28 sur 30, 29 sur 31, 14 sur 30 (`scripts/measure-document.mjs`, textes dans `scripts/reference/redactions/`).
+- **Limites** : domaine étroit (ni boutique, ni mise en page libre, ni lecture à la visite autre que les places restantes) ; pas d'e-mail au visiteur ; le format langage reste le format par défaut et celui du générateur.
+- Bancs : `scripts/verify-document.mjs` (46 contrôles : identité, garde-fous, tolérance, refus), dans l'intégration continue ; banc de la documentation : blocs `markdown` compilés, table des tournures comparée au lecteur et chaque phrase d'exemple relue (234 contrôles).
 
 ## v0.12.1 — 2026-11-10 — le stockage SQLite sous écritures simultanées
 

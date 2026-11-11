@@ -1,0 +1,42 @@
+# Lecture de document.md par sitec : ce que le compilateur a compris, au format langage.
+# Ne modifiez pas ce fichier : corrigez document.md, relisez « sitec lire », puis acceptez (« sitec lire <dossier> --accepter »).
+name: atelier
+description: "Inscription à un atelier : huit places par séance, une inscription par adresse et par séance, liste d'attente quand la séance est complète. Les places restantes sont affichées."
+données:
+  title: texte, facultatif — titre de la section
+  intro: texte, facultatif — phrase sous le titre
+fonctionnement:
+  lit:
+    places: état du registre
+  formulaire:
+    enregistre dans: ateliers
+    prévient par e-mail: oui
+    confirmation: Votre place est réservée. Nous vous écrivons pour confirmer l'heure.
+    places: 8 par seance, comptées par personnes
+    liste d'attente: Cette séance est complète, vous êtes sur la liste d'attente. Nous vous écrivons si une place se libère.
+    une fois par: email, seance
+    si déjà inscrit: Cette adresse est déjà inscrite à cette séance.
+    champs:
+      seance: choix, un parmi Premier samedi du mois, Troisième samedi du mois — Séance
+      personnes: nombre — Nombre de personnes (ex. 2)
+      name: null
+      email: null
+      message: facultatif
+forme:
+  - en-tête: title, intro
+  - liste « atelier-places » de places.groups:
+      - élément:
+          - texte: value
+          - badge: left_text
+  - formulaire, bouton Réserver
+apparence:
+  atelier-places: en ligne, espace au-dessus
+example: |
+  - atelier:
+      title: Atelier
+intents:
+  - atelier
+  - inscription
+  - réserver
+  - places
+  - stage
