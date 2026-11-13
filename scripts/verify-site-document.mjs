@@ -16,12 +16,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadCatalog } from '../src/catalog.js';
 import { loadProject } from '../src/load.js';
-import { componentSchemas, readPageDocument, readSiteDocument, writePageDocument, writeSiteDocument, canon, parseLink, COMPONENT_NAMES, PROP_NAMES, readDataDocument, writeDataDocument, PRODUCTS, collectionData, readSegmentsDocument, writeSegmentsDocument, readPackageDocument, readHostsDocument, readFixtureDocument } from '../src/lang/site-document.js';
+import { componentSchemas, readPageDocument, readSiteDocument, writePageDocument, writeSiteDocument, canon, parseLink, COMPONENT_NAMES, PROP_NAMES, readDataDocument, writeDataDocument, PRODUCTS, collectionData, readSegmentsDocument, writeSegmentsDocument, readPackageDocument, readHostsDocument, readFixtureDocument, writeFixtureDocument } from '../src/lang/site-document.js';
 import { EVENTS } from '../src/segments.js';
 import { parseComponentOutline, writeComponentOutline, parseVocabularyOutline, writeVocabularyOutline } from '../src/lang/outline.js';
 import { compileVocabulaire } from '../src/lang/vocabulaire.js';
 import { THEME_PRESETS } from '../src/emit/php/css.js';
-import { SITE_SCHEMA } from '../src/validate.js';
+import { SITE_SCHEMA, validateProject } from '../src/validate.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 // Les exemples du dépôt sont écrits en documents ; les mêmes, dans leur écriture YAML d'origine, servent de référence.
@@ -283,6 +283,34 @@ try {
   const frOk = Object.entries(COMPONENT_NAMES).every(([k, v]) => r.out.toLowerCase().includes(`${v} = ${k}`)) && Object.entries(PROP_NAMES).every(([k, v]) => r.out.includes(`${v} = ${k}`));
   ok('explain document : le format en une page, noms français tirés du lecteur', r.code === 0 && frOk && /Adresse : \/contact/.test(r.out), r.out.slice(0, 300));
   ok('noms français : chacun désigne un composant natif', Object.keys(COMPONENT_NAMES).every(k => catalog.has(k)), Object.keys(COMPONENT_NAMES).filter(k => !catalog.has(k)).join(', '));
+
+  // --- cas de test : ce que les lectures rendraient à la visite, écrit en document
+  {
+    const fournil = await loadProject(path.join(ROOT, 'examples', 'le-fournil'), { catalog }); validateProject(fournil, catalog);
+    const savon = await loadProject(path.join(ROOT, 'examples', 'savonnerie'), { catalog }); validateProject(savon, catalog);
+    const at = fournil.catalog.get('atelier').manifest, se = savon.catalog.get('selection').manifest;
+    const fa = readFixtureDocument(await fs.readFile(path.join(ROOT, 'examples', 'le-fournil', 'components', 'atelier', 'fixtures', 'une-seance-complete.md'), 'utf8'), { name: 'atelier', props: at.props, sources: at.sources });
+    const pl = fa.props?.['à la visite']?.places || {};
+    ok('à la visite : un groupe se lit en lignes « nom : valeur », sa liste en puces, les valeurs typées par la source', !fa.error && pl.limited === true && pl.capacity === 8 && pl.left_text === '3 places restantes' && same(pl.groups, [{ value: 'Premier samedi du mois', taken: 8, left: 0, full: true, left_text: 'Complet', waiting: 2 }, { value: 'Troisième samedi du mois', taken: 5, left: 3, full: false, left_text: '3 places restantes', waiting: 0 }]), fa.error || JSON.stringify(pl));
+    const lang = (await fs.readFile(path.join(ROOT, 'docs', 'LANGAGE.md'), 'utf8')).replace(/\r\n/g, '\n');
+    const exV = /<!-- banc : cas de test avec ce qui est lu à la visite -->\n(?:<!--[^\n]*-->\n)?```markdown\n([\s\S]*?)\n```\n/.exec(lang)?.[1] || '';
+    const fs2 = readFixtureDocument(exV, { name: 'selection', props: se.props, sources: se.sources });
+    const pr = fs2.props?.['à la visite']?.produits || [];
+    ok('à la visite : une liste se lit en puces, valeurs dans l\'ordre des champs puis par leur nom (exemple de docs/LANGAGE.md)', exV.includes('### produits') && !fs2.error && pr.length === 2 && same(pr[0], { id: 'savon-lavande', name: 'Savon à la lavande', price: 6.5, price_text: '6,50 €', category: 'savons', stock: 12, stock_text: '12 en stock', in_stock: true, max_qty: 12 }) && pr[1].in_stock === false && pr[1].max_qty === 0 && fs2.props.limit === 2, fs2.error || JSON.stringify(pr));
+    const vide = readFixtureDocument('## selection : À découvrir\n\nÀ la visite :\n\n### produits\n', { name: 'selection', props: se.props, sources: se.sources });
+    const enYaml = readFixtureDocument('## selection : À découvrir\n\nÀ la visite :\n```yaml\nproduits: []\n```\n', { name: 'selection', props: se.props, sources: se.sources });
+    ok('à la visite : « ### nom » seul vaut une liste vide ; un bloc yaml reste lu', !vide.error && same(vide.props['à la visite'], { produits: [] }) && !enYaml.error && same(enYaml.props['à la visite'], { produits: [] }), vide.error || enYaml.error);
+    const inconnue = readFixtureDocument('## selection : A\n\nÀ la visite :\n\n### stock\n- a | b\n', { name: 'selection', props: se.props, sources: se.sources });
+    const mauvaise = readFixtureDocument('> note\n## atelier : A\n\nÀ la visite :\n\n### places\ncount : beaucoup\n', { name: 'atelier', props: at.props, sources: at.sources });
+    const sansNom = readFixtureDocument('## selection : A\n\nÀ la visite :\n\n- a | b\n', { name: 'selection', props: se.props, sources: se.sources });
+    ok('à la visite : lecture inconnue, valeur du mauvais type, puce sans « ### nom » : refusées à la ligne du fichier', /^ligne 5 : stock n'est pas une lecture du composant \(produits\)/.test(inconnue.error || '') && /^ligne 7 : .*un nombre est attendu \(lu : « beaucoup »\)/.test(mauvaise.error || '') && /^ligne 5 : sous « À la visite : », une lecture s'ouvre par « ### nom » \(lectures du composant : produits\)/.test(sansNom.error || ''), [inconnue.error, mauvaise.error, sansNom.error].join(' | '));
+    const wv = writeFixtureDocument({ title: 'À découvrir', 'à la visite': { produits: pr } }, { name: 'selection', props: se.props, sources: se.sources, notes: ['une note'] });
+    const wy = writeFixtureDocument({ title: 'À découvrir', 'à la visite': { produits: pr } }, { name: 'selection', props: se.props });
+    ok('à la visite : le rédacteur écrit les lectures en sections quand il les connaît, en bloc yaml sinon, et se relit', !wv.error && /^> une note\n## selection : À découvrir\n\nÀ la visite :\n\n### produits\n- savon-lavande \| Savon à la lavande \| 6\.5 \| 6,50 € \| savons \| stock : 12 /.test(wv.text) && !/yaml/.test(wv.text) && !wy.error && /```yaml/.test(wy.text), wv.error || wv.text);
+    const blocksLeft = [];
+    for (const f of (await fs.readdir(path.join(ROOT, 'examples'), { recursive: true })).map(x => String(x).replaceAll('\\', '/')).filter(x => /\.md$/.test(x) && !/(^|\/)dist\//.test(x))) if (/^\s*```ya?ml\s*$/m.test(await fs.readFile(path.join(ROOT, 'examples', f), 'utf8'))) blocksLeft.push(f);
+    ok('dépôt : plus de bloc yaml dans les cas de test des exemples ; il n\'en reste qu\'un, le schéma d\'un composant au format html', JSON.stringify(blocksLeft) === JSON.stringify(['paquets/vitrine/components/encart/composant.md']), blocksLeft.join(', '));
+  }
 
   // --- composés en document : components.md à la place de components.yaml
   {

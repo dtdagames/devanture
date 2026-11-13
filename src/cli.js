@@ -14,7 +14,7 @@ import { wordUsage, WORD_KEYS } from './lang/vocabulaire.js';
 import { readDocument, readingDiff, TOURNURES } from './lang/document.js';
 import { lineDiff } from './reading.js';
 import { writeCompositesDocument, PARAM_WORDS } from './lang/composites-document.js';
-import { writeSiteDocument, writePageDocument, writeSectionDocument, componentSchemas, readSiteDocument, readPageDocument, COMPONENT_NAMES, PROP_NAMES, GROUP_NAMES, writeDataDocument, readDataDocument, PRODUCTS, collectionData, writeSegmentsDocument, readSegmentsDocument, writeFixtureDocument, writePackageDocument, writeHostsDocument } from './lang/site-document.js';
+import { writeSiteDocument, writePageDocument, writeSectionDocument, componentSchemas, readSiteDocument, readPageDocument, COMPONENT_NAMES, PROP_NAMES, GROUP_NAMES, writeDataDocument, readDataDocument, PRODUCTS, collectionData, writeSegmentsDocument, readSegmentsDocument, writeFixtureDocument, readFixtureDocument, writePackageDocument, writeHostsDocument } from './lang/site-document.js';
 import { SOURCES, SOURCE_NAMES, PUBLIC_SOURCE_NAMES, sourceUsage, sourceFields } from './lang/sources.js';
 import YAML from 'yaml';
 import { INTENT_NAMES } from './lang/apparence.js';
@@ -243,15 +243,24 @@ export async function run(argv) {
         else out.push({ from, to: path.join(cdir, 'composant.md'), text: r.text, note: r.comments.lost ? `${r.comments.lost} ligne(s) de commentaire non reprise(s)` : '' });
       };
       // Cas de test d'un composant : fixtures/<cas>.yaml devient fixtures/<cas>.md, le composant écrit comme une section de page.
-      const fixtures = async (cdir, name, props) => {
+      const fixtures = async (cdir, name, props, sources = []) => {
         const fdir = path.join(cdir, 'fixtures');
+        // Un cas déjà en document qui garde un bloc yaml sous « À la visite : » : ce que ses lectures rendraient s'écrit en sections.
+        for (const file of (await fs.readdir(fdir).catch(() => [])).filter(x => /\.md$/.test(x)).sort()) {
+          const from = path.join(fdir, file), rel = path.relative(root, from).replaceAll('\\', '/'), text = (await fs.readFile(from, 'utf8')).replace(/\r\n/g, '\n');
+          if (!props || !/^à la visite\s*:\s*$/im.test(text) || !/^```ya?ml\s*$/m.test(text)) continue;
+          const r = readFixtureDocument(text, { name, props, sources });
+          if (r.error) { failed.push(`${rel} : ${r.error}`); continue; }
+          const w = writeFixtureDocument(r.props, { name, props, sources, notes: text.split('\n').filter(l => /^\s*>/.test(l)).map(l => l.replace(/^\s*>\s?/, '')) });
+          if (w.error) failed.push(`${rel} : ${w.error}`); else if (w.text !== text && !/^```ya?ml\s*$/m.test(w.text)) out.push({ from, to: from, text: w.text, note: '« À la visite » écrit en document' });
+        }
         for (const file of (await fs.readdir(fdir).catch(() => [])).filter(x => /\.ya?ml$/.test(x)).sort()) {
           const from = path.join(fdir, file), rel = path.relative(root, from).replaceAll('\\', '/');
           if (!props) { failed.push(`${rel} : composant refusé par check, corrigez-le d'abord`); continue; }
           let doc; try { doc = YAML.parseDocument(await fs.readFile(from, 'utf8')); } catch (e) { failed.push(`${rel} : ${e.message.split('\n')[0]}`); continue; }
           const lines = c => String(c || '').split('\n').map(l => l.replace(/^\s?/, '').trimEnd()).filter(Boolean);
           const notes = [...lines(doc.commentBefore), ...lines(doc.contents?.commentBefore), ...lines(doc.contents?.items?.[0]?.key?.commentBefore)];
-          const r = writeFixtureDocument(doc.toJS() ?? {}, { name, props, notes });
+          const r = writeFixtureDocument(doc.toJS() ?? {}, { name, props, notes, sources });
           if (r.error) failed.push(`${rel} : ${r.error}`); else out.push({ from, to: from.replace(/\.ya?ml$/, '.md'), text: r.text });
         }
       };
@@ -296,9 +305,9 @@ export async function run(argv) {
           const src = await cat.readComponentDir(path.join(root, 'components', d.name));
           if (!src) continue;
           sources.push(src);
-          const name = `${meta.name}.${src.name}`, props = cat.buildComponent({ ...src, name, shortName: src.name, pkg: meta.name, project: true, words: catalog.words }).entry?.manifest.props;
+          const name = `${meta.name}.${src.name}`, built = cat.buildComponent({ ...src, name, shortName: src.name, pkg: meta.name, project: true, words: catalog.words }).entry?.manifest, props = built?.props;
           if (src.manifestText !== undefined) await component(src.dir, name, props);
-          await fixtures(src.dir, name, props);
+          await fixtures(src.dir, name, props, built?.sources || []);
         }
         if (await exists(path.join(root, 'components.yaml'))) {
           // Les données des composants du paquet, sous leur nom d'usage : les sections d'un composé les emploient préfixés.
@@ -337,7 +346,7 @@ export async function run(argv) {
         if (project.componentsRaw && /\.yaml$/.test(project.componentsFile)) await composites(root, schemas, null);
         // Composants du site encore écrits en manifeste : leur plan, composant.md.
         validateProject(project, catalog);
-        for (const src of project.componentSources || []) { const props = project.catalog?.get(src.name)?.manifest.props; if (src.manifestText !== undefined) await component(src.dir, src.name, props); await fixtures(src.dir, src.name, props); }
+        for (const src of project.componentSources || []) { const m = project.catalog?.get(src.name)?.manifest, props = m?.props; if (src.manifestText !== undefined) await component(src.dir, src.name, props); await fixtures(src.dir, src.name, props, m?.sources || []); }
         await vocabulary(root);
       }
       if (failed.length) { for (const m of failed) console.error('Ne s\'écrit pas en document : ' + m); console.error('Rien n\'est écrit.'); return 1; }
@@ -347,7 +356,7 @@ export async function run(argv) {
         console.log(`${path.relative(root, o.from).replaceAll('\\', '/')} → ${path.relative(root, o.to).replaceAll('\\', '/')}${blocks ? ` (${blocks} bloc${blocks > 1 ? 's' : ''} yaml gardé${blocks > 1 ? 's' : ''})` : ''}${o.note ? ` ; ${o.note}` : ''}`);
         if (dry) continue;
         if (o.frozen) { await fs.mkdir(path.dirname(o.frozen), { recursive: true }); await fs.writeFile(o.frozen, o.yaml); }
-        await fs.writeFile(o.to, o.text); await fs.rm(o.from);
+        await fs.writeFile(o.to, o.text); if (o.from !== o.to) await fs.rm(o.from);
       }
       console.log(dry ? `${out.length} documents s'écriraient (--dry-run : rien n'est modifié).` : `${out.length} documents écrits et relus : chacun rend les données de son YAML. La lecture du site, des pages et des données est figée dans lecture/. Les fichiers YAML d'origine sont supprimés.`);
       return 0;
@@ -443,7 +452,7 @@ export async function run(argv) {
         let exists = false; for (const f of ['composant.md', 'manifest.yaml']) try { await fs.access(path.join(cdir, f)); exists = true; } catch { /* libre */ }
         const existing = exists ? await gen.readComponent(cdir) : null;
         // Un composant au format langage encore écrit en manifeste est montré en plan au modèle : sa réponse l'écrira ainsi.
-        if (existing?.format === 'langage') existing.files = await gen.asPlan(existing.files, { name: target.name, props: (project.catalog || catalog).get(target.name)?.manifest.props });
+        if (existing?.format === 'langage') existing.files = await gen.asPlan(existing.files, { name: target.name, props: (project.catalog || catalog).get(target.name)?.manifest.props, sources: (project.catalog || catalog).get(target.name)?.manifest.sources || [] });
         if (sub === 'new' && exists && !flags.has('--force') && !opt('--import')) { console.error(`${relDir} existe déjà : --force pour le régénérer depuis sa description, ou sitec component edit … --ask "…" pour le modifier.`); return 2; }
         if (sub === 'edit' && !existing) { console.error(`Composant introuvable : ${relDir}.`); return 2; }
         const request = sub === 'edit' ? opt('--ask') : null;
@@ -781,7 +790,8 @@ Composants de projet, format langage (défaut) : un seul fichier avec données, 
   apparence : partie: ${INTENT_NAMES.join(', ')} ; « sur téléphone: ».
   fonctionnement : « lit: » puis une ligne par lecture à la visite, « nom: source, paramètre donnée » ; le nom se lit dans la forme comme une donnée.
     sources (services de la cible) : ${PUBLIC_SOURCE_NAMES.join(', ')} ; fiche : sitec explain "<source>".
-    « section, seulement si nom: » n'affiche la section que si la lecture rend quelque chose ; cas de test : « à la visite: { nom: … } ».
+    « section, seulement si nom: » n'affiche la section que si la lecture rend quelque chose ; cas de test (fixtures/<cas>.md) : « À la visite : » puis
+    une section « ### nom » par lecture, ce qu'elle rend en dessous (en YAML : « à la visite: { nom: … } »).
   fonctionnement : « formulaire: » puis ${FORM_SETTINGS.join(', ')} ; un champ par ligne « nom: type, précisions — Libellé (ex. exemple) ».
     types de champ : ${FIELD_TYPE_WORDS.join(', ')} ; précisions : ${FIELD_MODIFIERS.join(' ; ')} ; name, email, phone, subject, message sont connus (rien à écrire après).
     dans la forme : « - formulaire, bouton Envoyer » (tous les champs), ou « - formulaire: » puis « - champ: nom » pour les placer.
@@ -948,7 +958,7 @@ function printSource(name) {
   const show = (fs0, ind) => { for (const x of fs0) { console.log(`${ind}${x.name}: ${x.spec}`); if (x.children) show(x.children, ind + '  '); } };
   show(g.fields, '  ');
   console.log(`\nDans la forme, « nom » se lit comme une donnée${g.list ? ' (« - grille de nom: » puis les champs de l\'élément)' : ' (« - texte: nom.champ », « - si nom.champ: »)'} ; « section, seulement si nom: » n'affiche la section que si la lecture rend quelque chose.`);
-  console.log('Un cas de test fournit la valeur lue : clé « à la visite: { nom: … } » dans fixtures/<cas>.yaml.');
+  console.log(`Un cas de test (fixtures/<cas>.md) fournit la valeur lue : « À la visite : », puis « ### nom » et, en dessous, ${g.list ? 'une puce par élément (« - valeur | valeur | nom : valeur », les valeurs dans l\'ordre des champs ci-dessus)' : 'une ligne « nom : valeur » par champ, et une puce par élément de sa liste'}.`);
 }
 
 function explain(catalog, name, words = null, asDocument = false) {

@@ -3,24 +3,7 @@
 Limite : 2
 
 À la visite :
-```yaml
-produits:
-  - id: savon-lavande
-    name: Savon à la lavande
-    price: 6.5
-    price_text: 6,50 €
-    category: savons
-    stock: 12
-    stock_text: 12 en stock
-    in_stock: true
-    max_qty: 12
-    url: /produit/savon-lavande
-  - id: baume-levres
-    name: Baume à lèvres
-    price: 4.9
-    price_text: 4,90 €
-    category: soins
-    stock: 0
-    in_stock: false
-    max_qty: 0
-```
+
+### produits
+- savon-lavande | Savon à la lavande | 6.5 | 6,50 € | savons | stock : 12 | stock_text : 12 en stock | in_stock : oui | max_qty : 12 | url : /produit/savon-lavande
+- baume-levres | Baume à lèvres | 4.9 | 4,90 € | soins | stock : 0 | in_stock : non | max_qty : 0

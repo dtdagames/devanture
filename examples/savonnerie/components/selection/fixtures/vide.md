@@ -2,6 +2,5 @@
 ## selection : À découvrir
 
 À la visite :
-```yaml
-produits: []
-```
+
+### produits

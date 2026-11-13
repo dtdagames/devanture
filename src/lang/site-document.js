@@ -12,6 +12,7 @@
 //      (E_READING) jusqu'à « sitec lire <dossier> --accepter ».
 // Ce qui ne se dit pas en lignes (variantes, groupes libres, collections) s'écrit dans un bloc ```yaml du document.
 import YAML from 'yaml';
+import { sourceSchema } from './sources.js';
 import { compileDonnees } from './donnees.js';
 import { readDocument } from './document.js';
 import { parseFieldSpec } from './fonctionnement.js';
@@ -1083,36 +1084,110 @@ export function writeHostsDocument(cfg) {
 }
 
 const VISIT = /^à la visite\s*:\s*$/i;
+/** Le schéma de ce qu'une lecture rend, tel que readBody le lit : une source qui rend une liste se lit comme la liste « items ». */
+function readingShape(source) {
+  const s = sourceSchema(source), list = s.type === 'array';
+  return { list, schema: list ? { type: 'object', properties: { items: s } } : s };
+}
+const VISIT_OPTS = key => ({ title: null, prose: null, what: `la lecture ${key}`, label: k => k });
+
+/**
+ * Ce que les lectures d'un composant rendraient à la visite, écrit sous « À la visite : ». Une section « ### nom » par lecture ;
+ * dessous, ce que la source rend, lu d'après les champs qu'elle annonce : une puce par élément quand elle rend une liste
+ * (« - valeur | valeur | nom : valeur »), des lignes « nom : valeur » et les puces de sa liste quand elle rend un groupe.
+ * Un bloc yaml reste lu à la place. sources : [{ key, source }], les lectures du composant. Renvoie { visit } ou { error }.
+ */
+function readVisit(tail, sources, offset) {
+  const blocks = splitBlocks(tail), solid = blocks.filter(b => b.kind !== 'blank');
+  if (solid.length === 1 && solid[0].kind === 'fence') {
+    if (!solid[0].closed || !/^ya?ml$/.test(solid[0].lang)) return { error: `ligne ${offset + solid[0].line} : sous « À la visite : », un bloc se dit yaml et se ferme` };
+    try { return { visit: YAML.parse(solid[0].text) }; } catch (e) { return { error: `bloc yaml illisible : ${String(e.message).split('\n')[0]}` }; }
+  }
+  const names = sources.map(x => x.key), visit = {};
+  const how = `une lecture s'ouvre par « ### nom »${names.length ? ` (lectures du composant : ${names.join(', ')})` : ''}, puis ce qu'elle rend`;
+  if (!solid.length) return { error: `ligne ${offset} : « À la visite : » n'est suivi de rien ; ${how}` };
+  let cur = null, body = [];
+  const flush = () => {
+    if (!cur) return null;
+    const src = sources.find(x => x.key === cur.key);
+    if (!src) return `ligne ${offset + cur.line} : ${cur.key} n'est pas une lecture du composant (${names.join(', ') || 'il ne lit rien'})`;
+    if (cur.key in visit) return `ligne ${offset + cur.line} : la lecture ${cur.key} est déjà dite`;
+    const shape = readingShape(src.source), r = readBody(body, shape.schema, VISIT_OPTS(cur.key));
+    if (r.errors.length) return `ligne ${offset + (r.errors[0].line || cur.line)} : ${r.errors[0].message}`;
+    visit[cur.key] = shape.list ? r.props.items ?? [] : r.props;
+    return null;
+  };
+  for (const b of blocks) {
+    if (b.kind === 'h3') { const e = flush(); if (e) return { error: e }; cur = { key: b.text.trim(), line: b.line }; body = []; continue; }
+    if (!cur) { if (b.kind === 'blank') continue; return { error: `ligne ${offset + b.line} : sous « À la visite : », ${how}` }; }
+    body.push(b);
+  }
+  const e = flush();
+  return e ? { error: e } : { visit };
+}
+
+/** Écrit ce que les lectures rendraient, une section « ### nom » par lecture ; null si une valeur ne s'écrit pas ainsi. */
+function writeVisit(visit, sources) {
+  if (!visit || typeof visit !== 'object' || Array.isArray(visit) || !Object.keys(visit).length) return null;
+  const lines = [];
+  for (const [key, value] of Object.entries(visit)) {
+    const src = sources.find(x => x.key === key);
+    if (!src || !/^[a-z][a-z0-9_]*$/i.test(key)) return null;
+    const shape = readingShape(src.source);
+    if (lines.length) lines.push('');
+    lines.push(`### ${key}`);
+    if (shape.list) { if (!Array.isArray(value)) return null; if (!value.length) continue; }
+    else if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const props = shape.list ? { items: value } : value;
+    const body = writeChecked(props, shape.schema, VISIT_OPTS(key), ls => readBody(splitBlocks(ls.join('\n')), shape.schema, VISIT_OPTS(key)));
+    if (!body || body.some(l => /^\s*```/.test(l) || /^#{1,6}\s/.test(l))) return null;
+    lines.push(...body);
+  }
+  return lines;
+}
+
 /**
  * Lit un cas de test de composant : le composant écrit comme une section de page (« ## composant : titre », puis ses données) ;
- * ce que ses lectures rendraient à la visite suit « À la visite : », dans un bloc yaml. Les lignes « > … » sont des notes.
+ * ce que ses lectures rendraient à la visite suit « À la visite : », une section « ### nom » par lecture (ou un bloc yaml).
+ * Les lignes « > … » sont des notes. sources : les lectures du composant, [{ key, source }].
  * Renvoie { props (avec « à la visite » s'il est dit), error }.
  */
-export function readFixtureDocument(text, { name, props }) {
-  const lines = String(text).replace(/\r\n/g, '\n').split('\n').filter(l => !/^\s*>/.test(l));
-  const at = lines.findIndex(l => VISIT.test(l.trim()));
-  const head = (at < 0 ? lines : lines.slice(0, at)).join('\n'), tail = at < 0 ? null : lines.slice(at + 1).join('\n');
+export function readFixtureDocument(text, { name, props, sources = [] }) {
+  const all = String(text).replace(/\r\n/g, '\n').split('\n'), note = l => /^\s*>/.test(l);
+  const visitAt = all.findIndex(l => !note(l) && VISIT.test(l.trim()));
+  const head = (visitAt < 0 ? all : all.slice(0, visitAt)).filter(l => !note(l)).join('\n');
   const r = readPageDocument(`Adresse : /x\n\n${head}\n`, { schemas: new Map([[name, props]]) });
   if (r.errors.length) return { props: null, error: `ligne ${Math.max(1, r.errors[0].line - 2)} : ${r.errors[0].message}` };
   const sections = r.data.sections || [];
   if (sections.length !== 1 || Object.keys(sections[0])[0] !== name) return { props: null, error: `un cas de test est une section du composant : « ## ${name} »` };
   const out = { ...(sections[0][name] || {}) };
-  if (tail !== null) {
-    const fence = splitBlocks(tail).filter(b => b.kind !== 'blank');
-    if (fence.length !== 1 || fence[0].kind !== 'fence' || !fence[0].closed || !/^ya?ml$/.test(fence[0].lang)) return { props: null, error: '« À la visite : » est suivi d\'un bloc ```yaml : ce que chaque lecture du composant rendrait' };
-    try { out['à la visite'] = YAML.parse(fence[0].text); } catch (e) { return { props: null, error: `bloc yaml illisible : ${String(e.message).split('\n')[0]}` }; }
+  if (visitAt >= 0) {
+    // Les notes sont effacées sans décaler les lignes : une erreur cite la ligne du fichier.
+    const v = readVisit(all.slice(visitAt + 1).map(l => (note(l) ? '' : l)).join('\n'), sources || [], visitAt + 1);
+    if (v.error) return { props: null, error: v.error };
+    out['à la visite'] = v.visit;
   }
   return { props: out, error: null };
 }
-/** Écrit un cas de test en document. notes : lignes de commentaire reprises en « > … ». Renvoie { text } ou { error }. */
-export function writeFixtureDocument(data, { name, props, notes = [] }) {
+/**
+ * Écrit un cas de test en document. notes : lignes de commentaire reprises en « > … ». sources : les lectures du composant ;
+ * ce qu'elles rendraient s'écrit en sections « ### nom », ou dans un bloc yaml si une valeur ne s'y écrit pas. Renvoie { text } ou { error }.
+ */
+export function writeFixtureDocument(data, { name, props, notes = [], sources = [] }) {
   if (!data || typeof data !== 'object' || Array.isArray(data)) return { error: 'cas de test illisible' };
   const { 'à la visite': visit, ...rest } = data;
   const w = writeSectionDocument({ [name]: rest }, { schemas: new Map([[name, props]]) });
   if (w.error) return { error: w.error };
-  const text = [...notes.map(n => `> ${n}`), ...w.lines, ...(visit !== undefined ? ['', 'À la visite :', '```yaml', ...YAML.stringify(visit, { lineWidth: 0 }).trimEnd().split('\n'), '```'] : [])].join('\n') + '\n';
-  const back = readFixtureDocument(text, { name, props });
-  return back.error || !same(back.props, data) ? { error: back.error || 'le cas écrit ne rend pas le cas d\'origine' } : { text };
+  const head = [...notes.map(n => `> ${n}`), ...w.lines];
+  const tails = visit === undefined ? [[]] : [writeVisit(visit, sources || []), ['```yaml', ...YAML.stringify(visit, { lineWidth: 0 }).trimEnd().split('\n'), '```']].filter(Boolean).map(t => ['', 'À la visite :', ...(t[0] === '```yaml' ? [] : ['']), ...t]);
+  let error = null;
+  for (const tail of tails) {
+    const text = [...head, ...tail].join('\n') + '\n';
+    const back = readFixtureDocument(text, { name, props, sources });
+    if (!back.error && same(back.props, data)) return { text };
+    error = back.error || 'le cas écrit ne rend pas le cas d\'origine';
+  }
+  return { error };
 }
 
 /** Ligne du document où se trouve un chemin de validation (« sections[2].hero.cta.to ») : le préfixe connu le plus long. */

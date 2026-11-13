@@ -210,7 +210,11 @@ try {
     const site7 = await copy('examples/savonnerie', 'savon-consigne');
     await fs.writeFile(path.join(site7, 'components', 'selection', 'fixtures', 'consigne.md'), gen.EXAMPLE_PLAN_VISIT.document + '\n');
     const t7 = run('test', site7, '--only', 'selection');
-    ok('générateur en plan : le cas « à la visite » de la consigne se lit et se rend', t7.code === 0 && /NEW  selection › consigne/.test(t7.out), t7.out.slice(-400));
+    ok('générateur en plan : le cas « à la visite » de la consigne (une liste) se lit et se rend', t7.code === 0 && /NEW  selection › consigne/.test(t7.out) && !/yaml/.test(gen.EXAMPLE_PLAN_VISIT.document), t7.out.slice(-400));
+    const site8 = await copy('examples/le-fournil', 'fournil-consigne');
+    await fs.writeFile(path.join(site8, 'components', 'atelier', 'fixtures', 'consigne.md'), gen.EXAMPLE_PLAN_VISIT_GROUP.document + '\n');
+    const t8 = run('test', site8, '--only', 'atelier');
+    ok('générateur en plan : le cas « à la visite » de la consigne (un groupe et sa liste) se lit et se rend', t8.code === 0 && /NEW  atelier › consigne/.test(t8.out), t8.out.slice(-400));
   }
 
   const garnier3 = await copy('scripts/reference/exemples-yaml/garnier-associes', 'garnier-gen');
@@ -492,7 +496,7 @@ try {
     r = run('catalog', sav);
     ok('lit : catalogue liste les sources et leur service', /^produits de la boutique +.*\[boutique\]/m.test(r.out) && /^horaires du moment +.*\[horaires\]/m.test(r.out) && !/saisie du contact/.test(r.out), r.out.slice(-500));
     r = run('explain', 'panier du visiteur');
-    ok('lit : explain d\'une source montre son emploi et ce qu\'elle rend', /^# panier du visiteur \(source : service « boutique » de la cible\)/m.test(r.out) && /nom: panier du visiteur/.test(r.out) && /^ {2}lines: liste$/m.test(r.out) && /^ {4}qty: nombre$/m.test(r.out) && /checkout: lien, facultatif/.test(r.out) && /à la visite/.test(r.out), r.out.slice(0, 300));
+    ok('lit : explain d\'une source montre son emploi et ce qu\'elle rend', /^# panier du visiteur \(source : service « boutique » de la cible\)/m.test(r.out) && /nom: panier du visiteur/.test(r.out) && /^ {2}lines: liste$/m.test(r.out) && /^ {4}qty: nombre$/m.test(r.out) && /checkout: lien, facultatif/.test(r.out) && /« À la visite : », puis « ### nom »/.test(r.out), r.out.slice(0, 300));
     r = run('explain', 'produits de la boutique');
     ok('lit : explain liste les paramètres d\'une source', /Paramètres .* : catégorie, vedettes, tri, limite\./.test(r.out) && /Elle rend une liste ; chaque élément :/.test(r.out), r.out.slice(0, 400));
     r = run('component', 'show', sav, 'selection', '--php');
@@ -533,7 +537,7 @@ try {
     const gp2 = path.join(tmp, 'gen-lit.json');
     r = run('component', 'new', sav, 'vitrine-du-jour', '--describe', 'Les trois derniers produits.', '--export', gp2);
     const gj2 = JSON.parse(await fs.readFile(gp2, 'utf8').catch(() => '{}'));
-    ok('lit : le guide du générateur décrit les sources et leurs champs, sans la source réservée', /Fonctionnement › lit/.test(gj2.system || '') && /- produits de la boutique, catégorie <donnée>, vedettes <donnée>, tri <donnée>, limite <donnée> : /.test(gj2.system) && /« À la visite : », puis un bloc yaml/.test(gj2.system) && !/saisie du contact/.test(gj2.system), (gj2.system || '').slice(0, 200));
+    ok('lit : le guide du générateur décrit les sources et leurs champs, sans la source réservée', /Fonctionnement › lit/.test(gj2.system || '') && /- produits de la boutique, catégorie <donnée>, vedettes <donnée>, tri <donnée>, limite <donnée> : /.test(gj2.system) && /« À la visite : », puis une section « ### nom » par lecture/.test(gj2.system) && !/bloc yaml/.test(gj2.system) && !/saisie du contact/.test(gj2.system), (gj2.system || '').slice(0, 200));
     r = run('schema', sav);
     const ms2 = JSON.parse(await fs.readFile(path.join(sav, '.devanture', 'schema', 'manifest.schema.json'), 'utf8').catch(() => 'null'));
     ok('lit : le schéma d\'éditeur propose « lit » et ses sources', /`panier du visiteur`/.test(ms2?.properties?.fonctionnement?.properties?.lit?.markdownDescription || ''), '');

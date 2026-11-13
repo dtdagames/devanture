@@ -128,7 +128,8 @@ ${'```'}
 ## devis-express : Un devis en quelques minutes
 Delai : 2 h ouvrées
 ${'```'}`;
-export const EXAMPLE_PLAN_VISIT = { name: 'deux-produits', document: `## selection : À découvrir\nLimit : 2\n\nÀ la visite :\n${'```'}yaml\nproduits:\n  - { id: savon-lavande, name: Savon à la lavande, price: 6.5, price_text: "6,50 €", stock_text: 12 en stock, in_stock: true, max_qty: 12, url: /produit/savon-lavande }\n${'```'}` };
+export const EXAMPLE_PLAN_VISIT = { name: 'deux-produits', document: `## selection : À découvrir\nLimit : 2\n\nÀ la visite :\n\n### produits\n- savon-lavande | Savon à la lavande | 6.5 | 6,50 € | savons | stock : 12 | stock_text : 12 en stock | in_stock : oui | max_qty : 12 | url : /produit/savon-lavande\n- baume-levres | Baume à lèvres | 4.9 | 4,90 € | soins | stock : 0 | in_stock : non | max_qty : 0` };
+export const EXAMPLE_PLAN_VISIT_GROUP = { name: 'une-seance-complete', document: `## atelier : Atelier pain du samedi\n\nÀ la visite :\n\n### places\nlimited : oui\ncapacity : 8\ncount : 13\nentries : 6\nwaiting : 2\nleft : 3\nfull : non\nleft_text : 3 places restantes\n- Premier samedi du mois | 8 | 0 | oui | Complet | 2\n- Troisième samedi du mois | 5 | 3 | non | 3 places restantes | 0` };
 
 /** Guide du langage des composants au format « langage » : le plan (composant.md) et l'écriture d'une section, depuis le code du compilateur. */
 export async function buildSystemPromptLang() {
@@ -204,7 +205,11 @@ L'exemple et chaque cas de test montrent le composant tel qu'un auteur l'écrit 
 
 # Cas de test (fixtures)
 2 à 4 cas : complet, minimal (seulement l'obligatoire), cas limite. Chaque document est le composant écrit comme une section de page, avec des données valides ; les images viennent de celles listées dans la demande.
-Quand le composant lit quelque chose à la visite, chaque cas fournit ce que la lecture rendrait : après la section, une ligne vide, « À la visite : », puis un bloc yaml (trois accents graves suivis de yaml) avec une clé par lecture. Donne chaque champ que la source rend, sauf ceux marqués « ? » que tu peux omettre, y compris dans ses listes : un champ obligatoire absent fait refuser le cas. C'est le seul endroit où tu écris du YAML.
+Quand le composant lit quelque chose à la visite, chaque cas fournit ce que la lecture rendrait : après la section, une ligne vide, « À la visite : », puis une section « ### nom » par lecture (le nom donné sous « - lit : »). Sous elle, ce que la source rend :
+- si elle rend une liste, une puce par élément : « - valeur | valeur | nom : valeur ». Les premières valeurs suivent l'ordre des champs de la source ; dès qu'un champ est sauté, dis les suivants par leur nom (« stock : 12 | in_stock : oui »). « ### nom » seul, sans puce, vaut une liste vide.
+- si elle rend un groupe, une ligne « nom : valeur » par champ, puis une puce par élément de sa liste (les champs de l'élément, dans l'ordre).
+- oui ou non pour un champ oui/non ; un nombre s'écrit tel quel.
+Donne chaque champ que la source rend, sauf ceux marqués « ? » que tu peux omettre, y compris dans ses listes : un champ obligatoire absent fait refuser le cas.
 
 # Exemple complet
 ${F4}
@@ -218,9 +223,14 @@ ${F4}
 ${EXAMPLE_PLAN_FORM}
 ${F4}
 
-# Cas de test d'un composant qui lit les produits de la boutique (lecture « produits »)
+# Cas de test d'un composant qui lit les produits de la boutique (lecture « produits », une liste)
 ${F4}
 ${EXAMPLE_PLAN_VISIT.document}
+${F4}
+
+# Cas de test d'un composant qui lit l'état de son registre (lecture « places », un groupe et sa liste « groups »)
+${F4}
+${EXAMPLE_PLAN_VISIT_GROUP.document}
 ${F4}
 
 # Composants natifs écrits ainsi
@@ -403,7 +413,7 @@ export async function readComponent(dir) {
  * Un composant au format langage encore écrit en manifeste, montré en plan au modèle (l'écriture qu'on lui demande) : le manifeste
  * devient composant.md, chaque cas un document. props : les données compilées du composant. Ce qui ne se convertit pas reste tel quel.
  */
-export async function asPlan(files, { name, props }) {
+export async function asPlan(files, { name, props, sources = [] }) {
   if (files.composant || !files.manifest || files.template || !props) return files;
   const { outlineOf } = await import('./component-rediger.js');
   const { writeFixtureDocument } = await import('./lang/site-document.js');
@@ -412,7 +422,7 @@ export async function asPlan(files, { name, props }) {
   const fixtures = files.fixtures.map(f => {
     if (f.document !== undefined) return f;
     let data; try { data = YAML.parse(f.yaml); } catch { return f; }
-    const w = writeFixtureDocument(data, { name, props });
+    const w = writeFixtureDocument(data, { name, props, sources });
     return w.error || !w.text ? f : { name: f.name, document: w.text };
   });
   return { ...files, composant: plan.text, manifest: null, fixtures };
@@ -474,7 +484,7 @@ export async function editComponent({ root, name, request, catalog, pkg = null, 
   const existing = await readComponent(target.dir);
   if (!existing) throw new Error(`Composant introuvable : ${path.relative(root, target.dir)} (composant.md, ou manifest.yaml et template.html, attendus).`);
   // Un composant au format langage encore écrit en manifeste est montré en plan : la réponse l'écrira ainsi.
-  if (existing.format === 'langage') existing.files = await asPlan(existing.files, { name: target.name, props: project.catalog?.get(target.name)?.manifest.props });
+  if (existing.format === 'langage') existing.files = await asPlan(existing.files, { name: target.name, props: project.catalog?.get(target.name)?.manifest.props, sources: project.catalog?.get(target.name)?.manifest.sources || [] });
   const backup = await fs.mkdtemp(path.join(os.tmpdir(), 'sitec-sauvegarde-'));
   await fs.cp(target.dir, backup, { recursive: true });
   try {

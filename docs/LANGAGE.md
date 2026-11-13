@@ -555,7 +555,7 @@ forme:
 
 Une source est un **service de la cible** : la boutique, les horaires, la mémoire du visiteur. Le langage dit ce qu'on lui demande et connaît la forme de ce qu'elle rend ; il ne décrit pas comment elle le calcule (`docs/CIBLES.md`). Les **actions** suivent la même frontière : un composant ne modifie pas le panier, il affiche le formulaire d'une action que la cible exécute, par un mot natif (`ajout au panier`, `tableau du panier`, `formulaire de commande`). Tous les composants natifs à état sont écrits ainsi, et un composant de site ou de paquet dispose des mêmes sources et des mêmes mots. `sitec component show` montre l'appel produit pour chaque lecture.
 
-Deux conséquences. Une page qui contient un composant qui lit n'est pas servie depuis le cache statique : ce qu'il lit change d'une visite à l'autre. Et un cas de test fournit lui-même ce qui serait lu, sous la clé `à la visite`, vérifié contre ce que la source annonce : le rendu ne dépend ni du stock ni de l'heure. `components/a-saisir/fixtures/un-produit.yaml` :
+Deux conséquences. Une page qui contient un composant qui lit n'est pas servie depuis le cache statique : ce qu'il lit change d'une visite à l'autre. Et un cas de test fournit lui-même ce qui serait lu, sous la clé `à la visite` (en document : « À la visite : » puis une section « ### nom » par lecture, voir « Vocabulaire, cas de test, paquet et hôte en documents »), vérifié contre ce que la source annonce : le rendu ne dépend ni du stock ni de l'heure. `components/a-saisir/fixtures/un-produit.yaml` :
 
 <!-- sitec: components/a-saisir/fixtures/un-produit.yaml -->
 ```yaml
@@ -802,7 +802,7 @@ Une carte avec un nom et un rôle.
 - fiche : centré
 ```
 
-**Cas de test** : `components/<nom>/fixtures/<cas>.md` à la place de `<cas>.yaml`. Le composant y est écrit comme une section de page ; pour un composant qui lit à la visite, « À la visite : » suivi d'un bloc `yaml` dit ce que chaque lecture rendrait. Les lignes « > … » sont des notes.
+**Cas de test** : `components/<nom>/fixtures/<cas>.md` à la place de `<cas>.yaml`. Le composant y est écrit comme une section de page ; pour un composant qui lit à la visite, « À la visite : » ouvre ce que chaque lecture rendrait, une section « ### nom » par lecture. Sous elle, ce que la source rend, lu d'après les champs qu'elle annonce : si elle rend une liste, une puce par élément (« - valeur | valeur | nom : valeur », les premières valeurs dans l'ordre des champs, les autres par leur nom ; « ### nom » seul vaut une liste vide) ; si elle rend un groupe, une ligne « nom : valeur » par champ et une puce par élément de sa liste. Un bloc `yaml` reste lu à cette place. Les lignes « > … » sont des notes.
 
 <!-- sitec: aucun — cas de test d'un composant, lu par sitec test ; scripts/verify-site-document.mjs lit cette écriture -->
 ```markdown
@@ -811,9 +811,23 @@ Une carte avec un nom et un rôle.
 Code : ENTRETIEN15
 ```
 
+<!-- banc : cas de test avec ce qui est lu à la visite -->
+<!-- sitec: aucun — cas de test d'un composant qui lit à la visite ; scripts/verify-site-document.mjs lit cette écriture -->
+```markdown
+> Ce que la boutique rendrait à la visite : un produit en stock, un produit épuisé.
+## selection : À découvrir
+Limite : 2
+
+À la visite :
+
+### produits
+- savon-lavande | Savon à la lavande | 6.5 | 6,50 € | savons | stock : 12 | stock_text : 12 en stock | in_stock : oui | max_qty : 12
+- baume-levres | Baume à lèvres | 4.9 | 4,90 € | soins | stock : 0 | in_stock : non | max_qty : 0
+```
+
 **Paquet** : `package.md` à la place de `package.yaml` (`# vitrine`, la description, `Version : 1.0.0`, `Langage : 1`). **Hôte** : `hosts.md` à la place de `hosts.yaml`, une puce « - domaine | alias, alias | ../dossier-du-site » par site.
 
-`sitec rediger` convertit tous ces fichiers, dans un site, un paquet ou un hôte, ainsi que les composants composés (`components.md`, section 5). Reste en YAML, dans un cas de test, ce qu'une lecture rendrait « à la visite ».
+`sitec rediger` convertit tous ces fichiers, dans un site, un paquet ou un hôte, ainsi que les composants composés (`components.md`, section 5) et, dans un cas de test déjà en document, le bloc yaml de ce qu'une lecture rendrait « à la visite ».
 
 ## 6 bis. Paquets de composants
 

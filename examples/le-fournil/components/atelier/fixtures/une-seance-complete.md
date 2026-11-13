@@ -3,27 +3,15 @@
 Deux séances par mois, au fournil.
 
 À la visite :
-```yaml
-places:
-  limited: true
-  capacity: 8
-  count: 13
-  entries: 6
-  waiting: 2
-  left: 3
-  full: false
-  left_text: 3 places restantes
-  groups:
-    - value: Premier samedi du mois
-      taken: 8
-      left: 0
-      full: true
-      left_text: Complet
-      waiting: 2
-    - value: Troisième samedi du mois
-      taken: 5
-      left: 3
-      full: false
-      left_text: 3 places restantes
-      waiting: 0
-```
+
+### places
+limited : oui
+capacity : 8
+count : 13
+entries : 6
+waiting : 2
+left : 3
+full : non
+left_text : 3 places restantes
+- Premier samedi du mois | 8 | 0 | oui | Complet | 2
+- Troisième samedi du mois | 5 | 3 | non | 3 places restantes | 0

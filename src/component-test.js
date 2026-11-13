@@ -57,7 +57,7 @@ async function casesOf(c) {
   for (const f of files) {
     const file = path.join(fdir, f);
     let props, error = null;
-    if (/\.md$/.test(f)) ({ props, error } = readFixtureDocument(await fs.readFile(file, 'utf8'), { name: c.name, props: c.manifest.props }));
+    if (/\.md$/.test(f)) ({ props, error } = readFixtureDocument(await fs.readFile(file, 'utf8'), { name: c.name, props: c.manifest.props, sources: c.manifest.sources || [] }));
     else try { props = YAML.parse(await fs.readFile(file, 'utf8')) ?? {}; } catch (e) { error = `YAML invalide : ${e.message.split('\n')[0]}`; }
     out.push({ component: c.name, name: f.replace(/\.(ya?ml|md)$/, ''), file, snapshot: file.replace(/\.(ya?ml|md)$/, '.html'), props, error });
   }
