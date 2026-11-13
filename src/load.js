@@ -8,6 +8,7 @@ import { EVENTS } from './segments.js';
 import { readingDiff } from './lang/document.js';
 import { THEME_PRESETS } from './emit/php/css.js';
 import { SITE_SCHEMA } from './validate.js';
+import { readCompositesDocument, readCompositeSections } from './lang/composites-document.js';
 
 const LIRE = 'sitec lire <dossier> redit ce que le compilateur comprend et ce qui a changé ; --accepter fige cette lecture';
 /** Erreurs d'un document (site.md, pages/<id>.md) et de sa lecture figée (lecture/…), au format des erreurs de chargement. */
@@ -100,10 +101,22 @@ export async function loadProject(root, { catalog = null } = {}) {
     project.collections[name] = { file, raw, items: [], spec: null };
   }
 
-  // Composants composés du projet (optionnel) : components.yaml.
+  // Composants composés du projet (optionnel) : components.yaml, ou components.md, écrit en document.
   project.componentsFile = path.join(root, 'components.yaml');
   project.componentsRaw = null;
   try { await fs.access(project.componentsFile); project.componentsRaw = await readYaml(project.componentsFile, project.loadErrors) ?? null; } catch { /* pas de composants composés */ }
+  // Un fichier de composés en document se lit en deux passes : ses paramètres ici (ils disent les données de chaque composé),
+  // ses sections plus bas, une fois connues les données de tous les composants. Sa lecture est figée dans lecture/components.yaml.
+  const compositeDocs = [];
+  const compositesDocument = async (dir, pkg = null) => {
+    const file = path.join(dir, 'components.md'), source = await text(file);
+    if (source === undefined) return null;
+    if (await text(path.join(dir, 'components.yaml')) !== undefined) { project.loadErrors.push(err('E_DOCUMENT', { file, path: '', message: 'components.md et components.yaml à la fois : les composés n\'ont qu\'une source.' })); return null; }
+    const doc = Object.assign(readCompositesDocument(source), { file, text: source, frozenFile: path.join(dir, 'lecture', 'components.yaml'), pkg });
+    compositeDocs.push(doc);
+    return doc;
+  };
+  { const doc = await compositesDocument(root); if (doc) { project.componentsFile = doc.file; project.componentsRaw = doc.raw; } }
 
   // Vocabulaire du projet (optionnel) : vocabulaire.yaml, des mots nouveaux pour la forme des composants. Lu en texte : ses erreurs renvoient à la ligne.
   project.vocabFile = path.join(root, 'vocabulaire.yaml');
@@ -140,6 +153,7 @@ export async function loadProject(root, { catalog = null } = {}) {
     pkg.vocabText = await fs.readFile(pkg.vocabFile, 'utf8').catch(() => null);
     { const md = await fs.readFile(path.join(dir, 'vocabulaire.md'), 'utf8').catch(() => null); if (md !== null && pkg.vocabText === null) { pkg.vocabFile = path.join(dir, 'vocabulaire.md'); pkg.vocabText = md; pkg.vocabOutline = true; } }
     try { await fs.access(pkg.compositesFile); pkg.compositesRaw = await readYaml(pkg.compositesFile, project.loadErrors) ?? null; } catch { /* pas de composés */ }
+    { const doc = await compositesDocument(dir, pkg); if (doc) { pkg.compositesFile = doc.file; pkg.compositesRaw = doc.raw; } }
     project.packages.push(pkg);
   }
 
@@ -160,8 +174,18 @@ export async function loadProject(root, { catalog = null } = {}) {
 
   // Pages écrites comme des documents (pages/<id>.md) : lues d'après les données que chaque composant déclare, donc après
   // les composants du site et des paquets. Elles prennent le rang qu'aurait leur .page.yaml.
+  // Composés écrits en document : leurs sections se lisent maintenant, comme celles d'une page.
+  let knownSchemas = null;
+  if (compositeDocs.length) {
+    knownSchemas = componentSchemas(project, catalog || await loadCatalog());
+    for (const doc of compositeDocs) {
+      readCompositeSections(doc, { schemas: knownSchemas, prefix: typeof doc.pkg?.meta?.name === 'string' ? doc.pkg.meta.name : null });
+      doc.frozen = await text(doc.frozenFile);
+      project.documents.data.push(doc); documentErrors(doc, project.loadErrors);
+    }
+  }
   if (pageDocs.length) {
-    const schemas = componentSchemas(project, catalog || await loadCatalog());
+    const schemas = knownSchemas || componentSchemas(project, catalog || await loadCatalog());
     // Une page dérivée (« Dérive de : accueil ») se lit après sa page de base, dont elle remplace des sections.
     const sources = []; for (const f of pageDocs) sources.push({ f, source: await text(path.join(pagesDir, f)) ?? '' });
     const pageOf = id => project.pages.find(p => p.id === id)?.data || null;

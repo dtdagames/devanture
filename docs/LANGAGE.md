@@ -136,6 +136,45 @@ Dans une page, l'assemblage s'emploie comme un composant natif :
 
 Types de paramètre : `string`, `text`, `number`, `boolean`, `list`, `object`, `link`, `asset`. L'usage est remplacé à la compilation par les sections produites, qui sont ensuite validées comme les autres ; une erreur dans une section produite nomme l'assemblage et l'usage. `{ for: liste, as: x, item: gabarit }` construit une liste. L'`id` de l'usage va à la première section produite (les suivantes reçoivent `id-2`, `id-3`), `keywords` à la première ; `variants` est refusé sur un assemblage. La composition est récursive, profondeur limitée.
 
+### Les mêmes composés, écrits en document
+
+`components.md` à la place de `components.yaml` (l'un ou l'autre), à la racine du site ou d'un paquet. Un composé par section `## nom` : sa description, puis ses paramètres et ses sections.
+
+<!-- banc : composés en document -->
+````
+# Composants composés
+
+## offre
+Une offre tarifaire et ses points forts
+
+### Paramètres
+- titre : texte — nom de l'offre
+- prix : texte
+- detail : texte, facultatif — phrase sous le prix
+- points : liste, par défaut vide
+- cta : lien, par défaut Nous contacter → /contact
+
+### Sections
+```
+## Tarifs : {{ p.titre }}
+- rien
+  - {{ p.titre }} | {{ p.prix }} | {{ p.detail }}
+
+## Points forts
+- pour chaque pt de p.points : check | {{ pt }}
+
+## Appel : {{ p.titre }} : parlons-en
+Bouton : {{ p.cta }}
+```
+````
+
+- **Paramètres** : une puce « nom : type, précisions — description ». Types : texte (`string`), texte long (`text`), nombre, oui ou non (`boolean`), liste, groupe (`object`), lien, image (`asset`). Sans précision, le paramètre est obligatoire ; « facultatif » le laisse sans valeur ; « par défaut … », en dernier, lui en donne une (« par défaut vide » pour un texte, une liste ou un groupe ; « Libellé → /cible » pour un lien ; oui ou non ; un nombre ; « a, b, c » pour une liste).
+- **Sections** : dans un bloc entre deux lignes d'accents graves, les sections que le composé produit, écrites et lues comme celles d'une page (section 6 sexies), avec les paramètres en expressions. Une valeur faite d'une seule expression s'écrit par son nom là où un lien, un nombre ou un choix est attendu : « Bouton : {{ p.cta }} ».
+- **Boucle** : « pour chaque pt de p.points : » en tête d'une puce vaut `{ for: p.points, as: pt, item: … }` : la puce produit un élément par valeur de la liste, et la liste tient en cette seule puce. Cette tournure n'existe que dans les sections d'un composé.
+- « - rien » ouvre un élément qui n'a que sa liste en retrait (un groupe de tarifs sans titre).
+- La lecture est figée dans `lecture/components.yaml` (celle d'un paquet dans son propre dossier `lecture/`), comme celle d'une page : `sitec lire <dossier> --accepter` après toute modification. Une erreur dans une section produite renvoie à la ligne de `components.md` et nomme la page qui emploie le composé.
+- `sitec rediger` convertit `components.yaml` ; le document écrit est relu et doit valoir le fichier d'origine.
+
 ## 5 bis. Segments, variantes et expériences
 
 `segments.yaml`, à la racine du site, dit qui voit quoi, ce qu'on cherche à obtenir, et ce qu'on mesure.
@@ -774,7 +813,7 @@ Code : ENTRETIEN15
 
 **Paquet** : `package.md` à la place de `package.yaml` (`# vitrine`, la description, `Version : 1.0.0`, `Langage : 1`). **Hôte** : `hosts.md` à la place de `hosts.yaml`, une puce « - domaine | alias, alias | ../dossier-du-site » par site.
 
-`sitec rediger` convertit tous ces fichiers, dans un site, un paquet ou un hôte. Reste en YAML : `components.yaml` (les composants composés, dont les boucles `for` n'ont pas d'écriture en document), et, dans un cas de test, les données « à la visite ».
+`sitec rediger` convertit tous ces fichiers, dans un site, un paquet ou un hôte, ainsi que les composants composés (`components.md`, section 5). Reste en YAML, dans un cas de test, ce qu'une lecture rendrait « à la visite ».
 
 ## 6 bis. Paquets de composants
 
@@ -784,7 +823,7 @@ Un paquet regroupe des composants à gabarit et des composés, partagés par plu
 <paquet>/
   package.yaml      name: vitrine (préfixe), description, version, language
   components/<nom>/ composants à gabarit neutre (même format qu'un composant de projet, fixtures/ comprises)
-  components.yaml   composés du paquet
+  components.yaml   composés du paquet (ou components.md)
   vocabulaire.yaml  mots du paquet (facultatif)
 ```
 

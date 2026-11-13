@@ -82,9 +82,21 @@ const toBool = raw => { const r = norm(raw); return ['oui', 'true', 'vrai'].incl
 const scalarOf = raw => { const s = String(raw).trim(); if (/^(oui|non)$/i.test(s)) return /^oui$/i.test(s); if (/^-?\d+(\.\d+)?$/.test(s) && String(Number(s)) === s) return Number(s); return s; };
 const freeText = v => (typeof v === 'boolean' ? (v ? 'oui' : 'non') : typeof v === 'number' ? (scalarOf(String(v)) === v ? String(v) : null) : typeof v === 'string' && v.trim() === v && v !== '' && !/\n| \| /.test(v) && scalarOf(v) === v ? v : null);
 
+/** Une valeur faite d'une seule expression : « {{ p.cta }} ». Sa valeur n'est connue qu'à la compilation. */
+const EXPR = /^\{\{[^{}]+\}\}$/;
+const exprFor = kind => ['link', 'number', 'bool', 'enum'].includes(kind.k) || (kind.k === 'list' && ['group', 'link'].includes(kind.item.k));
+
+// Dans les sections d'un composant composé, une puce « pour chaque x de liste : … » produit un élément par valeur de la liste.
+let LOOPS = false;
+/** Lit ou écrit avec les boucles « pour chaque » permises (sections d'un composé). */
+export const withLoops = fn => { const was = LOOPS; LOOPS = true; try { return fn(); } finally { LOOPS = was; } };
+const LOOP = /^pour chaque\s+([a-z][a-z0-9_]*)\s+de\s+(.+?)\s*:(?:\s+(.*))?$/i;
+const isLoop = v => !!v && typeof v === 'object' && !Array.isArray(v) && 'for' in v && 'item' in v && Object.keys(v).every(k => ['for', 'as', 'item'].includes(k));
+
 /** Valeur d'une ligne « Nom : valeur », selon le genre de la donnée. Renvoie { value } ou { error }. */
 function parseValue(kind, raw) {
   const s = String(raw).trim();
+  if (EXPR.test(s) && exprFor(kind)) return { value: s };
   switch (kind.k) {
     case 'link': { const l = parseLink(s); return l ? { value: l } : { error: 'un lien s\'écrit « Libellé → /cible » (cible : /route, #ancre, https://…, mailto:…, tel:…)' }; }
     case 'number': return isNumber(s) && (!kind.integer || /^-?\d+$/.test(s)) ? { value: toNumber(s) } : { error: `un nombre${kind.integer ? ' entier' : ''} est attendu (lu : « ${s} »)` };
@@ -192,6 +204,15 @@ function readMap(nodes, map0, fail, where, base) {
 
 function readItems(nodes, kind, fail, where, base) {
   const out = [];
+  if (LOOPS && nodes.length && LOOP.test(nodes[0].text)) {
+    // « - pour chaque pt de p.points : check | {{ pt }} » : la liste entière vient de cette puce.
+    const n = nodes[0], m = LOOP.exec(n.text), rest = (m[3] || '').trim();
+    if (nodes.length > 1) fail(nodes[1].line, 'une liste « pour chaque » tient en une puce : elle produit tous les éléments de la liste');
+    if (!rest && !n.children.length) { fail(n.line, 'après « pour chaque x de liste : », l\'élément à produire'); return { for: m[2].trim(), as: m[1], item: {} }; }
+    const inner = readItems([{ ...n, text: rest || SKIP }], kind, fail, where, base);
+    where[`${base}.item`] = n.line;
+    return { for: m[2].trim(), as: m[1], item: inner[0] };
+  }
   nodes.forEach((n, i) => {
     const at = `${base}[${i}]`; where[at] = n.line;
     if (n.more?.length && kind.k !== 'group') fail(n.line + 1, 'des lignes en retrait sous une valeur simple');
@@ -612,6 +633,7 @@ export function canon(v, loose = false) {
 }
 const oneLine = v => typeof v === 'string' && v.trim() === v && v !== '' && !/\n/.test(v);
 const scalarText = (kind, v) => {
+  if (typeof v === 'string' && EXPR.test(v) && exprFor(kind)) return v;
   if (kind.k === 'link') return v && typeof v === 'object' && oneLine(v.label) && oneLine(v.to) && Object.keys(v).length === 2 ? `${v.label} → ${v.to}` : null;
   if (kind.k === 'bool') return typeof v === 'boolean' ? (v ? 'oui' : 'non') : null;
   if (kind.k === 'number') return typeof v === 'number' ? String(v) : null;
@@ -661,7 +683,7 @@ function writeItem(item, kind) {
   // Essais, du plus court au plus sûr : valeurs à la suite ; puis les champs mal rangés dits par leur nom.
   const named = new Set();
   for (let round = 0; round <= flat.length; round++) {
-    const line = flat.map(k => (named.has(k) ? `${labelFor(k, P).toLowerCase()} : ${texts[k]}` : texts[k])).join(' | ');
+    const line = flat.length ? flat.map(k => (named.has(k) ? `${labelFor(k, P).toLowerCase()} : ${texts[k]}` : texts[k])).join(' | ') : SKIP;
     const r = fitItem(line, kind.schema);
     const want = Object.fromEntries(flat.map(k => [k, item[k]]));
     if (!r.error && same(r.value, tail ? { ...want, [flat[flat.length - 1]]: texts[flat[flat.length - 1]] } : want)) {
@@ -669,6 +691,8 @@ function writeItem(item, kind) {
       for (const k of sub) {
         if (sub.length > 1) return null;
         const ik = kindOf(P[k]).item;
+        if (LOOPS && isLoop(item[k])) { const wl = writeLoop(item[k], ik); if (!wl) return null; lines.push(...wl.map(l => '  ' + l)); continue; }
+        if (!Array.isArray(item[k])) return null;
         for (const child of item[k]) { const w = writeItem(child, ik); if (!w) return null; lines.push(...w.map((l, n) => (n === 0 ? '  - ' : '  ') + l)); }
       }
       return lines;
@@ -678,6 +702,13 @@ function writeItem(item, kind) {
     named.add(bad);
   }
   return null;
+}
+
+/** Écrit une liste produite par une boucle : « - pour chaque x de liste : » puis l'élément, écrit comme une puce. */
+function writeLoop(v, kind) {
+  if (!oneLine(v.for) || /:(\s|$)/.test(v.for) || typeof v.as !== 'string' || !/^[a-z][a-z0-9_]*$/.test(v.as)) return null;
+  const w = writeItem(v.item, kind);
+  return w ? [`- pour chaque ${v.as} de ${v.for} : ${w[0]}`, ...w.slice(1)] : null;
 }
 
 /** Écrit les lignes d'un bloc d'après son schéma. fenced : données à écrire dans le bloc yaml. Renvoie { lines, fence }. */
@@ -718,10 +749,11 @@ function writeBody(props, schema, opts, fenced, announced = new Set()) {
     if (k === proseProp && typeof v === 'string' && v.trim() !== '' && v.trim() === v.replace(/\s+$/, '')) { if (announced.has(k)) long.push(`${label(k)} :`, ...v.replace(/\s+$/, '').split('\n')); else prose.push(...v.replace(/\s+$/, '').split('\n')); continue; }
     const map = opts.maps && k in opts.maps ? opts.maps[k] : kind.k === 'free' ? {} : kind.k === 'group' ? { group: kind.schema } : null;
     if (map) { const one = !(opts.maps && k in opts.maps) ? scalarText(kind, v) : null; if (one !== null) { named.push(`${label(k)} : ${one}`); continue; } const ls = writeMap(v, map); if (ls) listed.push({ k, lines: [`${label(k)} :`, ...ls] }); else fence[k] = v; continue; }
-    if (kind.k === 'link') { const t = scalarText(kind, v); if (t === null) { fence[k] = v; continue; } if (links.slice(0, links.indexOf(k)).every(o => o in props && !fenced.has(o))) bare.push(t); else named.push(`${label(k)} : ${t}`); continue; }
+    if (kind.k === 'link') { const t = scalarText(kind, v); if (t === null) { fence[k] = v; continue; } if (typeof v !== 'string' && links.slice(0, links.indexOf(k)).every(o => o in props && !fenced.has(o))) bare.push(t); else named.push(`${label(k)} : ${t}`); continue; }
     if (kind.k === 'list') {
       const t = scalarText(kind, v);
       if (t !== null && kind.item.k !== 'group' && kind.item.k !== 'link' && !(kind.item.k === 'field' && v.some(x => typeof x !== 'string'))) { named.push(`${label(k)} : ${t}`); continue; }
+      if (LOOPS && isLoop(v)) { const wl = writeLoop(v, kind.item); if (wl) { listed.push({ k, lines: k === defaultList ? wl : [`${label(k)} :`, ...wl] }); continue; } }
       if (!Array.isArray(v) || !v.length) { fence[k] = v; continue; }
       const lines = []; let ok = true;
       for (const it of v) { const w = writeItem(it, kind.item); if (!w) { ok = false; break; } lines.push(...w.map((l, n) => (n === 0 ? '- ' + l : l))); }

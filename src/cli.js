@@ -13,6 +13,7 @@ import { PRIMITIVE_HELP, nearest } from './lang/forme.js';
 import { wordUsage, WORD_KEYS } from './lang/vocabulaire.js';
 import { readDocument, readingDiff, TOURNURES } from './lang/document.js';
 import { lineDiff } from './reading.js';
+import { writeCompositesDocument, PARAM_WORDS } from './lang/composites-document.js';
 import { writeSiteDocument, writePageDocument, writeSectionDocument, componentSchemas, readSiteDocument, readPageDocument, COMPONENT_NAMES, PROP_NAMES, GROUP_NAMES, writeDataDocument, readDataDocument, PRODUCTS, collectionData, writeSegmentsDocument, readSegmentsDocument, writeFixtureDocument, writePackageDocument, writeHostsDocument } from './lang/site-document.js';
 import { SOURCES, SOURCE_NAMES, PUBLIC_SOURCE_NAMES, sourceUsage, sourceFields } from './lang/sources.js';
 import YAML from 'yaml';
@@ -223,8 +224,8 @@ export async function run(argv) {
     }
     case 'rediger': {
       // Du YAML aux documents : tout ce qui est encore en YAML est récrit, relu, et doit rendre les données d'origine.
-      //   site     : site.md, pages/<id>.md, data/<nom>.md, segments.md (lecture figée dans lecture/), components/<nom>/composant.md
-      //   paquet   : components/<nom>/composant.md
+      //   site     : site.md, pages/<id>.md, data/<nom>.md, segments.md, components.md (lecture figée dans lecture/), components/<nom>/composant.md
+      //   paquet   : components/<nom>/composant.md, components.md
       //   --catalogue : les composants natifs du compilateur
       const dir = args[0], dry = flags.has('--dry-run'), natives = flags.has('--catalogue'), only = flags.has('--composants');
       if (!dir && !natives) { console.error('Usage : sitec rediger <dossier-projet | dossier-paquet | dossier-hôte> [--composants] [--dry-run] | sitec rediger --catalogue [--dry-run]'); return 2; }
@@ -267,6 +268,16 @@ export async function run(argv) {
         if (r.error) failed.push(`${path.relative(root, from).replaceAll('\\', '/')} : ${r.error}`);
         else out.push({ from, to: path.join(vdir, 'vocabulaire.md'), text: r.text, note: r.comments.lost ? `${r.comments.lost} ligne(s) de commentaire non reprise(s)` : '' });
       };
+      // Composés : components.yaml devient components.md ; ses sections s'écrivent comme celles d'une page, d'après les données des composants.
+      const headNotes = t => { try { const d = YAML.parseDocument(t); return [d.commentBefore, d.contents?.commentBefore, d.contents?.items?.[0]?.key?.commentBefore].flatMap(c => String(c || '').split('\n')).map(l => l.replace(/^\s?/, '').trimEnd()).filter(Boolean); } catch { return []; } };
+      const composites = async (cdir, schemas, prefix) => {
+        const from = path.join(cdir, 'components.yaml');
+        if (!await exists(from)) return;
+        const source = await fs.readFile(from, 'utf8'), rel = path.relative(root, from).replaceAll('\\', '/');
+        let raw; try { raw = YAML.parse(source); } catch (e) { failed.push(`${rel} : ${e.message.split('\n')[0]}`); return; }
+        const w = writeCompositesDocument(raw, { schemas, prefix, notes: headNotes(source) });
+        if (w.error) failed.push(`${rel} : ${w.error}`); else out.push({ from, to: path.join(cdir, 'components.md'), text: w.text, frozen: path.join(cdir, 'lecture', 'components.yaml'), yaml: w.yaml });
+      };
       const isSite = !natives && (await exists(path.join(root, 'site.yaml')) || await exists(path.join(root, 'site.md')));
       const isPackage = !natives && !isSite && (await exists(path.join(root, 'package.yaml')) || await exists(path.join(root, 'package.md')));
       const isHost = !natives && !isSite && !isPackage && await exists(path.join(root, 'hosts.yaml'));
@@ -279,13 +290,20 @@ export async function run(argv) {
         const meta = await exists(path.join(root, 'package.yaml')) ? YAML.parse(await fs.readFile(path.join(root, 'package.yaml'), 'utf8')) || {} : (await import('./lang/site-document.js')).readPackageDocument(await fs.readFile(path.join(root, 'package.md'), 'utf8')).data;
         await plain('package.yaml', 'package.md', writePackageDocument);
         const dirs = await fs.readdir(path.join(root, 'components'), { withFileTypes: true }).catch(() => []);
+        const sources = [];
         for (const d of dirs) {
           if (!d.isDirectory() || d.name.startsWith('.')) continue;
           const src = await cat.readComponentDir(path.join(root, 'components', d.name));
           if (!src) continue;
+          sources.push(src);
           const name = `${meta.name}.${src.name}`, props = cat.buildComponent({ ...src, name, shortName: src.name, pkg: meta.name, project: true, words: catalog.words }).entry?.manifest.props;
           if (src.manifestText !== undefined) await component(src.dir, name, props);
           await fixtures(src.dir, name, props);
+        }
+        if (await exists(path.join(root, 'components.yaml'))) {
+          // Les données des composants du paquet, sous leur nom d'usage : les sections d'un composé les emploient préfixés.
+          let craw = null; try { craw = YAML.parse(await fs.readFile(path.join(root, 'components.yaml'), 'utf8')); } catch { /* dit par composites() */ }
+          await composites(root, componentSchemas({ packages: [{ meta, componentSources: sources, compositesRaw: craw }], componentSources: [], componentsRaw: null }, catalog), meta.name);
         }
         await vocabulary(root);
       } else {
@@ -316,6 +334,7 @@ export async function run(argv) {
           if (w.error) failed.push(`segments.yaml : ${w.error}`);
           else out.push({ from: project.segmentsFile, to: path.join(root, 'segments.md'), text: w.text, frozen: path.join(root, 'lecture', 'segments.yaml'), yaml: readSegmentsDocument(w.text, { events: EVENTS }).yaml });
         }
+        if (project.componentsRaw && /\.yaml$/.test(project.componentsFile)) await composites(root, schemas, null);
         // Composants du site encore écrits en manifeste : leur plan, composant.md.
         validateProject(project, catalog);
         for (const src of project.componentSources || []) { const props = project.catalog?.get(src.name)?.manifest.props; if (src.manifestText !== undefined) await component(src.dir, src.name, props); await fixtures(src.dir, src.name, props); }
@@ -409,7 +428,7 @@ export async function run(argv) {
         // Le lien entre ce qui est écrit et ce qui est exécuté : chaque bloc du manifeste, puis ce qu'il devient.
         const entry = (project.catalog || catalog).get(target.name);
         if (!entry) {
-          if (project.composites?.[target.name]) { console.error(`${target.name} est un composant composé (components.yaml) : sitec explain ${target.name} ${dir}.`); return 2; }
+          if (project.composites?.[target.name]) { console.error(`${target.name} est un composant composé (${path.basename(project.composites[target.name].file || 'components.yaml')}) : sitec explain ${target.name} ${dir}.`); return 2; }
           console.error(`Composant introuvable ou en erreur : ${target.name}. sitec check ${dir} donne le détail ; sitec catalog ${dir} liste les composants.`); return 1;
         }
         const { describeComponent, formatDescription } = await import('./component-show.js');
@@ -729,7 +748,7 @@ async function projectCatalog(dir, catalog) {
 
 function printComposite(def) {
   const d = describeComposite(def);
-  console.log(`# ${d.name} (composant composé du projet, components.yaml)\n${d.description}\n\nParamètres :`);
+  console.log(`# ${d.name} (composant composé ${def.package ? 'du paquet ' + def.package : 'du projet'}, ${path.basename(def.file || 'components.yaml')})\n${d.description}\n\nParamètres :`);
   for (const p of d.props) console.log(`  ${p.name}${p.required ? ' (obligatoire)' : ''}: ${p.type}${p.default !== null && p.default !== undefined ? ` (défaut ${JSON.stringify(p.default)})` : ''}${p.description ? ` — ${p.description}` : ''}`);
   console.log(`\nProduit les sections : ${d.produces.join(', ')}`);
 }
@@ -748,6 +767,8 @@ Constantes : site.yaml › constants: { delai: 1 h, zone: Lyon } → {{ const.de
 Collections : site.yaml › collections: { nom: { label, fields: { champ: type }, sort } } ; data/<nom>.yaml ; page route: /chemin/[id] + source: nom ; composant collection.list.
   types de champ : string, text, number, boolean, date, asset, list, link.
 Composants composés : components.yaml › components: { nom: { params, sections } } ; dans sections, {{ p.param }} et { for: p.liste, as: x, item: {…} }.
+  en document : components.md, « ## nom », « ### Paramètres » (une puce « nom : type, précisions — description »), « ### Sections » puis un bloc
+  où les sections s'écrivent comme dans une page ; « - pour chaque x de p.liste : … » en tête d'une puce (sitec explain document).
 Composants de projet, format langage (défaut) : un seul fichier avec données, forme, apparence, fonctionnement (docs/LANGAGE.md, section 6) :
   composant.md (un plan : « # nom », la description, puis « ## Données », « ## Forme »… avec une puce « - nom : valeur » par ligne), ou manifest.yaml.
   données : nom: ${TYPE_WORDS.join(' | ')}, puis facultatif, au moins N, au plus N, de A à B, un parmi a, b — description ; « items (liste): » puis les champs.
@@ -1046,6 +1067,16 @@ segments.md                            (à la place de segments.yaml)
   Expériences :
   - accroche | appel | prix_annonce    objectif, puis les bras ; ou « - relance | devis | segment : devis_abandonne | témoin : 20 »
 
+components.md                          (à la place de components.yaml) : les composants composés, assemblages nommés de composants
+  ## offre                             un composé par section : son nom, puis sa description en une phrase ; « Mots-clés : a, b » s'il en a
+  ### Paramètres                       une puce par paramètre : « nom : type, précisions — description »
+  - titre : texte — nom de l'offre     types : ${Object.values(PARAM_WORDS).join(', ')} ; sans précision, le paramètre est obligatoire
+  - points : liste, par défaut vide    précisions : facultatif (sans valeur), ou « par défaut … » en dernier (« vide » pour un texte, une liste, un groupe ;
+  - cta : lien, par défaut Nous contacter → /contact      un lien « Libellé → /cible » ; oui ou non ; un nombre ; « a, b, c » pour une liste)
+  ### Sections                         puis un bloc entre deux lignes d'accents graves : les sections que le composé produit, écrites comme
+  ## Points forts : {{ p.titre }}      dans une page, avec les paramètres en expressions ; « Bouton : {{ p.cta }} » pour un lien donné en paramètre
+  - pour chaque pt de p.points : check | {{ pt }}         en tête d'une puce : un élément par valeur de la liste, écrit ensuite comme une puce
+
 Dans une puce, un champ dont le type ne convient pas à la valeur est sauté : un nom d'icône va au champ icône, un fichier image au champ image,
 un « Libellé → /cible » au champ lien. « rien » saute un champ ; « nom : valeur » vise un champ par son nom.
 Rien à protéger : « : », « , », « # », « {{ … }} » et les nombres s'écrivent tels quels, sans guillemets ni indentation.
@@ -1076,6 +1107,10 @@ function describeSchema(s) {
 /** Ce que vaut un document jamais accepté, sans redire son contenu : chaque section, ses données, la taille de ses listes. */
 function summarize(doc) {
   const data = YAML.parse(doc.yaml) || {}, out = [];
+  if (data.components && typeof data.components === 'object') {
+    for (const [n, d] of Object.entries(data.components)) out.push(`composé ${n} : paramètres ${Object.keys(d?.params || {}).join(', ') || 'aucun'} ; sections ${(d?.sections || []).map(s => Object.keys(s || {})[0]).join(', ') || 'aucune'}`);
+    return out;
+  }
   const shape = v => (Array.isArray(v) ? ` (${v.length}${v[0] && typeof v[0] === 'object' ? ' : ' + [...new Set(v.flatMap(x => Object.keys(x || {})))].join(', ') : ''})` : '');
   if (data.site) {
     const s = data.site;

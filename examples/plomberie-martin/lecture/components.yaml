@@ -1,0 +1,48 @@
+# Lecture de components.md par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+components:
+  offre:
+    description: "Une offre tarifaire : son prix, puis ses points forts en trois colonnes, et un bouton."
+    params:
+      titre:
+        type: string
+        required: true
+        description: nom de l'offre
+      prix:
+        type: string
+        required: true
+        description: prix affiché, texte libre (95 € TTC, sur devis)
+      detail:
+        type: string
+        default: ""
+        description: phrase sous le prix
+      points:
+        type: list
+        default: []
+        description: liste de points forts (textes)
+      cta:
+        type: link
+        default:
+          label: Nous contacter
+          to: /contact
+        description: bouton sous les points
+    sections:
+      - pricelist:
+          title: "{{ p.titre }}"
+          groups:
+            - items:
+                - name: "{{ p.titre }}"
+                  price: "{{ p.prix }}"
+                  description: "{{ p.detail }}"
+      - features:
+          columns: 3
+          items:
+            for: p.points
+            as: pt
+            item:
+              icon: check
+              title: "{{ pt }}"
+      - cta:
+          title: "{{ p.titre }} : parlons-en"
+          button: "{{ p.cta }}"
+          style: surface

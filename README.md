@@ -80,7 +80,7 @@ src/emit/php/   émetteur de la cible PHP (PHP, JS, CSS, back-office, déploieme
 src/lang/       le langage : expressions (expr.js, évaluateur JS et traduction PHP), interpolation (resolve.js), gabarit neutre (template.js),
                 composants en français contrôlé (donnees.js, forme.js, apparence.js, fonctionnement.js), lectures à la visite (sources.js), mots du vocabulaire (vocabulaire.js), comportements (behaviors.js), règles CSS (css-lint.js)
 src/segments.js segments, objectifs et expériences (segments.yaml)
-src/collections.js  collections génériques ; src/composition.js  composants composés (components.yaml)
+src/collections.js  collections génériques ; src/composition.js  composants composés (components.yaml, ou components.md lu par src/lang/composites-document.js)
 src/images/     pipeline d'images : dimensions, variantes WebP (sharp sous Node, canvas dans l'atelier), manifeste
 src/studio/     remplaçants Node pour l'atelier navigateur (fichiers en mémoire, chemins, sha256, canvas)
 components/     un dossier par composant natif : composant.md (format langage, écrit en plan) et styles.css, aucun fichier PHP ni YAML ; vocabulaire.md : les mots natifs

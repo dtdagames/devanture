@@ -204,8 +204,8 @@ try {
   r = run('rediger', y, '--dry-run');
   ok('rediger --dry-run : dit ce qui s\'écrirait sans rien modifier', r.code === 0 && /site\.yaml → site\.md/.test(r.out) && /rien n'est modifié/.test(r.out) && await fs.access(path.join(y, 'site.yaml')).then(() => true, () => false), r.out);
   r = run('rediger', y); const r5 = run('check', y); const r6 = run('lire', y);
-  const left = (await fs.readdir(y, { recursive: true })).map(x => String(x).replaceAll('\\', '/')).filter(x => /\.yaml$/.test(x) && !/^lecture\//.test(x) && !/^components\/[^/]+\/fixtures\//.test(x) && x !== 'components.yaml');
-  ok('rediger : site, pages, données, segments et composants passent en documents ; il ne reste en YAML que les composés et les cas de test', /data\/realisations\.yaml → data\/realisations\.md/.test(r.out) && /segments\.yaml → segments\.md/.test(r.out) && !left.length, left.join(', '));
+  const left = (await fs.readdir(y, { recursive: true })).map(x => String(x).replaceAll('\\', '/')).filter(x => /\.yaml$/.test(x) && !/^lecture\//.test(x));
+  ok('rediger : site, pages, données, segments, composants, cas de test et composés passent en documents ; il ne reste aucun YAML d\'auteur', /data\/realisations\.yaml → data\/realisations\.md/.test(r.out) && /segments\.yaml → segments\.md/.test(r.out) && /components\.yaml → components\.md/.test(r.out) && !left.length && await fs.access(path.join(y, 'lecture', 'components.yaml')).then(() => true, () => false), left.join(', ') + r.out.slice(0, 300));
   ok('rediger : écrit les documents et leur lecture, retire le YAML, sans garder de bloc yaml, et le site passe check', r.code === 0 && !/bloc/.test(r.out) && r5.code === 0 && /"ok":true/.test(r5.out) && !/à accepter|a changé/.test(r6.out) && await fs.access(path.join(y, 'site.yaml')).then(() => false, () => true) && await fs.access(path.join(y, 'lecture', 'site.yaml')).then(() => true, () => false), r.out + r5.out);
   ok('rediger : les composants du site sont écrits en plan (composant.md)', /components\/promo\/manifest\.yaml → components\/promo\/composant\.md/.test(r.out) && await fs.access(path.join(y, 'components', 'devis-express', 'composant.md')).then(() => true, () => false));
   r = run('rediger', y);
@@ -250,15 +250,15 @@ try {
   const fx = readFixtureDocument('> un cas avec des données de visite\n## features : Nos atouts\n- leaf | Naturel\n- Fait main\n\nÀ la visite :\n```yaml\nproduits: []\n```\n', { name: 'features', props: schemas.get('features') });
   ok('cas de test en document : le composant écrit comme une section, puis « À la visite : »', !fx.error && same(fx.props, { title: 'Nos atouts', items: [{ icon: 'leaf', title: 'Naturel' }, { title: 'Fait main' }], 'à la visite': { produits: [] } }) && /n'est pas un composant|une section du composant/.test(readFixtureDocument('## hero : A\n', { name: 'features', props: schemas.get('features') }).error || ''), JSON.stringify(fx));
 
-  // --- les exemples du dépôt : écrits en documents, sans autre YAML que les composés et la lecture figée
+  // --- les exemples du dépôt : écrits en documents, sans autre YAML que la lecture figée
   const repoYaml = (await fs.readdir(path.join(ROOT, 'examples'), { recursive: true })).map(x => String(x).replaceAll('\\', '/')).filter(x => /\.ya?ml$/.test(x) && !/(^|\/)(dist|lecture)\//.test(x) && !/(^|\/)lecture\.yaml$/.test(x)).sort();
-  ok('dépôt : les exemples sont écrits en documents ; seuls les composés restent en YAML', JSON.stringify(repoYaml) === JSON.stringify(['paquets/vitrine/components.yaml', 'plomberie-martin/components.yaml']), repoYaml.join(', '));
+  ok('dépôt : les exemples sont écrits en documents, composés compris : aucun fichier YAML d\'auteur', !repoYaml.length && await fs.access(path.join(ROOT, 'examples', 'plomberie-martin', 'components.md')).then(() => true, () => false) && await fs.access(path.join(ROOT, 'examples', 'paquets', 'vitrine', 'components.md')).then(() => true, () => false), repoYaml.join(', '));
   const repoPhp = (await fs.readdir(path.join(ROOT, 'examples'), { recursive: true })).map(x => String(x).replaceAll('\\', '/')).filter(x => /\.php$/.test(x) && !/(^|\/)dist\//.test(x));
   ok('dépôt : aucun fichier PHP d\'auteur dans les exemples ni dans le catalogue', !repoPhp.length && !(await fs.readdir(path.join(ROOT, 'components'), { recursive: true })).some(x => /\.php$/.test(String(x))), repoPhp.join(', '));
   const repoChecks = ['garnier-associes', 'plomberie-martin', 'le-fournil', 'savonnerie'].map(s => run('lire', path.join(ROOT, 'examples', s)));
   ok('dépôt : la lecture de chaque document des exemples est à jour', repoChecks.every(c => c.code === 0 && !/à reprendre|a changé|pas encore acceptée/.test(c.out)), repoChecks.map(c => c.out.slice(0, 200)).join(' | '));
 
-  // --- la référence YAML des exemples, convertie dans une copie : il ne reste en YAML que les composés ; rien ne change à la compilation
+  // --- la référence YAML des exemples, convertie dans une copie : il ne reste aucun YAML d'auteur ; rien ne change à la compilation
   const exs = path.join(tmp, 'exemples');
   await fs.cp(YAML_EXAMPLES, exs, { recursive: true, filter: s => !/[\\/](dist|node_modules)([\\/]|$)/.test(s) });
   const empreinte = (...a) => spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'empreinte-catalogue.mjs'), ...a], { encoding: 'utf8' });
@@ -269,7 +269,7 @@ try {
   const cmpE = empreinte('--compare', path.join(tmp, 'avant.json'), path.join(tmp, 'apres.json')), vE = jsonLines(cmpE.stdout || '').pop() || {};
   ok('exemples convertis : les composants compilent à l\'identique (données, effets, gabarit, feuilles, PHP)', conv.every(c => c.code === 0) && vE.composants >= 30 && vE.differents === 0, (cmpE.stdout || '').slice(0, 500) + conv.map(c => c.out).join('').slice(0, 300));
   const yamlLeft = (await fs.readdir(exs, { recursive: true })).map(x => String(x).replaceAll('\\', '/')).filter(x => /\.ya?ml$/.test(x) && !/(^|\/)lecture(\/|\.yaml$)/.test(x)).sort();
-  ok('exemples convertis : il ne reste en YAML que les composants composés (components.yaml)', JSON.stringify(yamlLeft) === JSON.stringify(['paquets/vitrine/components.yaml', 'plomberie-martin/components.yaml']), yamlLeft.join(', '));
+  ok('exemples convertis : il ne reste aucun fichier YAML d\'auteur, les composés du site et du paquet sont en documents', !yamlLeft.length && await fs.access(path.join(exs, 'paquets', 'vitrine', 'components.md')).then(() => true, () => false) && await fs.access(path.join(exs, 'paquets', 'vitrine', 'lecture', 'components.yaml')).then(() => true, () => false), yamlLeft.join(', '));
   const checks2 = SITES.map(s => run('check', path.join(exs, s))), tests2 = SITES.map(s => run('test', path.join(exs, s)));
   ok('exemples convertis : les quatre sites passent check', checks2.every(c => c.code === 0 && /"ok":true/.test(c.out)), checks2.map(c => c.out.slice(-200)).join(' | '));
   ok('exemples convertis : les cas de test écrits en documents rendent les mêmes instantanés', tests2.every(c => c.code === 0 && /"failed":0,"created":0,"updated":0/.test(c.out)), tests2.map(c => c.out.slice(-160)).join(' | '));
@@ -283,6 +283,54 @@ try {
   const frOk = Object.entries(COMPONENT_NAMES).every(([k, v]) => r.out.toLowerCase().includes(`${v} = ${k}`)) && Object.entries(PROP_NAMES).every(([k, v]) => r.out.includes(`${v} = ${k}`));
   ok('explain document : le format en une page, noms français tirés du lecteur', r.code === 0 && frOk && /Adresse : \/contact/.test(r.out), r.out.slice(0, 300));
   ok('noms français : chacun désigne un composant natif', Object.keys(COMPONENT_NAMES).every(k => catalog.has(k)), Object.keys(COMPONENT_NAMES).filter(k => !catalog.has(k)).join(', '));
+
+  // --- composés en document : components.md à la place de components.yaml
+  {
+    const { readComposites, writeCompositesDocument } = await import('../src/lang/composites-document.js');
+    const YAMLlib = (await import('yaml')).default;
+    const eq = (a, b) => JSON.stringify(canon(a, true)) === JSON.stringify(canon(b, true));
+    const plo = path.join(ROOT, 'examples', 'plomberie-martin');
+    const schemasC = componentSchemas(await loadProject(plo, { catalog }), catalog);
+    const refY = YAMLlib.parse(await fs.readFile(path.join(YAML_EXAMPLES, 'plomberie-martin', 'components.yaml'), 'utf8'));
+    const docC = readComposites(await fs.readFile(path.join(plo, 'components.md'), 'utf8'), { schemas: schemasC });
+    const o = docC.raw.components.offre || {}, oy = refY.components.offre;
+    ok('composés : components.md vaut le components.yaml d\'origine (description, sections)', !docC.errors.length && o.description === oy.description && eq(o.sections, oy.sections), JSON.stringify(docC.errors.slice(0, 2)) + JSON.stringify(o.sections).slice(0, 300));
+    ok('composés : paramètres lus (obligatoire sans précision, « par défaut vide », lien par défaut)', o.params?.titre?.required === true && o.params.titre.type === 'string' && o.params.detail.default === '' && !o.params.detail.required && Array.isArray(o.params.points.default) && !o.params.points.default.length && eq(o.params.cta.default, { label: 'Nous contacter', to: '/contact' }) && o.params.cta.description === 'bouton sous les points', JSON.stringify(o.params));
+    ok('composés : « pour chaque pt de p.points : » en tête d\'une puce vaut la boucle for / as / item', eq(o.sections?.[1]?.features?.items, { for: 'p.points', as: 'pt', item: { icon: 'check', title: '{{ pt }}' } }), JSON.stringify(o.sections?.[1]));
+    ok('composés : une expression seule se lit là où un lien est attendu, « rien » ouvre un élément qui n\'a que sa liste', o.sections?.[2]?.cta?.button === '{{ p.cta }}' && eq(o.sections?.[0]?.pricelist?.groups, [{ items: [{ name: '{{ p.titre }}', price: '{{ p.prix }}', description: '{{ p.detail }}' }] }]), JSON.stringify(o.sections?.[0]));
+    const wY = writeCompositesDocument(refY, { schemas: schemasC });
+    ok('composés : le rédacteur écrit le YAML d\'origine sans aucun bloc yaml, et son document se relit à l\'identique', !wY.error && !/```yaml/.test(wY.text) && /- pour chaque pt de p\.points : check \| \{\{ pt \}\}/.test(wY.text) && /^- cta : lien, par défaut Nous contacter → \/contact — bouton sous les points$/m.test(wY.text), wY.error || wY.text);
+    const pageLoop = readPageDocument('# T\n\nD\n\nAdresse : /\n\n## Points forts\n- pour chaque pt de p.points : check | {{ pt }}\n', { schemas: schemasC });
+    ok('composés : dans une page, « pour chaque » n\'est pas une boucle (les boucles n\'existent que dans les sections d\'un composé)', Array.isArray(pageLoop.data.sections?.[0]?.features?.items), JSON.stringify(pageLoop.data.sections));
+    // Refus, à la ligne du document.
+    const bad = readComposites(['# Composants composés', '', '## offre', 'Une offre.', '', '### Paramètres', '- titre : chaine — nom', '- prix : texte, obligatoire', '- points : liste, par défaut vide', '', '### Réglages', '', '### Sections', '```', '## Points forts', 'Colones : 3', '- pour chaque pt de p.points : check | {{ pt }}', '- shield | Autre', '```', '', '## vide', 'Sans sections.', ''].join('\n'), { schemas: schemasC });
+    const at = n => bad.errors.find(e => e.line === n)?.message || '';
+    ok('composés : type inconnu, précision inconnue, intertitre inconnu, donnée inconnue, boucle à deux puces, composé sans sections : chacun refusé à sa ligne', /type de paramètre inconnu : « chaine »/.test(at(7)) && /précision inconnue : « obligatoire »/.test(at(8)) && /intertitre inconnu : « Réglages »/.test(at(11)) && /« Colones » n'est pas une donnée de features/.test(at(16)) && /« pour chaque » tient en une puce/.test(at(18)) && /« vide » n'a pas de sections/.test(at(21)) && bad.errors.length === 6, JSON.stringify(bad.errors.map(e => [e.line, e.message.slice(0, 50)])));
+    // En projet : lecture figée, changement à accepter, erreur de validation à la ligne du document.
+    const pc2 = path.join(tmp, 'composes');
+    await fs.cp(plo, pc2, { recursive: true, filter: s => !/[\\/](dist|node_modules|\.devanture)([\\/]|$)/.test(s) });
+    const cmd = path.join(pc2, 'components.md'), src0 = await fs.readFile(cmd, 'utf8');
+    await fs.writeFile(cmd, src0.replace('Colonnes : 3', 'Colonnes : 2'));
+    let rc = run('check', pc2); const rl = run('lire', pc2);
+    ok('composés : un changement arrête check (E_READING sur lecture/components.yaml), lire dit ce qui change', src0.includes('Colonnes : 3') && rc.code !== 0 && /"code":"E_READING","file":"lecture\/components\.yaml"/.test(rc.out) && /# components\.md : la lecture a changé\n  - columns: 3\n  \+ columns: 2/.test(rl.out), rc.out.slice(0, 300) + rl.out.slice(0, 300));
+    const ra = run('lire', pc2, '--accepter'); rc = run('check', pc2);
+    ok('composés : --accepter fige la lecture, le site passe check', /# components\.md : changement accepté/.test(ra.out) && rc.code === 0 && /columns: 2/.test(await fs.readFile(path.join(pc2, 'lecture', 'components.yaml'), 'utf8')), ra.out.slice(0, 200) + rc.out.slice(0, 200));
+    await fs.writeFile(cmd, (await fs.readFile(cmd, 'utf8')).replace('{{ p.cta }}', '{{ p.ctaa }}'));
+    run('lire', pc2, '--accepter'); rc = run('check', pc2);
+    const lineCta = (await fs.readFile(cmd, 'utf8')).split('\n').findIndex(l => l.includes('{{ p.ctaa }}')) + 1;
+    ok('composés : une expression fausse dans une section est dite à la ligne de components.md, avec la page qui l\'emploie', rc.code !== 0 && new RegExp(`"file":"components\\.md","path":"ligne ${lineCta} · components\\.offre\\.sections\\[2\\]\\.cta\\.button","message":"« p\\.ctaa » n'existe pas[^"]*usage : services\\.md`).test(rc.out), rc.out.slice(0, 500));
+    await fs.writeFile(path.join(pc2, 'components.yaml'), 'components: {}\n');
+    rc = run('check', pc2);
+    ok('composés : components.md et components.yaml à la fois sont refusés', rc.code !== 0 && /components\.md et components\.yaml à la fois/.test(rc.out), rc.out.slice(0, 300));
+    const lang = (await fs.readFile(path.join(ROOT, 'docs', 'LANGAGE.md'), 'utf8')).replace(/\r\n/g, '\n');
+    const ex5 = /<!-- banc : composés en document -->\n````\n([\s\S]*?)\n````\n/.exec(lang)?.[1] || '';
+    const d5 = readComposites(ex5, { schemas: schemasC });
+    ok('composés : l\'exemple de docs/LANGAGE.md se lit sans erreur et vaut la boucle, le lien par défaut et le paramètre facultatif qu\'il annonce', ex5.includes('## offre') && !d5.errors.length && eq(d5.raw.components.offre.sections[1].features.items, { for: 'p.points', as: 'pt', item: { icon: 'check', title: '{{ pt }}' } }) && eq(d5.raw.components.offre.params.cta.default, { label: 'Nous contacter', to: '/contact' }) && !('default' in d5.raw.components.offre.params.detail) && !d5.raw.components.offre.params.detail.required && d5.raw.components.offre.params.prix.required === true, JSON.stringify(d5.errors.slice(0, 3)));
+    const ed = run('explain', 'document');
+    ok('explain document : dit components.md (paramètres, sections, pour chaque)', /components\.md/.test(ed.out) && /- pour chaque pt de p\.points : check \| \{\{ pt \}\}/.test(ed.out) && /par défaut vide/.test(ed.out));
+    const eo = run('explain', 'offre', plo);
+    ok('explain <composé> : la fiche cite le fichier où il est écrit', /composant composé du projet, components\.md/.test(eo.out) && /titre \(obligatoire\)/.test(eo.out), eo.out.slice(0, 300));
+  }
 
   // --- sitec init pose un site en documents ; keywords et migrate travaillent sur les documents
   {

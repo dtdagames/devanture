@@ -1,4 +1,5 @@
-// Composants par composition : components.yaml déclare des assemblages nommés de composants existants, avec des paramètres typés.
+// Composants par composition : components.yaml (ou components.md, la même chose écrite en document, lue par
+// src/lang/composites-document.js) déclare des assemblages nommés de composants existants, avec des paramètres typés.
 //   components:
 //     offre:
 //       description: Offre tarifaire et ses points forts
@@ -113,7 +114,7 @@ export function expandComposites(page, composites, project, errors, catalog) {
       }
       for (const k of Object.keys(rest)) if (!(k in def.params)) { const s = nearest(k, Object.keys(def.params)); errors.push(err('E_UNKNOWN_PROP', { file, path: `${usagePath}.${k}`, message: `Paramètre inconnu : ${k}.`, expected: Object.keys(def.params), hint: s ? `Vouliez-vous dire ${s} ?` : `sitec explain ${name}`, fix: s ? { rename: { from: k, to: s } } : undefined })); }
       const scope = { ...scopeBase, p: scopeP };
-      const report = (message, p, code = 'E_EXPR') => errors.push(err(code, { file: def.file, path: `components.${name}.${p}`, message: `${message} (usage : ${page.id}.page.yaml › ${usagePath})` }));
+      const report = (message, p, code = 'E_EXPR') => errors.push(err(code, { file: def.file, path: `components.${name}.${p}`, message: `${message} (usage : ${String(page.file || page.id).split(/[\\/]/).pop()} › ${usagePath})` }));
       const produced = expandValue(JSON.parse(JSON.stringify(def.sections)), scope, report, 'sections');
       const inner = expand(produced, depth + 1, scopeBase, (j, o) => o || { via: name, usage: usagePath });
       inner.sections.forEach((s, j) => {
