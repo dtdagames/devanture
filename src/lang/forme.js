@@ -467,6 +467,8 @@ export function compileForme(forme, { name, props, want: want0 = new Set(), effe
       } else bad(t.line, `balise « {% ${kw} %} » : un gabarit de mot accepte if, elif, else, endif, for, endfor, set`);
     }
     for (const b of behaviorsUsedIn(w.gabarit)) behaviors.add(b);
+    // Les parties que le mot expose : l'apparence de qui l'emploie les vise par leur nom (« liens du menu: majuscules »).
+    for (const [k, sel] of Object.entries(w.parties || {})) { const key = String(k).trim().toLowerCase().replace(/\s+/g, ' '); if (!parts.has(key)) parts.set(key, sel); }
     return html.trim();
   };
 
@@ -638,7 +640,7 @@ export function compileForme(forme, { name, props, want: want0 = new Set(), effe
         // Plusieurs conteneurs possibles, dont certains selon une donnée : « conteneur « deux-colonnes » si image, conteneur « étroit » sans image ».
         let cl = ' ' + mm[1];
         if (mm[2]) { const r = resolve(mm[3], 'forme'); if (!r) continue; const neg = /^sans$/i.test(mm[2]); if (r.absent) { if (!neg) continue; } else cl = `{% if ${neg ? 'not ' : ''}${r.expr} %}${cl}{% endif %}`; }
-        inner += cl; parts.set(mm[1], '.' + mm[1]); if (!parts.has('conteneur')) parts.set('conteneur', '.' + mm[1]);
+        inner += cl; parts.set(mm[1], '.' + mm[1]); // la partie « conteneur » vise la boîte elle-même, quelle que soit sa classe
       } else if ((mm = /^ancre\s+«\s*([a-z][a-z0-9-]*)\s*»$/i.exec(o))) {
         // Une ancre fixe sur la section (« /contact#contact ») ; l'ancre choisie par la page (id:) reste posée juste avant.
         anchor = ` id="${mm[1]}"`;
@@ -651,9 +653,12 @@ export function compileForme(forme, { name, props, want: want0 = new Set(), effe
   } else fail('forme', 'attendu : une liste d\'éléments, ou « section, options: » (ou « bandeau « classe », options: ») puis la liste');
   parts.set('section', '.' + secCls);
   const shellTag = shell === 'header' ? 'header' : 'footer', shellCls = shell ? [...new Set(['site-' + shellTag, secCls])].join(' ') : '';
-  if (shell) parts.set('conteneur', '.container');
+  // Le conteneur est toujours une partie : l'apparence règle sa largeur et sa place (« conteneur: largeur 620px, poussé à droite »).
+  parts.set('conteneur', '.container');
+  // Classe d'apparence : une section d'une page qui dit son apparence la reçoit (p._ap), la feuille du site la vise.
+  const look = `{% if p._ap %} {{ p._ap }}{% endif %}`;
   const sectionHtml = shell ? `<${shellTag} class="${shellCls}">\n  <div class="container${inner}">\n${body}\n  </div>\n</${shellTag}>\n`
-    : `<section class="${bandeau ? '' : 'section '}${secCls}${bgClass}${variant}"${anchor}${bgStyle}>\n  <div class="container${inner}">\n${body}\n  </div>\n</section>\n`;
+    : `<section class="${bandeau ? '' : 'section '}${secCls}${bgClass}${variant}${look}"${anchor}${bgStyle}>\n  <div class="container${inner}">\n${body}\n  </div>\n</section>\n`;
   const template = onlyIf ? `{% if ${onlyIf} %}${sectionHtml}{% endif %}\n` : sectionHtml;
   return { template, behaviors, parts, errors, shell, sectionClass: secCls, css: [...baseCss].join('\n') + (baseCss.size ? '\n' : ''), wordsCss, usedWords, incomplete };
 }

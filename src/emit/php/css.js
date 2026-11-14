@@ -125,7 +125,7 @@ function pageBackground(bg, images) {
   return `body{background-image:${layers.map(l => l[0]).join(',')};background-position:${layers.map(l => l[1]).join(',')};background-repeat:no-repeat;background-size:100% auto}`;
 }
 
-export function buildCss(site, usedComponents, { images = null } = {}) {
+export function buildCss(site, usedComponents, { images = null, extra = '' } = {}) {
   const preset = THEME_PRESETS[site.theme?.preset || 'clair'];
   const tokens = { ...preset, ...(site.theme?.tokens || {}) };
   const vars = Object.entries(tokens).map(([k, v]) => `  --${k.replace(/\./g, '-')}: ${v};`).join('\n');
@@ -136,5 +136,5 @@ export function buildCss(site, usedComponents, { images = null } = {}) {
   for (const c of usedComponents) for (const w of c.wordsCss || []) if (!seen.has(w.id)) seen.set(w.id, `/* mot : ${w.name} */\n${w.css}`);
   const words = [...seen.values()].join('\n\n');
   const fonts = fontFaces(site.theme?.fonts), page = pageBackground(site.theme?.background, images);
-  return `${fonts ? fonts + '\n' : ''}:root {\n${vars}\n}\n${BASE_CSS}\n${page ? '/* fond de page */\n' + page + '\n' : ''}${beh ? '/* comportements déclarés */\n' + beh + '\n' : ''}${words ? words + '\n\n' : ''}${comps}\n`;
+  return `${fonts ? fonts + '\n' : ''}:root {\n${vars}\n}\n${BASE_CSS}\n${page ? '/* fond de page */\n' + page + '\n' : ''}${beh ? '/* comportements déclarés */\n' + beh + '\n' : ''}${words ? words + '\n\n' : ''}${comps}\n${extra ? '\n' + extra : ''}`;
 }

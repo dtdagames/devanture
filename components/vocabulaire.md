@@ -707,6 +707,10 @@ Le nom du site, en lien vers l'accueil ; avec une image, le logo à la place du 
 .brand-logo{max-height:48px;width:auto}
 ```
 
+### Parties
+- marque : .brand
+- logo : .brand-logo
+
 ## menu du site
 Le menu du site (site.nav) : la page affichée y est marquée, et il se replie derrière un bouton sur téléphone. Ce qui est écrit en dessous (panier, recherche) prend place à la suite des entrées.
 
@@ -723,6 +727,12 @@ Le menu du site (site.nav) : la page affichée y est marquée, et il se replie d
 </nav>
 ```
 
+### Parties
+- menu : .site-nav
+- liens du menu : .site-nav > ul a
+- lien de la page : .site-nav > ul a[aria-current=page]
+- bouton du menu : .nav-toggle
+
 ## panier du site
 Lien vers le panier, avec le nombre d'articles ; rien sur un site sans boutique.
 
@@ -730,6 +740,9 @@ Lien vers le panier, avec le nombre d'articles ; rien sur un site sans boutique.
 ```html
 {% if shop.cart_route %}<a class="cart-link" href="{{ shop.cart_route }}"{% if shop.cart_route == page.route %} aria-current="page"{% endif %}>Panier<span class="cart-count">{{ cart_count() }}</span></a>{% endif %}
 ```
+
+### Parties
+- panier : .cart-link
 
 ## recherche du site
 Le champ « Que cherchez-vous ? » de la navigation par intention ; rien quand le site la coupe (site.intent.enabled).
@@ -744,6 +757,9 @@ Le champ « Que cherchez-vous ? » de la navigation par intention ; rien quand l
 {% endif %}
 ```
 
+### Parties
+- recherche : .intent input
+
 ## téléphone du site
 Le téléphone du site (site.contact.phone), en lien d'appel ; rien si le site n'en déclare pas.
 
@@ -757,21 +773,31 @@ Le téléphone du site (site.contact.phone), en lien d'appel ; rien si le site n
 .site-phone{font-weight:600;white-space:nowrap;text-decoration:none}
 ```
 
+### Parties
+- téléphone : .site-phone
+
 ## mentions du site
 Le nom du site, le texte du pied de page, puis l'adresse, le téléphone et l'e-mail sur une ligne.
 
 ### Gabarit
 ```html
-<div>
+<div class="site-mentions">
   <strong>{{ site.name }}</strong>{% if site.footer.text %} · {{ site.footer.text }}{% endif %}
   {% if site.contact %}<div>{% set sep = '' %}{% if site.contact.address %}{{ site.contact.address }}{% set sep = ' · ' %}{% endif %}{% if site.contact.phone %}{{ sep }}{{ site.contact.phone }}{% set sep = ' · ' %}{% endif %}{% if site.contact.email %}{{ sep }}<a href="mailto:{{ site.contact.email }}">{{ site.contact.email }}</a>{% endif %}</div>{% endif %}
 </div>
 ```
+
+### Parties
+- mentions : .site-mentions
 
 ## liens du pied
 Les liens du pied de page (site.footer.links), puis le lien « Version texte » de la page affichée.
 
 ### Gabarit
 ```html
-<ul>{% for l in site.footer.links %}<li>{{ link(l) }}</li>{% endfor %}{% if page.readable_url %}<li><a href="{{ page.readable_url }}" rel="alternate">Version texte</a></li>{% endif %}</ul>
+<ul class="site-links">{% for l in site.footer.links %}<li>{{ link(l) }}</li>{% endfor %}{% if page.readable_url %}<li><a href="{{ page.readable_url }}" rel="alternate">Version texte</a></li>{% endif %}</ul>
 ```
+
+### Parties
+- liens du pied : .site-links
+- lien du pied : .site-links a

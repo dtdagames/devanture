@@ -12,6 +12,7 @@ import { buildReadablePage } from './readable.js';
 import { ADMIN_PHP, INTEGRITY_CLI_PHP } from './admin.js';
 import { STORE_PHP } from './store.js';
 import crypto from 'node:crypto';
+import { compileApparence, siteIntents } from '../../lang/apparence.js';
 import { COMPONENTS_DIR } from '../../catalog.js';
 const SITEC_ROOT = path.resolve(COMPONENTS_DIR, '..'); // racine du dépôt (Node) ou /sitec (navigateur)
 
@@ -40,6 +41,8 @@ export async function emit(project, catalogBase, out) {
   const staticRoutes = [];
 
   const used = new Map();
+  // Apparence dite dans les pages : une classe par apparence distincte (ap-…), posée sur la section, visée par la feuille du site.
+  const looks = new Map(), custom = siteIntents(project.site.site.intentions).custom;
   const routes = {};
   const dynamic = [];
   for (const page of project.pages) {
@@ -55,6 +58,14 @@ export async function emit(project, catalogBase, out) {
       const name = Object.keys(s)[0];
       used.set(name, catalog.get(name));
       const props = s[name] ?? {};
+      if (props.appearance !== undefined) {
+        const c = catalog.get(name), l = c?.look;
+        if (l && props.appearance && typeof props.appearance === 'object') {
+          const css = compileApparence(props.appearance, { parts: l.parts, sectionClass: l.sectionClass, scope: '\u0000', custom, outside: true }).css;
+          if (css) { const cls = 'ap-' + crypto.createHash('sha256').update(name + '\n' + css).digest('hex').slice(0, 7); looks.set(cls, css.replaceAll('\u0000', `.${l.sectionClass}.${cls}`)); props._ap = cls; }
+        }
+        delete props.appearance;
+      }
       if (name === 'contact.form') {
         // Champs normalisés une fois : le template et le serveur partagent la même définition.
         const { fields } = normalizeContactFields(props, { file: page.file, path: '' });
@@ -142,7 +153,10 @@ export async function emit(project, catalogBase, out) {
   // Assets versionnés par empreinte (cache long, Subresource Integrity) : calculés avant le layout qui les référence.
   // Images : copie des assets, variantes WebP redimensionnées (site.images). Avant la feuille, qui nomme la variante du fond de page.
   const images = await processAssets(path.join(project.root, 'assets'), path.join(out, 'assets'), site.images || {});
-  const cssText = buildCss(site, usedList, { images: images.manifest });
+  // Apparence au niveau du site : toutes les sections d'un composant, après la feuille des composants ; puis celle des sections.
+  const siteLook = Object.entries(site.appearance || {}).map(([cname, block]) => { const l = catalog.get(cname)?.look; return l && used.has(cname) ? compileApparence(block, { parts: l.parts, sectionClass: l.sectionClass, custom, outside: true }).css : ''; }).filter(Boolean).join('');
+  const extra = [siteLook ? '/* apparence, par composant (site) */\n' + siteLook : '', looks.size ? '/* apparence, par section (pages) */\n' + [...looks.values()].join('') : ''].filter(Boolean).join('\n');
+  const cssText = buildCss(site, usedList, { images: images.manifest, extra });
   const jsText = buildJs(usedList);
   const sha = (t) => crypto.createHash('sha256').update(t).digest();
   const cssSha = sha(cssText), jsSha = sha(jsText);

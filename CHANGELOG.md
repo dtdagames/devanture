@@ -1,6 +1,22 @@
 # Journal des versions
 
-Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.18.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.19.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+
+## v0.19.0 — 2026-11-14 — apparence ouverte : intentions à valeur, apparence d'une section dans une page et par composant dans le site, intentions du site
+
+Deuxième pas vers la fidélité à une maquette. L'apparence ne se disait que dans un composant, avec une liste fermée d'intentions sans valeur : une largeur de colonne, un titre posé sur une photo ou la couleur d'un bandeau demandaient un `styles.css`.
+
+- **Intentions à valeur** : `largeur 620px`, `hauteur minimale 38px`, `taille 1.4rem`, `interligne 1.3`, `graisse 600`, `marge à gauche 45%`, `espace intérieur 12px 20px`, `espace entre 8px`, `fond #012c4a`, `couleur blanc`, `bordure #fff`, `bordure en dessous`, `coins 3px`, `opacité 0.8`, `3 colonnes`, `haut 72px`. La mesure et la couleur sont vérifiées ; rien d'autre n'entre dans la feuille.
+- **Intentions de placement** : `cadre` et `posé en bas` (un titre sur une photo), `épinglé en haut à droite`, `poussé à droite`, `pleine largeur`, `non collant`, `contenu centré`, `voile sombre`, `ombre du texte`, `sans puces`, `souligné`…
+- **Apparence d'une section dans une page** : toute section accepte `appearance: { partie: intentions }` ; en document, « Apparence : » puis « - conteneur | largeur 620px ». La section reçoit une classe d'apparence, la feuille du site la vise.
+- **Apparence par composant dans le site** : `site › appearance`, en document « ## Apparence » puis « - steps › cartes | sans fond ». L'habillage du catalogue se règle ainsi sans être récrit.
+- **Intentions du site** : `site › intentions`, en document « ## Intentions » puis « - colonne à droite | largeur 540px, marge à gauche 45% », avec sa ligne « sur téléphone ». Employées dans les pages, le site et les composants du site.
+- **Parties** : `conteneur` est toujours une partie ; les mots de l'habillage exposent les leurs (`liens du menu`, `lien de la page`, `marque`, `recherche`…) par un bloc `### Parties` du vocabulaire ; hors du composant, une primitive sans nom se vise par son genre (`titre`, `texte`, `carte`…). L'écran se dit aussi sur la ligne : « cartes, sur téléphone ».
+- `sitec explain apparence` ; refus `E_APPEARANCE` à la ligne du document, avec les parties du composant ou la forme attendue de l'intention.
+- Lecture des documents : les puces d'une donnée nommée (« Apparence : », « Variantes : ») finissent à la première ligne vide ; celles qui suivent sont à la section. L'avertissement « couleur écrite en dur » ne porte plus que sur le `styles.css` de l'auteur, pas sur la feuille que l'apparence produit.
+- Changement visible : le pied de page du catalogue porte deux classes de plus (`site-mentions`, `site-links`), et la partie `conteneur` d'un composant vise `.container` au lieu de sa classe nommée (la même boîte).
+- Sur le site réel recréé (hors dépôt), l'en-tête, le pied et les cartes n'ont plus aucun `styles.css` : tout est dit en intentions. Page du permis côtier à 1280 px : écart du premier écran de 7,1 % à 6,5 %, hauteur de la page de 93 % à 106 % de l'original ; accueil : hauteur de 106 % à 103 %, à 390 px de 118 % à 105 %. Les indices du premier écran bougent peu, la mise en page plus bas se lit sur les captures. Indices grossiers.
+- Non fait : un mot grossi à l'intérieur d'un titre, l'apparence d'une page entière en une ligne, les polices du site d'essai, un habillage fourni par un paquet. Banc du site en documents à 158 contrôles, dont sept pour l'apparence.
 
 ## v0.18.0 — 2026-11-14 — habillage du site : l'en-tête et le pied sont des composants qu'un site récrit, charte plus riche, banc d'écart visuel
 

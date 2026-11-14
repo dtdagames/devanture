@@ -491,6 +491,7 @@ forme:
 | `apparence` | l'allure des parties de cette forme, avec les intentions d'un composant |
 | `gabarit` | à la place de `forme`, quand aucune primitive ne produit le balisage voulu : un fragment de gabarit neutre (plus bas), sans script |
 | `feuille` | la CSS du fragment, encadrée comme celle d'un composant : chaque sélecteur commence par la classe du mot (`.heure`, `.carte-de-visite-photo`), couleurs par les jetons |
+| `parties` | avec un gabarit : les parties que l'apparence de qui emploie le mot peut viser, « nom: sélecteur » par ligne (`liens: .menu-maison a`) ; le sélecteur commence par la classe du mot. En document, `### Parties` |
 
 Dans une forme, `- mot: a, b` passe les données dans l'ordre de la définition (un nom de donnée du composant, « un texte », un nombre, `oui`, `non`, ou `rien` pour sauter une donnée facultative). Un mot dont la définition emploie `contenu` reçoit des éléments : `- mot, a:` puis la liste en dessous. Une donnée obligatoire du mot liée à une donnée facultative du composant rend l'élément conditionnel, comme pour une primitive. Un mot ne prend pas de nom entre « » : ses classes viennent de sa définition, et ses parties nommées (`fiche`, `cadre`) s'ajoutent à celles que l'apparence du composant peut viser.
 
@@ -1166,6 +1167,46 @@ Sous `site › theme`, à côté de `preset` et `tokens` :
 
 Une police ou une image absente de `assets/` est une erreur de `check`.
 
+### Apparence hors du composant
+
+Le bloc `apparence` d'un composant règle toutes ses sections. Les mêmes lignes, « partie : intention, intention », se disent à deux autres endroits.
+
+**Dans une page**, pour une section : la prop commune `appearance`.
+
+<!-- sitec: fragment sections -->
+```yaml
+- hero:
+    title: Passez votre permis en deux jours
+    appearance:
+      conteneur: largeur 540px, marge à gauche 45%, à gauche
+      titre principal: taille 2.4rem, ombre du texte
+      texte, sur téléphone: masqué
+```
+
+En document, « Apparence : » sous l'intitulé de la section, une puce « partie | intentions » par partie, puis une ligne vide avant les puces de la section elle-même. La section reçoit une classe (`ap-…`, la même pour deux sections de même apparence) que la feuille du site vise ; rien n'est écrit dans le balisage. Une variante ne change pas l'apparence.
+
+**Dans le site**, pour toutes les sections d'un composant : `site › appearance: { steps: { cartes: sans fond, sans bordure } }`. En document, une section « ## Apparence » dans `site.md`, une puce « composant › partie | intentions » par réglage. L'habillage du catalogue se règle ainsi sans le récrire : « - site.header › liens du menu | majuscules, petit ».
+
+**Parties.** `section`, `conteneur` (la boîte qui tient le contenu de la section, toujours présente), les primitives de la forme et ses noms entre « », et les parties qu'un mot à gabarit expose (`### Parties` dans le vocabulaire : une puce « nom : sélecteur », le sélecteur commençant par la classe du mot). Hors du composant, une primitive que la forme n'a pas nommée se vise par son genre : `titre principal`, `grand titre`, `titre`, `sous-titre`, `texte`, `lien`, `bouton`, `image`, `carte`, `liste`, `élément`, `en-tête`, `citation`. L'écran se dit sur la ligne : « cartes, sur téléphone ».
+
+**Intentions à valeur.** Une mesure est un nombre suivi de px, rem, em, %, vw, vh ou ch (ou 0, ou auto) ; une couleur est #hex, rgb(), rgba(), transparent, blanc ou noir.
+
+| Intention | Effet |
+|---|---|
+| `largeur 620px`, `largeur fixe 12rem`, `hauteur 200px`, `hauteur minimale 38px` | dimensions |
+| `taille 1.4rem`, `interligne 1.3`, `graisse 600`, `espacement des lettres 1px` | texte |
+| `marge au-dessus 24px`, `marge en dessous`, `marge à gauche 45%`, `marge à droite` | marges |
+| `espace intérieur 12px 20px` (une à quatre mesures), `espace entre 8px` | espaces |
+| `fond #012c4a`, `couleur blanc`, `bordure #fff`, `bordure en dessous`, `bordure au-dessus`, `coins 3px`, `opacité 0.8` | couleurs et traits |
+| `3 colonnes` (de 2 à 6) | grille |
+| `haut 72px`, `bas 0`, `gauche 0`, `droite 0` | place d'une partie posée ou épinglée |
+
+**Placement.** `cadre` (ou `repère`) sur la partie qui porte ; `posé en bas`, `posé en haut`, `épinglé en haut à droite` (et les trois autres coins) sur celle qui est posée ; `poussé à droite`, `poussé à gauche`, `pleine largeur` ; `collant`, `non collant`, `à sa place` ; `contenu centré`, `contenu à droite`, `contenu réparti` ; `voile sombre`, `ombre du texte`, `sans ombre`, `image couvrante` ; `souligné`, `sans soulignement`, `sans puces`, `graisse normale`, `casse normale`, `police du texte`, `couleur du texte`, `en bloc`, `visible`.
+
+**Intentions du site.** Un site nomme les siennes, faites d'intentions du langage : `site › intentions: { colonne à droite: "largeur 540px, marge à gauche 45%", "colonne à droite, sur téléphone": "sans marge, pleine largeur" }`. En document, « ## Intentions » dans `site.md`, une puce « nom | intentions ». Elles s'emploient dans les pages, dans « ## Apparence » du site et dans les composants du site. Une intention du site ne porte pas le nom d'une intention du langage et n'en emploie pas d'autre du site.
+
+Une partie inconnue, une intention inconnue ou une valeur mal écrite est refusée (`E_APPEARANCE`), à la ligne du document, avec les parties du composant ou la forme attendue. Un composant écrit en gabarit, sans bloc `forme`, n'a pas de parties : son apparence ne se règle pas d'une page. `sitec explain apparence` donne les listes entières.
+
 ### Mesurer l'écart avec une maquette
 
 `node scripts/compare-visuel.mjs <origine> <recréation> [--largeurs 1280,390] [--pages /,/a=/a.html] [--sortie dossier]` capture les deux sites aux mêmes largeurs (Chrome sans fenêtre), page entière, et donne trois indices par page : l'écart moyen des pixels du premier écran, la part de palette commune, le rapport des hauteurs. Les captures sont posées côte à côte dans `<sortie>/index.html`. Ce sont des indices grossiers : ils disent si l'on s'approche, pas si la page est fidèle.
@@ -1190,5 +1231,6 @@ Composants natifs écrits sans code de la cible, tous au format langage (aucun g
 
 - **0** : sites écrits avant la déclaration de version (compilateur ≤ 0.1.3). Migration vers 1 : ajout de `language: 1`, aucune construction ne change.
 - **1** (2026-11-08) : première version écrite. Expressions, constantes, collections, composants composés, composants de projet avec gabarit neutre et effet `form`, paquets de composants, tests de composants, feuille de style encadrée, comportements déclarés. Ajouts compatibles, sans changement de version : composants en français contrôlé (compilateur 0.7.0 et 0.8.0), objectifs et expériences dans `segments.yaml` (0.9.0), vocabulaire ouvert (`vocabulaire.yaml`, 0.10.0), lectures à la visite (`fonctionnement: lit:`, 0.11.0), registres à règles (`places`, `liste d'attente`, `une fois par`, 0.12.0), composant et site écrits en documents (0.13.0 à 0.15.0), composant écrit en plan (`composant.md`, 0.16.0). Retrait, sans changement de version : le bloc `custom` (0.15.0), qui incluait un fichier PHP du projet hors de toute validation ; une page qui l'emploie encore reçoit `E_UNKNOWN_COMPONENT` avec la marche à suivre (un composant du site).
+  Ajouts de la v0.19.0, sans changement de version du langage : l'apparence hors du composant (prop commune `appearance` d'une section, `site › appearance` par composant), les intentions à valeur et de placement, `site › intentions`, les parties d'un mot à gabarit (`### Parties`), la partie `conteneur` toujours présente. Section 6 septies.
   Ajouts de la v0.18.0, sans changement de version du langage : l'habillage (l'en-tête et le pied sont deux composants, `site.header` et `site.footer`, qu'un site remplace par un composant dont la forme s'ouvre par « en-tête de site » ou « pied de site »), sept mots natifs pour l'habillage, les jetons d'échelle (`font.size`, `line.height`, `heading.weight`, `h1.size`, `h2.size`, `h3.size`, `section.space`, `header.bg`, `header.fg`), `theme › fonts` et `theme › background`. Section 6 septies.
   Ajouts de la v0.17.0, après la recréation d'un site réel, sans changement de version du langage : `site › redirects` (une liste `{ from, to }` : une ancienne adresse répond par une redirection permanente vers une page ; en document, « Redirections : » puis une puce « /ancienne.html | /nouvelle ») ; une liste de la forme écrite sans `élément` enveloppe chaque tour dans un élément de liste ; une page sans bandeau reçoit pour titre principal son premier titre de section ; sans segments, sans composant `recent` et sans boutique, la personnalisation est coupée par défaut (ni bandeau de consentement ni cookie) ; sous une puce de « Remplace : » ou de « Variantes : », des lignes en retrait prolongent son dernier texte.

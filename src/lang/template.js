@@ -10,7 +10,7 @@
 import { parse, toPhp, roots, ExprError, SAFE_FUNCTIONS, FUNCTION_NAMES, FILTERS } from './expr.js';
 
 const RUNTIME_VARS = { p: '$p', site: '$site', page: '$page', item: '$SL_ITEM', product: '$product', order: '$order', form: '$form', loop: '$loop', cart: '$cart', shop: '$SHOP' };
-const META_PROPS = new Set(['id', 'keywords', 'variants', '_variant', '_fragment']);
+const META_PROPS = new Set(['id', 'keywords', 'variants', 'appearance', '_variant', '_fragment', '_ap']);
 
 export class TemplateError extends Error { constructor(message, line) { super(message); this.line = line; } }
 

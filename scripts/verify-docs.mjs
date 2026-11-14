@@ -212,7 +212,7 @@ async function cites(name, text, { commands = true } = {}) {
     for (const s of L[i].matchAll(/scripts\/([\w-]+\.(?:mjs|sh))/g)) if (await exists(path.join(ROOT, 'scripts', s[1]))) known += await fs.readFile(path.join(ROOT, 'scripts', s[1]), 'utf8');
     for (const m of L[i].matchAll(/(?<![\w(-])--([a-z][\w-]*)/g)) if (!(FLAGS.includes(m[1]) || known.includes('--' + m[1]))) bad.options.push(`l.${i + 1} --${m[1]}`);
   }
-  for (const m of text.matchAll(/\bexplain[ \t]+([a-z][\w.-]*[\w])(?![\w.-])([ \t]+<dossier>)?/g)) if (!m[2] && !['site', 'langage', 'document', 'habillage', ...catalogNames].includes(m[1])) bad.fiches.push(`${where(m.index)} explain ${m[1]}`);
+  for (const m of text.matchAll(/\bexplain[ \t]+([a-z][\w.-]*[\w])(?![\w.-])([ \t]+<dossier>)?/g)) if (!m[2] && !['site', 'langage', 'document', 'habillage', 'apparence', ...catalogNames].includes(m[1])) bad.fiches.push(`${where(m.index)} explain ${m[1]}`);
   for (const m of text.matchAll(/(?<![\w/.<>:@#-])((?:src|scripts|docs|bin|examples|studio|\.github)\/[\w./-]*)/g)) {
     const p = m[1].replace(/[.]+$/, ''); const next = text[m.index + m[1].length] || '';
     if ('<*…'.includes(next) && next || /\/dist(\/|$)/.test(p) || p === 'studio/sitec-browser.js') continue;

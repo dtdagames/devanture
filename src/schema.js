@@ -129,6 +129,7 @@ export function buildSchemas(project, catalog) {
     apparence: { type: 'object', description: `l'allure des parties de la forme du mot : ${INTENT_NAMES.join(', ')}` },
     gabarit: { type: 'string', description: 'à défaut de forme : un fragment de gabarit neutre ({{ donnée }}, {% if %}, {% for %}), sans script ; le mot ne voit que ses données' },
     feuille: { type: 'string', description: 'CSS du fragment : chaque sélecteur commence par la classe du mot (.carte-de-visite…), couleurs par les jetons du thème' },
+    parties: { type: 'object', additionalProperties: { type: 'string' }, description: 'avec un gabarit : les parties que peut viser le bloc apparence du composant qui emploie le mot, « nom: sélecteur » (le sélecteur commence par la classe du mot)' },
   } } } } };
   if (Object.keys(out['vocabulaire.schema.json'].properties.mots.additionalProperties.properties).join() !== WORD_KEYS.join()) throw new Error('schéma du vocabulaire : clés désaccordées avec WORD_KEYS');
   out['package.schema.json'] = { $schema: 'http://json-schema.org/draft-07/schema#', title: 'Paquet de composants (package.yaml)', type: 'object', additionalProperties: false, required: ['name'], properties: { name: { type: 'string', pattern: '^[a-z][a-z0-9-]*$', description: 'préfixe des composants du paquet' }, description: { type: 'string' }, version: { type: 'string' }, language: { type: 'integer', enum: LANGUAGE_VERSIONS } } };

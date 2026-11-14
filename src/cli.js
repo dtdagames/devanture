@@ -17,7 +17,7 @@ import { writeCompositesDocument, PARAM_WORDS } from './lang/composites-document
 import { writeSiteDocument, writePageDocument, writeSectionDocument, componentSchemas, readSiteDocument, readPageDocument, COMPONENT_NAMES, PROP_NAMES, GROUP_NAMES, writeDataDocument, readDataDocument, PRODUCTS, collectionData, writeSegmentsDocument, readSegmentsDocument, writeFixtureDocument, readFixtureDocument, writePackageDocument, writeHostsDocument } from './lang/site-document.js';
 import { SOURCES, SOURCE_NAMES, PUBLIC_SOURCE_NAMES, sourceUsage, sourceFields } from './lang/sources.js';
 import YAML from 'yaml';
-import { INTENT_NAMES } from './lang/apparence.js';
+import { INTENT_NAMES, VALUED_NAMES, GENERIC_PARTS } from './lang/apparence.js';
 import { FIELD_TYPE_WORDS, FIELD_MODIFIERS, FORM_SETTINGS } from './lang/fonctionnement.js';
 import { EVENTS, GOAL_EVENTS, CONTROL, DEFAULT_MINIMUM } from './segments.js';
 import { DEFAULTS as IMAGE_DEFAULTS } from './images/index.js';
@@ -88,6 +88,7 @@ export async function run(argv) {
       if (name === 'langage' || name === 'language' || name === 'expressions') { explainLanguage(); return 0; }
       if (name === 'document' || name === 'documents') { explainDocument(); return 0; }
       if (name === 'habillage' || name === 'charte') { await explainShell(catalog); return 0; }
+      if (name === 'apparence' || name === 'intentions') { explainAppearance(); return 0; }
       const proj = args[1] ? await projectCatalog(args[1], catalog) : null;
       if (proj?.project.composites?.[name]) { printComposite(proj.project.composites[name]); return 0; }
       // Un mot du vocabulaire (natif, du site ou d'un paquet) s'explique comme un composant : « sitec explain "carte de visite" <dossier> ».
@@ -841,6 +842,50 @@ function printCatalog(catalog, proj = null) {
   console.log(`\nFichiers attendus : site.yaml, pages/*.page.yaml, assets/ (images). Voir CLAUDE.md. En documents (site.md, pages/<id>.md) : sitec explain document.\nConfiguration du site (nav, thème, tokens, pied, coordonnées) : sitec explain site`);
 }
 
+/** L'apparence : où elle se dit, ce qu'elle vise, les intentions. */
+function explainAppearance() {
+  console.log(`# Apparence : des parties, des intentions
+
+L'apparence se dit « partie : intention, intention ». Elle s'écrit à trois endroits, avec les mêmes mots :
+
+  dans un composant    son bloc « apparence » (composant.md, « ## Apparence ») : toutes les sections de ce composant
+  dans le site         site › appearance: { composant: { partie: intentions } } ; en document, « ## Apparence » dans site.md puis
+                       une puce « - steps › cartes | sans fond, sans bordure » : toutes les sections de ce composant, dans ce site
+  dans une page        la prop appearance d'une section : { partie: intentions } ; en document, « Apparence : » sous l'intitulé
+                       de la section puis une puce « - conteneur | largeur 620px » : cette section-là seulement
+
+Dans une page, une ligne vide sépare les puces de l'apparence des puces de la section (ses éléments, la liste de son texte).
+
+Parties : « section » (la section entière), « conteneur » (la boîte qui tient son contenu), les primitives de la forme du composant
+(au singulier ou au pluriel : carte, cartes), ses noms donnés entre « », et les parties des mots qu'il emploie (liens du menu…).
+Hors du composant (site, page), une primitive que la forme n'a pas nommée se vise par son genre : ${Object.keys(GENERIC_PARTS).join(', ')}.
+Les parties d'un composant : sitec component show <dossier> <nom> ; une partie inconnue est refusée avec la liste.
+
+Écran : « sur téléphone » et « sur grand écran ». Dans un composant, un bloc « sur téléphone : » puis ses parties ; partout,
+sur la même ligne : « cartes, sur téléphone : une colonne » (dans une page : « - cartes, sur téléphone | une colonne »).
+
+Intentions du langage :
+  ${INTENT_NAMES.join(', ')}
+
+Intentions à valeur (mesure : un nombre et px, rem, em, %, vw, vh ou ch, ou 0, ou auto ; couleur : #hex, rgb(), rgba(), transparent,
+blanc, noir) :
+  ${VALUED_NAMES.join('\n  ')}
+
+Poser une partie sur une autre : la partie qui porte est « cadre » (ou « repère »), celle qui est posée « posé en bas », « posé en
+haut » ou « épinglé en haut à droite » ; « haut 72px », « droite 0 » la déplacent. Exemple, un titre sur une photo :
+  - vignette : cadre
+  - titre : posé en bas, voile sombre, espace intérieur 28px 12px
+
+Intentions du site : un site nomme les siennes, faites d'intentions du langage, et les emploie partout (pages, « ## Apparence » du
+site, composants du site). site › intentions: { colonne à droite: "largeur 540px, marge à gauche 45%" } ; en document, dans site.md :
+  ## Intentions
+  - colonne à droite | largeur 540px, marge à gauche 45%, à gauche
+  - colonne à droite, sur téléphone | sans marge, pleine largeur
+Une intention du site ne porte pas le nom d'une intention du langage et n'en emploie pas d'autre du site.
+
+Une variante (variants) ne change pas l'apparence. Un composant écrit en gabarit (sans bloc forme) règle la sienne dans styles.css.`);
+}
+
 /** L'habillage du site : ce qui entoure chaque page, et comment un site le récrit. */
 async function explainShell(catalog) {
   const plan = async n => { try { return (await fs.readFile(path.join(catalog.get(n).dir, 'composant.md'), 'utf8')).split(/^## Forme\s*$/m)[1].trim(); } catch { return ''; } };
@@ -897,6 +942,8 @@ ${Object.entries(THEME_PRESETS.clair).map(([k, v]) => `          ${k.padEnd(18)}
       .fonts: liste de { family*, file*, weight, style } — polices du site, fichiers woff2, woff, ttf ou otf de assets/ ; se nomment ensuite dans font.body et font.heading
       .background: objet { image, bottom, fixed, phone: { image, bottom } } — fond de page : une image de assets/ en haut, une autre en bas, ou une image fixe qui couvre l'écran ; phone pour un écran étroit
   (en-tête et pied de page : deux composants que le site peut récrire, sitec explain habillage)
+  appearance: objet { composant: { partie: intentions } } — apparence de toutes les sections d'un composant, dans ce site (sitec explain apparence)
+  intentions: objet { nom: intentions } — intentions nommées par le site, employées dans l'apparence comme celles du langage
   nav: liste de liens { label*, to* } — menu principal, dans l'ordre
   redirects: liste de { from*, to* } — anciennes adresses renvoyées vers une page (redirection permanente) : { from: /contact.html, to: /contact }
   footer: objet

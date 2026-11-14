@@ -27,7 +27,7 @@ export function collectSections(project, catalog, { all = false } = {}) {
         if (d > 3 || v == null) return;
         if (typeof v === 'string') { if (v.length > 2) texts.push(v); return; }
         if (Array.isArray(v)) return v.forEach(x => walk(x, d + 1));
-        if (typeof v === 'object') for (const [k, x] of Object.entries(v)) { if (['id', 'keywords', 'image', 'src', 'photo', 'to', 'slots', 'icon'].includes(k)) continue; walk(x, d + 1); }
+        if (typeof v === 'object') for (const [k, x] of Object.entries(v)) { if (['id', 'keywords', 'appearance', 'image', 'src', 'photo', 'to', 'slots', 'icon'].includes(k)) continue; walk(x, d + 1); }
       };
       walk(props);
       out.push({

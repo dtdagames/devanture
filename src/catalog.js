@@ -70,7 +70,7 @@ function lintManifest(name, schema, errors, p = 'props') {
  * rapporte), précédées de « ligne N : » quand la ligne du manifeste est connue ; details : [{ line, message }], même ordre.
  * words : mots du vocabulaire visibles depuis ce composant (Map), employés dans sa forme comme des primitives.
  */
-export function buildComponent({ name, shortName = null, pkg = null, dir, manifestText, files, project = false, words = null, documentText, lectureText, outlineText }) {
+export function buildComponent({ name, shortName = null, pkg = null, dir, manifestText, files, project = false, words = null, documentText, lectureText, outlineText, intentions = null }) {
   const details = [];
   // Format plan : composant.md, les lignes du format langage en puces. Le lecteur rend le manifeste et la ligne de chaque clé.
   let outline = null;
@@ -128,11 +128,13 @@ export function buildComponent({ name, shortName = null, pkg = null, dir, manife
   manifest.props.properties.id ??= { type: 'string', pattern: '^[a-z][a-z0-9-]*$', description: 'ancre : permet un lien vers /route#id ou #id (minuscules, chiffres, tirets)' };
   manifest.props.properties.keywords ??= { type: 'array', items: { type: 'string' }, description: 'mots ou questions que les visiteurs tapent pour trouver cette section (navigation par intention)' };
   manifest.props.properties.variants ??= { type: 'object', description: 'personnalisation : { nom_de_segment: { props surchargées } }, segments déclarés dans segments.yaml' };
+  manifest.props.properties.appearance ??= { type: 'object', description: 'apparence de cette section-là : { partie: intentions }, comme le bloc apparence d\'un composant (sitec explain apparence)' };
   manifest.intents ??= [];
   manifest.description ??= '';
   lintManifest(name, manifest.props, errors);
   // Fonctionnement (français contrôlé) : compilé vers les effets déclarés, avant la forme qui en lit les champs.
   const generated = {}, produced = {};
+  let look = null; // parties et classe de la section : ce que l'apparence d'une page ou du site peut viser
   let failedReads = [];
   let wordsCss = [];
   if (manifest.fonctionnement !== undefined) {
@@ -189,10 +191,11 @@ export function buildComponent({ name, shortName = null, pkg = null, dir, manife
     if (r.behaviors.size) manifest.behaviors = [...new Set([...(Array.isArray(manifest.behaviors) ? manifest.behaviors : []), ...r.behaviors])];
     if (r.css) files['styles.css'] = [files['styles.css'], r.css].filter(Boolean).join('\n');
     Object.assign(produced, { template: r.template, formeCss: r.css || '', parts: [...r.parts.keys()], formeLine: lineOf(at('forme')), words: [...r.usedWords] });
+    if (!r.errors.length) look = { parts: r.parts, sectionClass: r.sectionClass };
     // Feuilles des mots employés : émises une fois par site, pas une fois par composant.
     wordsCss = [...r.wordsCss].map(([id, w]) => ({ id, ...w }));
     if (manifest.apparence !== undefined) {
-      const a = compileApparence(manifest.apparence, { parts: r.parts, sectionClass: r.sectionClass });
+      const a = compileApparence(manifest.apparence, { parts: r.parts, sectionClass: r.sectionClass, custom: intentions });
       // Forme incomplète (un mot du vocabulaire en erreur) : ses parties manquent, l'apparence ne peut pas être jugée dessus.
       for (const e of a.errors) if (!(r.incomplete && /^partie inconnue/.test(e.message))) errors.push(`${e.path} : ${e.message}`, e.ref, at('apparence'));
       files['styles.css'] = [files['styles.css'], a.css].filter(Boolean).join('\n');
@@ -213,7 +216,7 @@ export function buildComponent({ name, shortName = null, pkg = null, dir, manife
     manifest.example = YAML.stringify(r.data.sections || [], { lineWidth: 0 });
   }
   // produced : ce que chaque bloc du langage a donné (gabarit, feuille de la forme, feuille de l'apparence), pour sitec component show.
-  return done({ name, dir, manifest, files, project, package: pkg, produced, wordsCss, ...(document ? { document } : {}), ...(outline ? { outline: true } : {}) });
+  return done({ name, dir, manifest, files, project, package: pkg, produced, wordsCss, look, ...(document ? { document } : {}), ...(outline ? { outline: true } : {}) });
 }
 
 const COMPONENT_FILES = ['template.php', 'template.html', 'styles.css', 'module.js'];
