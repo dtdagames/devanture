@@ -1,0 +1,36 @@
+name: comptoir
+description: "Le comptoir en un coup d'œil : produits triés par famille avec boutons de filtre, photo agrandissable, détail replié, numéro de commande à copier."
+données:
+  title: texte, facultatif — titre de la section
+  intro: texte, facultatif — phrase sous le titre
+  items (liste, au moins 1):
+    name: texte — nom du produit
+    category: texte — famille, sert de filtre (Pains, Viennoiseries…)
+    image: image, facultatif — photo, agrandie au clic
+    note: texte, facultatif — une ligne sous le nom
+    baked: texte, facultatif — heure de sortie du four (07:30)
+    detail: texte, facultatif — précisions, repliées
+  phone: texte, facultatif — numéro pour commander, avec un bouton pour le copier
+forme:
+  - en-tête: title, intro
+  - filtres de items, selon category, 4 colonnes, tout « Tout le comptoir »:
+      - carte:
+          - image, agrandissable: image, name
+          - titre: name
+          - texte discret: note
+          - sortie du four: baked
+          - si detail:
+              - repli, libellé « En savoir plus »:
+                  - texte: detail
+  - commande par téléphone: phone
+apparence:
+  cartes: compactes
+  comptoir-commande: en ligne, espace au-dessus
+example: |
+  - comptoir:
+      title: Au comptoir
+      items:
+        - { name: Tourte de meule, category: Pains, image: pains.svg, note: 500 g et 1 kg }
+        - { name: Croissant, category: Viennoiseries, detail: "Feuilleté à la main, pur beurre." }
+      phone: 02 40 00 00 00
+intents: [comptoir, produits, pains, viennoiseries, pâtisseries, filtrer, commander]

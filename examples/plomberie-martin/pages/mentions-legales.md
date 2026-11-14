@@ -1,0 +1,12 @@
+# Mentions légales · Plomberie Martin
+
+Adresse : /mentions-legales
+
+## Texte : Mentions légales
+Mots-clés : mentions légales, siret, raison sociale, éditeur du site, hébergeur, données personnelles, rgpd, confidentialité, suppression de mes données, directeur de publication
+Texte :
+Plomberie Martin SARL, 14 rue des Canuts, 69004 Lyon. SIRET 812 345 678 00012. Capital social 20 000 €. Directrice de publication : Claire Martin.
+
+Hébergement : OVH SAS, 2 rue Kellermann, 59100 Roubaix.
+
+Les données saisies dans le formulaire de contact servent uniquement à répondre à votre demande et sont conservées 12 mois. Vous pouvez demander leur suppression à contact@plomberie-martin.fr.

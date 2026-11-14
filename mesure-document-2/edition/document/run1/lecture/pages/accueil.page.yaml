@@ -1,0 +1,76 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+route: /
+seo:
+  title: Garnier & Associés, avocats à Bordeaux
+  description: "Cabinet d'avocats à Bordeaux : droit du travail, droit des affaires, droit de la famille. Première consultation de 30 minutes offerte."
+sections:
+  - hero:
+      title: Des avocats à votre écoute, à Bordeaux
+      subtitle: "Droit du travail, droit des affaires, droit de la famille : un accompagnement clair et personnalisé depuis 2011."
+      image: hero.svg
+      cta:
+        label: Prendre rendez-vous
+        to: /contact
+      secondary:
+        label: Nos honoraires
+        to: /honoraires
+  - features:
+      title: Trois domaines, trois associés
+      intro: Chaque dossier est suivi par l'associé spécialiste de la matière concernée.
+      columns: 3
+      items:
+        - icon: tools
+          title: Droit du travail
+          text: Licenciement, rupture conventionnelle, harcèlement, contentieux prud'homal, pour salariés comme pour employeurs.
+          link:
+            label: En savoir plus
+            to: /domaines
+        - icon: check
+          title: Droit des affaires
+          text: Création et contrat de société, baux commerciaux, litiges entre associés, recouvrement de créances.
+          link:
+            label: En savoir plus
+            to: /domaines
+        - icon: heart
+          title: Droit de la famille
+          text: Divorce, garde des enfants, pension alimentaire, succession et protection des proches.
+          link:
+            label: En savoir plus
+            to: /domaines
+  - stats:
+      items:
+        - value: "2011"
+          label: année de fondation
+        - value: "3"
+          label: avocats associés
+        - value: "3"
+          label: villes d'intervention
+        - value: 30 min
+          label: de première consultation offerte
+  - richtext:
+      title: Un cabinet à taille humaine
+      text: |-
+        Installé cours de l'Intendance, au cœur de Bordeaux, le cabinet Garnier & Associés accompagne particuliers, dirigeants et salariés dans leurs démarches juridiques et leurs litiges.
+
+        Nous privilégions l'écoute, la transparence sur la stratégie envisagée et la maîtrise des coûts. Une convention d'honoraires est établie dès le départ pour chaque dossier.
+      image: cabinet.svg
+      image_position: left
+      cta:
+        label: Découvrir le cabinet
+        to: /cabinet
+  - faq:
+      title: Questions fréquentes
+      items:
+        - q: Combien coûte la première consultation ?
+          a: Elle est offerte et dure 30 minutes, au cabinet ou en visioconférence.
+        - q: Intervenez-vous en dehors de Bordeaux ?
+          a: Oui, à Libourne et Arcachon, et devant toutes les juridictions de la cour d'appel de Bordeaux.
+        - q: Comment sont fixés les honoraires ?
+          a: Au forfait ou au temps passé, toujours dans une convention d'honoraires signée avant toute intervention.
+  - cta:
+      title: Une question juridique ?
+      text: Votre première consultation de 30 minutes est offerte.
+      button:
+        label: Nous contacter
+        to: /contact

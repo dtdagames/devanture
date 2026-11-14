@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mesure avec des agents, après correction</title>
+<style>
+  :root { --bg:#fff; --bg-soft:#f6f7f9; --fg:#1b1f24; --fg-muted:#5b6470; --accent:#1f3a5f; --accent-soft:#e8eef6; --border:#d9dee5; --code-bg:#f1f3f6; --ok-bg:#e7f5ec; --ok-border:#5aa36f; --warn-bg:#fff6e0; --warn-border:#e8c46a; --bar:#1f3a5f; --bar2:#8aa3c4; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0f1216; --bg-soft:#161b22; --fg:#e6e9ee; --fg-muted:#9aa4b1; --accent:#8fb4e3; --accent-soft:#1b2a3f; --border:#2a323d; --code-bg:#161b22; --ok-bg:#12301c; --ok-border:#3c8a52; --warn-bg:#2b2410; --warn-border:#8a6d1f; --bar:#8fb4e3; --bar2:#3b5676; } }
+  :root[data-theme="dark"] { --bg:#0f1216; --bg-soft:#161b22; --fg:#e6e9ee; --fg-muted:#9aa4b1; --accent:#8fb4e3; --accent-soft:#1b2a3f; --border:#2a323d; --code-bg:#161b22; --ok-bg:#12301c; --ok-border:#3c8a52; --warn-bg:#2b2410; --warn-border:#8a6d1f; --bar:#8fb4e3; --bar2:#3b5676; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:32px 16px 80px; }
+  header { border-bottom:1px solid var(--border); padding-bottom:20px; margin-bottom:28px; }
+  header h1 { font-size:1.8rem; line-height:1.25; margin:0 0 8px; }
+  header p.meta { color:var(--fg-muted); margin:0; }
+  h2 { font-size:1.4rem; margin:44px 0 12px; padding-top:8px; border-top:1px solid var(--border); }
+  p { margin:0 0 14px; } ul, ol { margin:0 0 14px; padding-left:24px; } li { margin-bottom:5px; }
+  code { font:.9em/1.5 ui-monospace,"Cascadia Code",Consolas,monospace; background:var(--code-bg); padding:1px 5px; border-radius:4px; }
+  pre { background:var(--code-bg); border:1px solid var(--border); border-radius:8px; padding:12px 14px; overflow-x:auto; margin:0 0 18px; }
+  pre code { background:none; padding:0; font-size:.82rem; }
+  table { width:100%; border-collapse:collapse; margin:0 0 20px; font-size:.93rem; }
+  th, td { text-align:left; vertical-align:top; padding:8px 10px; border:1px solid var(--border); }
+  th { background:var(--bg-soft); font-weight:600; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  tr.dsl td { background:var(--accent-soft); }
+  .table-wrap { overflow-x:auto; margin-bottom:20px; }
+  .verdict { background:var(--accent-soft); border-left:4px solid var(--accent); padding:14px 18px; border-radius:0 8px 8px 0; margin-bottom:18px; }
+  .box { border-radius:8px; padding:12px 16px; margin:0 0 18px; border:1px solid; }
+  .ok { background:var(--ok-bg); border-color:var(--ok-border); } .warn { background:var(--warn-bg); border-color:var(--warn-border); }
+  .bars { margin:0 0 22px; }
+  .bar-row { display:grid; grid-template-columns:200px 1fr 90px; gap:10px; align-items:center; margin-bottom:6px; font-size:.92rem; }
+  .bar-row .track { background:var(--bg-soft); border:1px solid var(--border); border-radius:4px; height:18px; overflow:hidden; position:relative; }
+  .bar-row .fill { height:100%; background:var(--bar2); }
+  .bar-row.dsl .fill { background:var(--bar); }
+  .bar-row .range { position:absolute; top:3px; height:12px; border-left:2px solid #c0392b; border-right:2px solid #c0392b; }
+  .bar-row .n { text-align:right; font-variant-numeric:tabular-nums; }
+  .legend { font-size:.85rem; color:var(--fg-muted); margin:-10px 0 18px; }
+  @media (max-width:640px) { header h1 { font-size:1.45rem; } .bar-row { grid-template-columns:1fr; gap:2px; } .bar-row .n { text-align:left; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+<h1>Écrire un site en documents : la mesure refaite après deux corrections</h1>
+<p class="meta">Devanture · 14 novembre 2026 · six agents Sonnet sans contexte, trois par case · <code>mesure-document-3/</code></p>
+</header>
+
+<h2>1. Verdict</h2>
+<div class="verdict">
+<p><strong>Après les corrections, un agent ne dépense plus davantage en documents qu'en YAML ; il ne dépense pas moins non plus.</strong> Tokens produits : -4 % à la création, -1 % aux éditions. Tokens traités : +7 % et -11 %. Avec trois essais par case, ces écarts sont dans le bruit.</p>
+<p>Les six essais passent <code>check</code> du premier coup. Avant les corrections, cinq essais en documents sur six demandaient une correction, et la dépense était supérieure à celle du YAML (tokens traités +22 % et +42 %).</p>
+</div>
+<p>Ce qui reste acquis aux documents est la taille du texte : 27 % de tokens de source en moins à la création, 23 % après les éditions.</p>
+
+<h2>2. Ce qui a été corrigé</h2>
+<div class="table-wrap"><table>
+<tr><th>Cause relevée par la mesure précédente</th><th>Correction</th></tr>
+<tr><td>Deux commandes après chaque modification : <code>lire --accepter</code>, puis <code>check</code>.</td><td><code>check &lt;dossier&gt; --accepter</code> relit les documents modifiés, fige leur lecture et vérifie. Il dit ce qu'il accepte : une ligne par document, avec les lignes retirées et ajoutées.</td></tr>
+<tr><td>Une phrase d'un texte libre qui commence par « Mot : » était refusée (« Éditeur : … », « Profil : … »).</td><td>Dans un texte long (le texte d'un composant Texte), elle est lue comme du texte quand le mot ne ressemble à aucune donnée et que la suite fait plusieurs mots. La règle reste entière ailleurs : sous-titre, nom proche d'une donnée, suite d'un seul mot, lien.</td></tr>
+<tr><td>Une icône inconnue était lue comme un texte, et l'erreur tombait sur une autre ligne.</td><td>Elle est refusée à sa ligne, avec la liste des icônes.</td></tr>
+<tr><td>Le mode d'emploi ne disait pas comment écrire un jeton de thème en document.</td><td>Une ligne d'exemple, avec la même valeur neutre que le mode d'emploi YAML.</td></tr>
+</table></div>
+<p>Les quatre changements sont mesurés ensemble : la mesure ne dit pas la part de chacun.</p>
+
+<h2>3. Création d'un site depuis un brief</h2>
+<div class="table-wrap"><table>
+<tr><th>Moyenne de trois essais</th><th class="num">YAML</th><th class="num">Documents, avant<br><span class="legend">écart avec le YAML</span></th><th class="num">Documents, après<br><span class="legend">écart avec le YAML</span></th></tr>
+<tr><td>Source du site à la fin, en tokens</td><td class="num">1 959</td><td class="num">1 521<br><span class="legend">-22 %</span></td><td class="num">1 438<br><span class="legend">-27 %</span></td></tr>
+<tr><td>Tokens écrits dans les fichiers<br><span class="legend">corrections comprises</span></td><td class="num">1 959</td><td class="num">1 827<br><span class="legend">-7 %</span></td><td class="num">1 445<br><span class="legend">-26 %</span></td></tr>
+<tr><td>Tokens produits par l'agent</td><td class="num">5 186</td><td class="num">5 658<br><span class="legend">+9 %</span></td><td class="num">4 997<br><span class="legend">-4 %</span></td></tr>
+<tr><td>Tokens traités<br><span class="legend">relectures du contexte comprises</span></td><td class="num">597 033</td><td class="num">726 706<br><span class="legend">+22 %</span></td><td class="num">635 853<br><span class="legend">+7 %</span></td></tr>
+<tr><td>Tours</td><td class="num">7</td><td class="num">8<br><span class="legend">+14 %</span></td><td class="num">7<br><span class="legend">0 %</span></td></tr>
+<tr><td>Appels d'outils</td><td class="num">13</td><td class="num">15<br><span class="legend">+15 %</span></td><td class="num">12<br><span class="legend">-8 %</span></td></tr>
+<tr><td>Lancements de check</td><td class="num">1</td><td class="num">2 et 2 lire</td><td class="num">1</td></tr>
+<tr><td>Essais réussis<br><span class="legend">check, build, banc</span></td><td class="num">3/3</td><td class="num">3/3</td><td class="num">3/3</td></tr>
+</table></div>
+
+<h2>4. Quatre modifications sur un site existant</h2>
+<div class="table-wrap"><table>
+<tr><th>Moyenne de trois essais</th><th class="num">YAML</th><th class="num">Documents, avant<br><span class="legend">écart avec le YAML</span></th><th class="num">Documents, après<br><span class="legend">écart avec le YAML</span></th></tr>
+<tr><td>Source du site à la fin, en tokens</td><td class="num">3 132</td><td class="num">2 425<br><span class="legend">-23 %</span></td><td class="num">2 419<br><span class="legend">-23 %</span></td></tr>
+<tr><td>Tokens écrits dans les fichiers<br><span class="legend">corrections comprises</span></td><td class="num">518</td><td class="num">395<br><span class="legend">-24 %</span></td><td class="num">381<br><span class="legend">-26 %</span></td></tr>
+<tr><td>Tokens produits par l'agent</td><td class="num">3 232</td><td class="num">3 612<br><span class="legend">+12 %</span></td><td class="num">3 190<br><span class="legend">-1 %</span></td></tr>
+<tr><td>Tokens traités<br><span class="legend">relectures du contexte comprises</span></td><td class="num">573 659</td><td class="num">817 045<br><span class="legend">+42 %</span></td><td class="num">511 061<br><span class="legend">-11 %</span></td></tr>
+<tr><td>Tours</td><td class="num">7</td><td class="num">9<br><span class="legend">+29 %</span></td><td class="num">6<br><span class="legend">-14 %</span></td></tr>
+<tr><td>Appels d'outils</td><td class="num">15</td><td class="num">17<br><span class="legend">+13 %</span></td><td class="num">14<br><span class="legend">-7 %</span></td></tr>
+<tr><td>Lancements de check</td><td class="num">1</td><td class="num">1 et 2 lire</td><td class="num">1</td></tr>
+<tr><td>Essais réussis<br><span class="legend">check, build, banc</span></td><td class="num">3/3</td><td class="num">3/3</td><td class="num">3/3</td></tr>
+</table></div>
+
+<h2>5. Les six essais refaits</h2>
+<div class="table-wrap"><table>
+<tr><th>Essai</th><th class="num">Banc</th><th class="num">Sections</th><th class="num">Source</th><th class="num">Écrits</th><th class="num">Produits</th><th class="num">Traités</th><th class="num">Tours</th><th class="num">check</th></tr>
+<tr class="dsl"><td>creation/document/run1</td><td class="num">50/50</td><td class="num">22</td><td class="num">1 491</td><td class="num">1 491</td><td class="num">4 816</td><td class="num">539 475</td><td class="num">6</td><td class="num">1</td></tr>
+<tr class="dsl"><td>creation/document/run2</td><td class="num">50/50</td><td class="num">22</td><td class="num">1 374</td><td class="num">1 395</td><td class="num">4 937</td><td class="num">631 398</td><td class="num">7</td><td class="num">1</td></tr>
+<tr class="dsl"><td>creation/document/run3</td><td class="num">50/50</td><td class="num">22</td><td class="num">1 450</td><td class="num">1 450</td><td class="num">5 238</td><td class="num">736 686</td><td class="num">8</td><td class="num">1</td></tr>
+<tr class="dsl"><td>edition/document/run1</td><td class="num">28/28</td><td class="num">29</td><td class="num">2 419</td><td class="num">378</td><td class="num">2 751</td><td class="num">510 528</td><td class="num">6</td><td class="num">1</td></tr>
+<tr class="dsl"><td>edition/document/run2</td><td class="num">28/28</td><td class="num">29</td><td class="num">2 419</td><td class="num">388</td><td class="num">3 251</td><td class="num">603 483</td><td class="num">7</td><td class="num">1</td></tr>
+<tr class="dsl"><td>edition/document/run3</td><td class="num">28/28</td><td class="num">29</td><td class="num">2 419</td><td class="num">378</td><td class="num">3 567</td><td class="num">419 172</td><td class="num">5</td><td class="num">1</td></tr>
+</table></div>
+<p class="legend">Source, écrits, produits, traités : en tokens. Banc : 50 contrôles sur le site compilé pour une création, 28 sur les quatre modifications pour une édition.</p>
+<p>Trois agents signalent que leur phrase « Profil : … » ou « Éditeur du site : … » a été acceptée comme du texte, ce qu'ils attendaient. Un agent avait écrit une icône inconnue et l'a corrigée de lui-même avant <code>check</code> : le nouveau refus n'a donc pas été mis à l'épreuve par ces essais.</p>
+
+<h2>6. Limites</h2>
+<ul>
+<li>Seuls les essais en documents sont refaits. Les essais en YAML sont ceux de la passe précédente, faite le même jour avec le même modèle : rien n'a changé pour eux dans le compilateur, mais ils n'ont pas tourné en même temps.</li>
+<li>Trois essais par case. À la création en documents, les tokens traités vont de 539 475 à 736 686 ; en YAML, de 536 612 à 628 459. Un écart de quelques pour cent ne se lit pas dans un sens ou dans l'autre.</li>
+<li>Un seul brief, un seul modèle, un seul outil ; le contexte de départ d'un sous-agent (66 000 tokens) pèse sur les tokens traités.</li>
+<li>Les durées ne sont pas comparées : douze agents tournaient ensemble la première fois, six cette fois-ci.</li>
+<li>La règle assouplie laisse passer plus de texte qu'avant : un réglage mal nommé, dans un texte long, dont le nom ne ressemble à aucune donnée et dont la valeur fait plusieurs mots serait lu comme une phrase. La lecture figée le montre ; aucun essai n'a rencontré ce cas.</li>
+</ul>
+
+<h2>7. Reproduire</h2>
+<pre><code>node scripts/measure-documents-agents-2.mjs --dossier mesure-document-3 --preparer --formats document --une-commande --reference mesure-document-2
+# lancer un agent par fichier de mesure-document-3/consignes/&lt;tâche&gt;-document-run&lt;n&gt;.txt, noter leurs identifiants dans agents.json
+node scripts/measure-documents-agents-2.mjs --dossier mesure-document-3 --releve
+node scripts/measure-documents-agents-2.mjs --dossier mesure-document-3</code></pre>
+<p>La passe précédente, avec les essais en YAML : <code>docs/rapports/RAPPORT-MESURE-AGENTS-2.html</code> et <code>mesure-document-2/</code>.</p>
+</div>
+</body>
+</html>

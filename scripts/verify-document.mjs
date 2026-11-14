@@ -25,7 +25,7 @@ const ok = (n, pass, detail = '') => { checks.push({ name: n, pass: !!pass, deta
 const run = (...args) => { try { return { code: 0, out: execFileSync(process.execPath, [SITEC, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }) }; } catch (e) { return { code: e.status ?? 1, out: (e.stdout || '') + (e.stderr || '') }; } };
 const jsonLines = out => out.split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
 const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'sitec-document-'));
-const copy = async name => { const d = path.join(tmp, name); await fs.cp(path.join(ROOT, 'examples', 'le-fournil'), d, { recursive: true, filter: s => !/[\\/](dist|node_modules)([\\/]|$)/.test(s) }); return d; };
+const copy = async name => { const d = path.join(tmp, name); await fs.cp(path.join(ROOT, 'scripts', 'reference', 'exemples-yaml', 'le-fournil'), d, { recursive: true, filter: s => !/[\\/](dist|node_modules)([\\/]|$)/.test(s) }); return d; };
 const walk = async d => (await fs.readdir(d, { withFileTypes: true, recursive: true })).filter(e => e.isFile()).map(e => path.relative(d, path.join(e.parentPath ?? e.path, e.name)).split(path.sep).join('/'));
 
 // Un document de base : champs et registre dits ; chaque essai y ajoute une phrase (ligne 7).

@@ -3,11 +3,12 @@ import path from 'node:path';
 import YAML from 'yaml';
 import { err } from './errors.js';
 import { readComponentDir, loadCatalog } from './catalog.js';
-import { readSiteDocument, readPageDocument, componentSchemas, baseOf, readDataDocument, PRODUCTS, collectionData, readSegmentsDocument } from './lang/site-document.js';
+import { readSiteDocument, readPageDocument, componentSchemas, baseOf, readDataDocument, PRODUCTS, collectionData, readSegmentsDocument, readPackageDocument } from './lang/site-document.js';
 import { EVENTS } from './segments.js';
 import { readingDiff } from './lang/document.js';
 import { THEME_PRESETS } from './emit/php/css.js';
 import { SITE_SCHEMA } from './validate.js';
+import { readCompositesDocument, readCompositeSections } from './lang/composites-document.js';
 
 const LIRE = 'sitec lire <dossier> redit ce que le compilateur comprend et ce qui a changé ; --accepter fige cette lecture';
 /** Erreurs d'un document (site.md, pages/<id>.md) et de sa lecture figée (lecture/…), au format des erreurs de chargement. */
@@ -100,14 +101,29 @@ export async function loadProject(root, { catalog = null } = {}) {
     project.collections[name] = { file, raw, items: [], spec: null };
   }
 
-  // Composants composés du projet (optionnel) : components.yaml.
+  // Composants composés du projet (optionnel) : components.yaml, ou components.md, écrit en document.
   project.componentsFile = path.join(root, 'components.yaml');
   project.componentsRaw = null;
   try { await fs.access(project.componentsFile); project.componentsRaw = await readYaml(project.componentsFile, project.loadErrors) ?? null; } catch { /* pas de composants composés */ }
+  // Un fichier de composés en document se lit en deux passes : ses paramètres ici (ils disent les données de chaque composé),
+  // ses sections plus bas, une fois connues les données de tous les composants. Sa lecture est figée dans lecture/components.yaml.
+  const compositeDocs = [];
+  const compositesDocument = async (dir, pkg = null) => {
+    const file = path.join(dir, 'components.md'), source = await text(file);
+    if (source === undefined) return null;
+    if (await text(path.join(dir, 'components.yaml')) !== undefined) { project.loadErrors.push(err('E_DOCUMENT', { file, path: '', message: 'components.md et components.yaml à la fois : les composés n\'ont qu\'une source.' })); return null; }
+    const doc = Object.assign(readCompositesDocument(source), { file, text: source, frozenFile: path.join(dir, 'lecture', 'components.yaml'), pkg });
+    compositeDocs.push(doc);
+    return doc;
+  };
+  { const doc = await compositesDocument(root); if (doc) { project.componentsFile = doc.file; project.componentsRaw = doc.raw; } }
 
   // Vocabulaire du projet (optionnel) : vocabulaire.yaml, des mots nouveaux pour la forme des composants. Lu en texte : ses erreurs renvoient à la ligne.
   project.vocabFile = path.join(root, 'vocabulaire.yaml');
   project.vocabText = await fs.readFile(project.vocabFile, 'utf8').catch(() => null);
+  // Le même vocabulaire écrit en document : vocabulaire.md (l'un ou l'autre).
+  { const md = await fs.readFile(path.join(root, 'vocabulaire.md'), 'utf8').catch(() => null);
+    if (md !== null) { if (project.vocabText !== null) project.loadErrors.push(err('E_WORD', { file: path.join(root, 'vocabulaire.md'), path: '', message: 'vocabulaire.md et vocabulaire.yaml à la fois : un vocabulaire n\'a qu\'une source.' })); project.vocabFile = path.join(root, 'vocabulaire.md'); project.vocabText = md; project.vocabOutline = true; } }
 
   // Composants de projet (gabarit neutre) : components/<nom>/manifest.yaml + template.html (+ styles.css, module.js).
   project.componentSources = [];
@@ -122,11 +138,22 @@ export async function loadProject(root, { catalog = null } = {}) {
     const local = /^(\.{1,2}[\\/]|[\\/]|[A-Za-z]:)/.test(spec);
     const dir = local ? path.resolve(root, spec) : path.join(root, 'node_modules', spec);
     const pkg = { spec, dir, local, file: path.join(dir, 'package.yaml'), meta: null, componentSources: [], compositesRaw: null, compositesFile: path.join(dir, 'components.yaml'), vocabFile: path.join(dir, 'vocabulaire.yaml'), vocabText: null, missing: false };
+    // Le paquet se décrit dans package.yaml, ou en document dans package.md (« # nom », description, « Version : … »).
+    const pkgMd = await fs.readFile(path.join(dir, 'package.md'), 'utf8').catch(() => null);
+    if (pkgMd !== null && await fs.access(pkg.file).then(() => false, () => true)) {
+      pkg.file = path.join(dir, 'package.md');
+      const r = readPackageDocument(pkgMd);
+      for (const e of r.errors) project.loadErrors.push(err('E_DOCUMENT', { file: pkg.file, path: e.line ? `ligne ${e.line}` : '', message: e.message + (/[.?!…»]$/.test(e.message) ? '' : '.') }));
+      pkg.meta = r.data;
+    } else {
     try { await fs.access(pkg.file); } catch { pkg.missing = true; project.packages.push(pkg); continue; }
     pkg.meta = await readYaml(pkg.file, project.loadErrors) ?? null;
+    }
     try { for (const d of await fs.readdir(path.join(dir, 'components'), { withFileTypes: true })) if (d.isDirectory() && !d.name.startsWith('.')) { const src = await readComponentDir(path.join(dir, 'components', d.name)); if (src) pkg.componentSources.push(src); } } catch { /* pas de composants à gabarit */ }
     pkg.vocabText = await fs.readFile(pkg.vocabFile, 'utf8').catch(() => null);
+    { const md = await fs.readFile(path.join(dir, 'vocabulaire.md'), 'utf8').catch(() => null); if (md !== null && pkg.vocabText === null) { pkg.vocabFile = path.join(dir, 'vocabulaire.md'); pkg.vocabText = md; pkg.vocabOutline = true; } }
     try { await fs.access(pkg.compositesFile); pkg.compositesRaw = await readYaml(pkg.compositesFile, project.loadErrors) ?? null; } catch { /* pas de composés */ }
+    { const doc = await compositesDocument(dir, pkg); if (doc) { pkg.compositesFile = doc.file; pkg.compositesRaw = doc.raw; } }
     project.packages.push(pkg);
   }
 
@@ -147,8 +174,18 @@ export async function loadProject(root, { catalog = null } = {}) {
 
   // Pages écrites comme des documents (pages/<id>.md) : lues d'après les données que chaque composant déclare, donc après
   // les composants du site et des paquets. Elles prennent le rang qu'aurait leur .page.yaml.
+  // Composés écrits en document : leurs sections se lisent maintenant, comme celles d'une page.
+  let knownSchemas = null;
+  if (compositeDocs.length) {
+    knownSchemas = componentSchemas(project, catalog || await loadCatalog());
+    for (const doc of compositeDocs) {
+      readCompositeSections(doc, { schemas: knownSchemas, prefix: typeof doc.pkg?.meta?.name === 'string' ? doc.pkg.meta.name : null });
+      doc.frozen = await text(doc.frozenFile);
+      project.documents.data.push(doc); documentErrors(doc, project.loadErrors);
+    }
+  }
   if (pageDocs.length) {
-    const schemas = componentSchemas(project, catalog || await loadCatalog());
+    const schemas = knownSchemas || componentSchemas(project, catalog || await loadCatalog());
     // Une page dérivée (« Dérive de : accueil ») se lit après sa page de base, dont elle remplace des sections.
     const sources = []; for (const f of pageDocs) sources.push({ f, source: await text(path.join(pagesDir, f)) ?? '' });
     const pageOf = id => project.pages.find(p => p.id === id)?.data || null;

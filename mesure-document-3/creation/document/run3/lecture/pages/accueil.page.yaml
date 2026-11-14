@@ -1,0 +1,52 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+route: /
+seo:
+  title: Cabinet Garnier & Associés, avocats à Bordeaux
+  description: Avocats en droit du travail, des affaires et de la famille à Bordeaux, Libourne et Arcachon.
+sections:
+  - hero:
+      title: Des avocats à vos côtés à Bordeaux
+      subtitle: "Droit du travail, droit des affaires, droit de la famille : première consultation de 30 minutes offerte."
+      image: hero.svg
+      cta:
+        label: Prendre rendez-vous
+        to: /contact
+      secondary:
+        label: Nos domaines
+        to: /domaines
+  - features:
+      title: Trois domaines d'intervention
+      columns: 3
+      items:
+        - icon: scale
+          title: Droit du travail
+          text: Me Hélène Garnier vous conseille et vous défend.
+        - icon: euro
+          title: Droit des affaires
+          text: Me Thomas Ruiz accompagne vos projets et vos litiges.
+        - icon: users
+          title: Droit de la famille
+          text: Me Inès Kaddour vous accompagne dans les moments sensibles.
+  - stats:
+      title: Le cabinet en bref
+      items:
+        - value: "2011"
+          label: année de fondation
+        - value: "3"
+          label: avocats associés
+        - value: 30 min
+          label: de première consultation offerte
+  - richtext:
+      title: Un cabinet à taille humaine
+      text: |-
+        Fondé en 2011, le cabinet Garnier & Associés réunit trois associés, deux collaboratrices et une assistante autour d'une même exigence : écouter, expliquer, défendre.
+
+        Nous intervenons à Bordeaux, Libourne et Arcachon, avec une convention d'honoraires systématique pour que tout soit clair dès le départ.
+      image: cabinet.svg
+  - cta:
+      title: Parlons de votre situation
+      text: La première consultation de 30 minutes est offerte.
+      button:
+        label: Nous contacter
+        to: /contact

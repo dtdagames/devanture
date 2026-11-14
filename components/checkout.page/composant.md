@@ -1,0 +1,37 @@
+# checkout.page
+
+Commande : récapitulatif du panier, coordonnées de livraison, validation. Paiement selon site.shop.payment (manual = à réception / virement, stripe = Stripe Checkout). Une seule par site.
+
+Ordre : 114
+Mots-clés : commander, payer, finaliser, livraison
+
+## Données
+- title : texte, facultatif — défaut « Finaliser ma commande »
+- intro : texte, facultatif
+- notes_label : texte, facultatif — libellé du champ libre (défaut « Précisions pour la livraison »)
+
+## Fonctionnement
+> Ce que le composant lit à chaque visite : le panier et l'état du formulaire de commande. La commande elle-même
+> (validation, réserve de stock, enregistrement, paiement, e-mail) est faite par la cible quand le formulaire revient.
+- lit :
+  - panier : panier du visiteur
+  - saisie : saisie de la commande, précisions notes_label
+
+## Forme
+section « checkout » :
+- événement de début de commande
+- titre principal : {{ title | default("Finaliser ma commande") }}
+- texte discret : intro
+- si panier.empty :
+  - texte discret : « Votre panier est vide. »
+  - bouton : panier.cart
+- sinon :
+  - bloc « checkout-inner » :
+    - formulaire de commande : saisie
+    - récapitulatif du panier : panier
+
+## Exemple
+```
+## checkout.page
+Livraison en 48 h ouvrées, offerte dès 50 €.
+```

@@ -12,9 +12,11 @@
 //      (E_READING) jusqu'à « sitec lire <dossier> --accepter ».
 // Ce qui ne se dit pas en lignes (variantes, groupes libres, collections) s'écrit dans un bloc ```yaml du document.
 import YAML from 'yaml';
+import { sourceSchema } from './sources.js';
 import { compileDonnees } from './donnees.js';
 import { readDocument } from './document.js';
 import { parseFieldSpec } from './fonctionnement.js';
+import { parseComponentOutline } from './outline.js';
 
 const norm = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[’`]/g, "'").replace(/\s+/g, ' ').trim();
 function lev(a, b) { const d = Array.from({ length: a.length + 1 }, (_, i) => [i]); for (let j = 1; j <= b.length; j++) d[0][j] = j; for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[a.length][b.length]; }
@@ -33,7 +35,7 @@ export const PROP_NAMES = {
   fields: 'champs', required: 'obligatoires', success: 'confirmation', members: 'membres', address: 'adresse', access: 'accès',
   limit: 'limite', sort: 'tri', days: 'jours', groups: 'groupes', icon: 'icône', tone: 'ton', label: 'libellé', value: 'valeur',
   q: 'question', a: 'réponse', name: 'nom', role: 'rôle', src: 'fichier', caption: 'légende', price: 'prix', badge: 'mention',
-  back: 'retour', unit: 'unité', variants: 'variantes', filter: 'filtre', category: 'catégorie', featured: 'vedette', priority: 'priorité', goals: 'objectifs', experiments: 'expériences', goal: 'objectif', arms: 'bras', holdout: 'témoin', event: 'événement', where: 'où', constants: 'constantes', enabled: 'actif', currency: 'devise', payment: 'paiement', summary: 'résumé', quality: 'qualité', widths: 'largeurs', business_type: "type d'activité", manual_instructions: 'instructions de paiement', order_email: 'e-mail des commandes', short_name: 'nom court', theme_color: 'couleur du thème', requires_consent: 'consentement requis', consent_text: 'texte du consentement', title_field: 'champ du titre', placeholder: 'invite', timezone: 'fuseau', closed: 'fermé', slots: 'plages', day: 'jour', id: 'ancre', keywords: 'mots-clés', empty: 'vide',
+  back: 'retour', unit: 'unité', variants: 'variantes', filter: 'filtre', category: 'catégorie', featured: 'vedette', project: 'projet', domain: 'domaine', aliases: 'alias', priority: 'priorité', goals: 'objectifs', experiments: 'expériences', goal: 'objectif', arms: 'bras', holdout: 'témoin', event: 'événement', where: 'où', constants: 'constantes', enabled: 'actif', currency: 'devise', payment: 'paiement', summary: 'résumé', quality: 'qualité', widths: 'largeurs', business_type: "type d'activité", manual_instructions: 'instructions de paiement', order_email: 'e-mail des commandes', short_name: 'nom court', theme_color: 'couleur du thème', requires_consent: 'consentement requis', consent_text: 'texte du consentement', title_field: 'champ du titre', placeholder: 'invite', timezone: 'fuseau', closed: 'fermé', slots: 'plages', day: 'jour', id: 'ancre', keywords: 'mots-clés', empty: 'vide',
 };
 /** Valeurs d'un choix dites en français. */
 const VALUE_NAMES = { gauche: 'left', droite: 'right', centre: 'center', 'centré': 'center' };
@@ -48,6 +50,8 @@ const FILE = /^[\w./-]+\.(svg|png|jpe?g|webp|gif|avif)$/i;
 // Ce qu'une donnée attend, lu dans son schéma.
 
 /** Genre d'une donnée : text, number, bool, enum, image, link, list (avec item), group, free. */
+/** Marque d'un texte long (« texte long » dans les données d'un composant) : un texte en paragraphes. */
+const LONG_MARK = 'texte long';
 export function kindOf(s) {
   if (!s || typeof s !== 'object') return { k: 'text' };
   if (s.$comment === FIELD_MARK) return { k: 'field' };
@@ -60,7 +64,7 @@ export function kindOf(s) {
   if (t === 'boolean') return { k: 'bool' };
   if (t === 'string' && s.format === 'asset') return { k: 'image' };
   if (t === undefined && !s.format) return { k: 'free' };
-  return { k: 'text', plain: !s.format && !s.pattern };
+  return { k: 'text', plain: !s.format && !s.pattern, long: s.$comment === LONG_MARK };
 }
 
 /** Lien écrit « Libellé → /cible » (ou « -> », ou [Libellé](/cible)). */
@@ -81,9 +85,21 @@ const toBool = raw => { const r = norm(raw); return ['oui', 'true', 'vrai'].incl
 const scalarOf = raw => { const s = String(raw).trim(); if (/^(oui|non)$/i.test(s)) return /^oui$/i.test(s); if (/^-?\d+(\.\d+)?$/.test(s) && String(Number(s)) === s) return Number(s); return s; };
 const freeText = v => (typeof v === 'boolean' ? (v ? 'oui' : 'non') : typeof v === 'number' ? (scalarOf(String(v)) === v ? String(v) : null) : typeof v === 'string' && v.trim() === v && v !== '' && !/\n| \| /.test(v) && scalarOf(v) === v ? v : null);
 
+/** Une valeur faite d'une seule expression : « {{ p.cta }} ». Sa valeur n'est connue qu'à la compilation. */
+const EXPR = /^\{\{[^{}]+\}\}$/;
+const exprFor = kind => ['link', 'number', 'bool', 'enum'].includes(kind.k) || (kind.k === 'list' && ['group', 'link'].includes(kind.item.k));
+
+// Dans les sections d'un composant composé, une puce « pour chaque x de liste : … » produit un élément par valeur de la liste.
+let LOOPS = false;
+/** Lit ou écrit avec les boucles « pour chaque » permises (sections d'un composé). */
+export const withLoops = fn => { const was = LOOPS; LOOPS = true; try { return fn(); } finally { LOOPS = was; } };
+const LOOP = /^pour chaque\s+([a-z][a-z0-9_]*)\s+de\s+(.+?)\s*:(?:\s+(.*))?$/i;
+const isLoop = v => !!v && typeof v === 'object' && !Array.isArray(v) && 'for' in v && 'item' in v && Object.keys(v).every(k => ['for', 'as', 'item'].includes(k));
+
 /** Valeur d'une ligne « Nom : valeur », selon le genre de la donnée. Renvoie { value } ou { error }. */
 function parseValue(kind, raw) {
   const s = String(raw).trim();
+  if (EXPR.test(s) && exprFor(kind)) return { value: s };
   switch (kind.k) {
     case 'link': { const l = parseLink(s); return l ? { value: l } : { error: 'un lien s\'écrit « Libellé → /cible » (cible : /route, #ancre, https://…, mailto:…, tel:…)' }; }
     case 'number': return isNumber(s) && (!kind.integer || /^-?\d+$/.test(s)) ? { value: toNumber(s) } : { error: `un nombre${kind.integer ? ' entier' : ''} est attendu (lu : « ${s} »)` };
@@ -129,8 +145,16 @@ function fitItem(text, schema) {
   const kinds = Object.fromEntries(keys.map(k => [k, kindOf(P[k])]));
   const later = (from, k) => keys.slice(from).some(x => !(x in out) && kinds[x].k === k);
   let p = 0, lastText = null;
-  for (const raw of split(text)) {
+  const parts = split(text);
+  for (const [n, raw] of parts.entries()) {
     if (raw === '') return { error: 'valeur vide entre deux « | » : écrivez « rien » pour sauter un champ' };
+    // Un mot seul en minuscules là où un choix est attendu (une icône), suivi d'autres valeurs : c'est un choix mal écrit,
+    // pas le champ suivant. Sans cela « briefcase | Droit des affaires » rangeait « briefcase » dans le titre.
+    const due = keys.slice(p).find(k => !(k in out));
+    if (due && kinds[due].k === 'enum' && n < parts.length - 1 && /^[a-z][a-z0-9_-]*$/.test(raw) && norm(raw) !== SKIP && !inEnum(kinds[due].values, raw)) {
+      const after = keys.slice(keys.indexOf(due) + 1).find(k => !(k in out) && kinds[k].k === 'text');
+      return { error: `« ${raw} » n'est pas une valeur de ${due} (valeurs : ${kinds[due].values.join(', ')})${after ? ` ; si c'est le champ ${after}, dites-le par son nom : « ${after} : ${raw} »` : ''}` };
+    }
     // Valeur nommée : « réponse : Oui » remplit le champ réponse, où qu'il soit.
     const m = /^([^:|]{1,40}?)\s*:\s+(.+)$/.exec(raw), named = m && labels.get(norm(m[1]));
     if (named && !(named in out)) { const v = parseValue(kinds[named], m[2]); if (!v.error) { out[named] = v.value; lastText = kinds[named].k === 'text' ? named : null; continue; } }
@@ -191,6 +215,15 @@ function readMap(nodes, map0, fail, where, base) {
 
 function readItems(nodes, kind, fail, where, base) {
   const out = [];
+  if (LOOPS && nodes.length && LOOP.test(nodes[0].text)) {
+    // « - pour chaque pt de p.points : check | {{ pt }} » : la liste entière vient de cette puce.
+    const n = nodes[0], m = LOOP.exec(n.text), rest = (m[3] || '').trim();
+    if (nodes.length > 1) fail(nodes[1].line, 'une liste « pour chaque » tient en une puce : elle produit tous les éléments de la liste');
+    if (!rest && !n.children.length) { fail(n.line, 'après « pour chaque x de liste : », l\'élément à produire'); return { for: m[2].trim(), as: m[1], item: {} }; }
+    const inner = readItems([{ ...n, text: rest || SKIP }], kind, fail, where, base);
+    where[`${base}.item`] = n.line;
+    return { for: m[2].trim(), as: m[1], item: inner[0] };
+  }
   nodes.forEach((n, i) => {
     const at = `${base}[${i}]`; where[at] = n.line;
     if (n.more?.length && kind.k !== 'group') fail(n.line + 1, 'des lignes en retrait sous une valeur simple');
@@ -353,8 +386,14 @@ export function readBody(blocks, schema, opts = {}) {
       const close = [...labels.keys()].filter(l => l.length >= 5 && lev(l, said) === 1);
       const shared = [...labels.keys()].map(l => ({ l, n: wordsOf(l).filter(w => wordsOf(said).includes(w)).length })).filter(x => x.n).sort((x, y) => y.n - x.n || x.l.length - y.l.length);
       const cand = close[0] || shared[0]?.l, ps = proseShown();
+      // Dans un texte long (mentions légales, description d'un poste), « Éditeur : Cabinet Garnier, 25 cours… » est une phrase du
+      // texte : le mot ne ressemble à aucune donnée, et la suite n'a pas la forme d'un réglage (un seul mot, un nombre, un lien).
+      const into = target && kinds[target]?.k === 'text' ? target : proseProp, suite = (m[2] || '').trim();
+      const sentence = !cand && into && kinds[into]?.long && suite.split(/\s+/).length >= 2 && !parseLink(suite);
+      if (!sentence) {
       fail(b.line, `« ${m[1].trim()} » n'est pas une donnée de ${what}${cand ? ` : vouliez-vous dire « ${labels.shown.get(cand) || cand} » ?` : ''}`, `Données : ${[...new Set(labels.shown.values())].filter(x => x !== 'variants').join(', ')}.${ps ? ` Si c'est une phrase du texte, annoncez le texte : « ${ps[0].toUpperCase() + ps.slice(1)} : » seul sur sa ligne, puis le texte, lu tel quel.` : ''}`);
       continue;
+      }
     }
     const link = links.length ? parseLink(b.text) : null;
     if (link && !(target && kinds[target]?.k === 'text')) {
@@ -568,7 +607,7 @@ export function componentSchemas(project, catalog) {
   for (const c of catalog.list()) out.set(c.name, c.manifest.props || { properties: {} });
   const fromSource = src => {
     try {
-      const m = src.documentText !== undefined ? readDocument(src.documentText, { name: src.name }).manifest : YAML.parse(src.manifestText || '') || {};
+      const m = src.documentText !== undefined ? readDocument(src.documentText, { name: src.name }).manifest : src.outlineText !== undefined ? parseComponentOutline(src.outlineText).value : YAML.parse(src.manifestText || '') || {};
       const s = m['données'] ? compileDonnees(m['données']).schema : (m.props && typeof m.props === 'object' ? m.props : { properties: {} });
       return { ...s, properties: { ...(s.properties || {}), ...COMMON } };
     } catch { return { properties: { ...COMMON } }; }
@@ -611,6 +650,7 @@ export function canon(v, loose = false) {
 }
 const oneLine = v => typeof v === 'string' && v.trim() === v && v !== '' && !/\n/.test(v);
 const scalarText = (kind, v) => {
+  if (typeof v === 'string' && EXPR.test(v) && exprFor(kind)) return v;
   if (kind.k === 'link') return v && typeof v === 'object' && oneLine(v.label) && oneLine(v.to) && Object.keys(v).length === 2 ? `${v.label} → ${v.to}` : null;
   if (kind.k === 'bool') return typeof v === 'boolean' ? (v ? 'oui' : 'non') : null;
   if (kind.k === 'number') return typeof v === 'number' ? String(v) : null;
@@ -660,7 +700,7 @@ function writeItem(item, kind) {
   // Essais, du plus court au plus sûr : valeurs à la suite ; puis les champs mal rangés dits par leur nom.
   const named = new Set();
   for (let round = 0; round <= flat.length; round++) {
-    const line = flat.map(k => (named.has(k) ? `${labelFor(k, P).toLowerCase()} : ${texts[k]}` : texts[k])).join(' | ');
+    const line = flat.length ? flat.map(k => (named.has(k) ? `${labelFor(k, P).toLowerCase()} : ${texts[k]}` : texts[k])).join(' | ') : SKIP;
     const r = fitItem(line, kind.schema);
     const want = Object.fromEntries(flat.map(k => [k, item[k]]));
     if (!r.error && same(r.value, tail ? { ...want, [flat[flat.length - 1]]: texts[flat[flat.length - 1]] } : want)) {
@@ -668,6 +708,8 @@ function writeItem(item, kind) {
       for (const k of sub) {
         if (sub.length > 1) return null;
         const ik = kindOf(P[k]).item;
+        if (LOOPS && isLoop(item[k])) { const wl = writeLoop(item[k], ik); if (!wl) return null; lines.push(...wl.map(l => '  ' + l)); continue; }
+        if (!Array.isArray(item[k])) return null;
         for (const child of item[k]) { const w = writeItem(child, ik); if (!w) return null; lines.push(...w.map((l, n) => (n === 0 ? '  - ' : '  ') + l)); }
       }
       return lines;
@@ -677,6 +719,13 @@ function writeItem(item, kind) {
     named.add(bad);
   }
   return null;
+}
+
+/** Écrit une liste produite par une boucle : « - pour chaque x de liste : » puis l'élément, écrit comme une puce. */
+function writeLoop(v, kind) {
+  if (!oneLine(v.for) || /:(\s|$)/.test(v.for) || typeof v.as !== 'string' || !/^[a-z][a-z0-9_]*$/.test(v.as)) return null;
+  const w = writeItem(v.item, kind);
+  return w ? [`- pour chaque ${v.as} de ${v.for} : ${w[0]}`, ...w.slice(1)] : null;
 }
 
 /** Écrit les lignes d'un bloc d'après son schéma. fenced : données à écrire dans le bloc yaml. Renvoie { lines, fence }. */
@@ -717,10 +766,11 @@ function writeBody(props, schema, opts, fenced, announced = new Set()) {
     if (k === proseProp && typeof v === 'string' && v.trim() !== '' && v.trim() === v.replace(/\s+$/, '')) { if (announced.has(k)) long.push(`${label(k)} :`, ...v.replace(/\s+$/, '').split('\n')); else prose.push(...v.replace(/\s+$/, '').split('\n')); continue; }
     const map = opts.maps && k in opts.maps ? opts.maps[k] : kind.k === 'free' ? {} : kind.k === 'group' ? { group: kind.schema } : null;
     if (map) { const one = !(opts.maps && k in opts.maps) ? scalarText(kind, v) : null; if (one !== null) { named.push(`${label(k)} : ${one}`); continue; } const ls = writeMap(v, map); if (ls) listed.push({ k, lines: [`${label(k)} :`, ...ls] }); else fence[k] = v; continue; }
-    if (kind.k === 'link') { const t = scalarText(kind, v); if (t === null) { fence[k] = v; continue; } if (links.slice(0, links.indexOf(k)).every(o => o in props && !fenced.has(o))) bare.push(t); else named.push(`${label(k)} : ${t}`); continue; }
+    if (kind.k === 'link') { const t = scalarText(kind, v); if (t === null) { fence[k] = v; continue; } if (typeof v !== 'string' && links.slice(0, links.indexOf(k)).every(o => o in props && !fenced.has(o))) bare.push(t); else named.push(`${label(k)} : ${t}`); continue; }
     if (kind.k === 'list') {
       const t = scalarText(kind, v);
       if (t !== null && kind.item.k !== 'group' && kind.item.k !== 'link' && !(kind.item.k === 'field' && v.some(x => typeof x !== 'string'))) { named.push(`${label(k)} : ${t}`); continue; }
+      if (LOOPS && isLoop(v)) { const wl = writeLoop(v, kind.item); if (wl) { listed.push({ k, lines: k === defaultList ? wl : [`${label(k)} :`, ...wl] }); continue; } }
       if (!Array.isArray(v) || !v.length) { fence[k] = v; continue; }
       const lines = []; let ok = true;
       for (const it of v) { const w = writeItem(it, kind.item); if (!w) { ok = false; break; } lines.push(...w.map((l, n) => (n === 0 ? '- ' + l : l))); }
@@ -1007,6 +1057,153 @@ export function writeSegmentsDocument(data, { events }) {
   if (back.errors.length) return { error: `le document écrit ne se relit pas : ligne ${back.errors[0].line}, ${back.errors[0].message}` };
   if (!same(back.data, d)) return { error: 'le document écrit ne rend pas les segments d\'origine' };
   return { text };
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// Petits documents : le paquet (package.md), l'hôte (hosts.md), un cas de test de composant (fixtures/<cas>.md).
+
+const PACKAGE = { properties: { description: { type: 'string' }, version: { type: 'string' }, language: { type: 'integer' } } };
+const PACKAGE_OPTS = { title: null, prose: 'description', what: 'le paquet', labels: [['version', 'version'], ['langage', 'language']], label: k => ({ version: 'Version', language: 'Langage' }[k] || null) };
+/** Lit package.md : « # nom », la description, « Version : 1.0.0 », « Langage : 1 ». Renvoie { data, errors }. */
+export function readPackageDocument(text) {
+  const blocks = splitBlocks(text), h1 = blocks.findIndex(b => b.kind === 'h1'), errors = [];
+  if (h1 < 0) errors.push({ line: 1, message: 'le document d\'un paquet commence par son nom : « # vitrine »' });
+  for (const b of blocks) if (/^h[2-6]$/.test(b.kind) || (b.kind === 'h1' && b !== blocks[h1])) errors.push({ line: b.line, message: 'un paquet n\'a qu\'un titre : son nom' });
+  const r = readBody(blocks.filter((b, i) => i !== h1 && !/^h\d$/.test(b.kind)), PACKAGE, PACKAGE_OPTS);
+  const data = { ...(h1 >= 0 ? { name: blocks[h1].text } : {}) }; for (const k of ['description', 'version', 'language']) if (k in r.props) data[k] = r.props[k];
+  return { data, errors: [...errors, ...r.errors].sort((a, b) => (a.line || 0) - (b.line || 0)) };
+}
+export function writePackageDocument(meta) {
+  const { name, ...rest } = meta || {};
+  if (!oneLine(name) || Object.keys(rest).some(k => !(k in PACKAGE.properties))) return { error: 'paquet illisible (name, description, version, language)' };
+  const body = writeChecked(rest, PACKAGE, PACKAGE_OPTS, lines => readBody(splitBlocks(lines.join('\n')), PACKAGE, PACKAGE_OPTS));
+  if (!body || body.some(l => /^```/.test(l))) return { error: 'une donnée du paquet ne s\'écrit pas sur une ligne' };
+  const hasProse = typeof rest.description === 'string' && body[0] === rest.description;
+  const text = [`# ${name}`, '', ...(hasProse ? [body[0], '', ...body.slice(1)] : body)].join('\n').replace(/\n{3,}/g, '\n\n') + '\n';
+  const back = readPackageDocument(text);
+  return back.errors.length || !same(back.data, meta) ? { error: 'le document écrit ne rend pas le paquet d\'origine' } : { text };
+}
+
+const HOSTS = { properties: { sites: { type: 'array', items: { type: 'object', properties: { domain: { type: 'string' }, aliases: { type: 'array', items: { type: 'string' } }, project: { type: 'string' }, name: { type: 'string' } } } } } };
+const HOSTS_OPTS = { title: null, prose: null, what: 'l\'hébergement' };
+/** Lit hosts.md : « # Hébergement », puis une puce « - domaine | alias, alias | ../dossier-du-site » par site. Renvoie { data, errors }. */
+export function readHostsDocument(text) {
+  const blocks = splitBlocks(text), r = readBody(blocks.filter(b => b.kind !== 'h1'), HOSTS, HOSTS_OPTS);
+  return { data: { sites: r.props.sites || [] }, errors: r.errors };
+}
+export function writeHostsDocument(cfg) {
+  if (!cfg || !Array.isArray(cfg.sites) || Object.keys(cfg).some(k => k !== 'sites')) return { error: 'hôte illisible (sites: [ { domain, aliases, project } ])' };
+  const body = writeChecked(cfg, HOSTS, HOSTS_OPTS, lines => readBody(splitBlocks(lines.join('\n')), HOSTS, HOSTS_OPTS));
+  if (!body || body.some(l => /^```/.test(l))) return { error: 'un site ne s\'écrit pas sur une ligne' };
+  const text = ['# Hébergement', '', ...body].join('\n') + '\n';
+  return same(readHostsDocument(text).data, cfg) ? { text } : { error: 'le document écrit ne rend pas l\'hôte d\'origine' };
+}
+
+const VISIT = /^à la visite\s*:\s*$/i;
+/** Le schéma de ce qu'une lecture rend, tel que readBody le lit : une source qui rend une liste se lit comme la liste « items ». */
+function readingShape(source) {
+  const s = sourceSchema(source), list = s.type === 'array';
+  return { list, schema: list ? { type: 'object', properties: { items: s } } : s };
+}
+const VISIT_OPTS = key => ({ title: null, prose: null, what: `la lecture ${key}`, label: k => k });
+
+/**
+ * Ce que les lectures d'un composant rendraient à la visite, écrit sous « À la visite : ». Une section « ### nom » par lecture ;
+ * dessous, ce que la source rend, lu d'après les champs qu'elle annonce : une puce par élément quand elle rend une liste
+ * (« - valeur | valeur | nom : valeur »), des lignes « nom : valeur » et les puces de sa liste quand elle rend un groupe.
+ * Un bloc yaml reste lu à la place. sources : [{ key, source }], les lectures du composant. Renvoie { visit } ou { error }.
+ */
+function readVisit(tail, sources, offset) {
+  const blocks = splitBlocks(tail), solid = blocks.filter(b => b.kind !== 'blank');
+  if (solid.length === 1 && solid[0].kind === 'fence') {
+    if (!solid[0].closed || !/^ya?ml$/.test(solid[0].lang)) return { error: `ligne ${offset + solid[0].line} : sous « À la visite : », un bloc se dit yaml et se ferme` };
+    try { return { visit: YAML.parse(solid[0].text) }; } catch (e) { return { error: `bloc yaml illisible : ${String(e.message).split('\n')[0]}` }; }
+  }
+  const names = sources.map(x => x.key), visit = {};
+  const how = `une lecture s'ouvre par « ### nom »${names.length ? ` (lectures du composant : ${names.join(', ')})` : ''}, puis ce qu'elle rend`;
+  if (!solid.length) return { error: `ligne ${offset} : « À la visite : » n'est suivi de rien ; ${how}` };
+  let cur = null, body = [];
+  const flush = () => {
+    if (!cur) return null;
+    const src = sources.find(x => x.key === cur.key);
+    if (!src) return `ligne ${offset + cur.line} : ${cur.key} n'est pas une lecture du composant (${names.join(', ') || 'il ne lit rien'})`;
+    if (cur.key in visit) return `ligne ${offset + cur.line} : la lecture ${cur.key} est déjà dite`;
+    const shape = readingShape(src.source), r = readBody(body, shape.schema, VISIT_OPTS(cur.key));
+    if (r.errors.length) return `ligne ${offset + (r.errors[0].line || cur.line)} : ${r.errors[0].message}`;
+    visit[cur.key] = shape.list ? r.props.items ?? [] : r.props;
+    return null;
+  };
+  for (const b of blocks) {
+    if (b.kind === 'h3') { const e = flush(); if (e) return { error: e }; cur = { key: b.text.trim(), line: b.line }; body = []; continue; }
+    if (!cur) { if (b.kind === 'blank') continue; return { error: `ligne ${offset + b.line} : sous « À la visite : », ${how}` }; }
+    body.push(b);
+  }
+  const e = flush();
+  return e ? { error: e } : { visit };
+}
+
+/** Écrit ce que les lectures rendraient, une section « ### nom » par lecture ; null si une valeur ne s'écrit pas ainsi. */
+function writeVisit(visit, sources) {
+  if (!visit || typeof visit !== 'object' || Array.isArray(visit) || !Object.keys(visit).length) return null;
+  const lines = [];
+  for (const [key, value] of Object.entries(visit)) {
+    const src = sources.find(x => x.key === key);
+    if (!src || !/^[a-z][a-z0-9_]*$/i.test(key)) return null;
+    const shape = readingShape(src.source);
+    if (lines.length) lines.push('');
+    lines.push(`### ${key}`);
+    if (shape.list) { if (!Array.isArray(value)) return null; if (!value.length) continue; }
+    else if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const props = shape.list ? { items: value } : value;
+    const body = writeChecked(props, shape.schema, VISIT_OPTS(key), ls => readBody(splitBlocks(ls.join('\n')), shape.schema, VISIT_OPTS(key)));
+    if (!body || body.some(l => /^\s*```/.test(l) || /^#{1,6}\s/.test(l))) return null;
+    lines.push(...body);
+  }
+  return lines;
+}
+
+/**
+ * Lit un cas de test de composant : le composant écrit comme une section de page (« ## composant : titre », puis ses données) ;
+ * ce que ses lectures rendraient à la visite suit « À la visite : », une section « ### nom » par lecture (ou un bloc yaml).
+ * Les lignes « > … » sont des notes. sources : les lectures du composant, [{ key, source }].
+ * Renvoie { props (avec « à la visite » s'il est dit), error }.
+ */
+export function readFixtureDocument(text, { name, props, sources = [] }) {
+  const all = String(text).replace(/\r\n/g, '\n').split('\n'), note = l => /^\s*>/.test(l);
+  const visitAt = all.findIndex(l => !note(l) && VISIT.test(l.trim()));
+  const head = (visitAt < 0 ? all : all.slice(0, visitAt)).filter(l => !note(l)).join('\n');
+  const r = readPageDocument(`Adresse : /x\n\n${head}\n`, { schemas: new Map([[name, props]]) });
+  if (r.errors.length) return { props: null, error: `ligne ${Math.max(1, r.errors[0].line - 2)} : ${r.errors[0].message}` };
+  const sections = r.data.sections || [];
+  if (sections.length !== 1 || Object.keys(sections[0])[0] !== name) return { props: null, error: `un cas de test est une section du composant : « ## ${name} »` };
+  const out = { ...(sections[0][name] || {}) };
+  if (visitAt >= 0) {
+    // Les notes sont effacées sans décaler les lignes : une erreur cite la ligne du fichier.
+    const v = readVisit(all.slice(visitAt + 1).map(l => (note(l) ? '' : l)).join('\n'), sources || [], visitAt + 1);
+    if (v.error) return { props: null, error: v.error };
+    out['à la visite'] = v.visit;
+  }
+  return { props: out, error: null };
+}
+/**
+ * Écrit un cas de test en document. notes : lignes de commentaire reprises en « > … ». sources : les lectures du composant ;
+ * ce qu'elles rendraient s'écrit en sections « ### nom », ou dans un bloc yaml si une valeur ne s'y écrit pas. Renvoie { text } ou { error }.
+ */
+export function writeFixtureDocument(data, { name, props, notes = [], sources = [] }) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return { error: 'cas de test illisible' };
+  const { 'à la visite': visit, ...rest } = data;
+  const w = writeSectionDocument({ [name]: rest }, { schemas: new Map([[name, props]]) });
+  if (w.error) return { error: w.error };
+  const head = [...notes.map(n => `> ${n}`), ...w.lines];
+  const tails = visit === undefined ? [[]] : [writeVisit(visit, sources || []), ['```yaml', ...YAML.stringify(visit, { lineWidth: 0 }).trimEnd().split('\n'), '```']].filter(Boolean).map(t => ['', 'À la visite :', ...(t[0] === '```yaml' ? [] : ['']), ...t]);
+  let error = null;
+  for (const tail of tails) {
+    const text = [...head, ...tail].join('\n') + '\n';
+    const back = readFixtureDocument(text, { name, props, sources });
+    if (!back.error && same(back.props, data)) return { text };
+    error = back.error || 'le cas écrit ne rend pas le cas d\'origine';
+  }
+  return { error };
 }
 
 /** Ligne du document où se trouve un chemin de validation (« sections[2].hero.cta.to ») : le préfixe connu le plus long. */

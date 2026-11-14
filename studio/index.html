@@ -50,6 +50,12 @@
   #panel section.on { display:block; }
   .issue { border-left:3px solid var(--err); background:var(--err-bg); padding:6px 10px; border-radius:0 6px 6px 0; margin:0 0 8px; cursor:pointer; }
   .issue.warn { border-left-color:var(--warn); background:var(--warn-bg); }
+  .reading { border-left:3px solid var(--warn); background:var(--warn-bg); padding:8px 10px; border-radius:0 6px 6px 0; margin:0 0 10px; }
+  .reading p { margin:0 0 6px; }
+  .reading a { color:inherit; }
+  .reading pre { margin:4px 0 8px; font:12px/1.45 ui-monospace,monospace; white-space:pre-wrap; max-height:260px; overflow:auto; }
+  .reading pre .del { color:var(--err); }
+  .reading pre .add { font-weight:600; }
   .issue b { font-family:ui-monospace,monospace; font-size:.85em; }
   .issue .where { color:var(--muted); font-size:.85em; }
   .issue .hint { margin-top:2px; }
@@ -103,7 +109,7 @@
       <button data-tab="components">Composants</button>
       <button data-tab="help">Aide</button>
     </nav>
-    <section id="tab-issues" class="on"><p class="muted">Cliquez sur « Vérifier » : les erreurs du DSL s'affichent ici, avec le fichier, le chemin et la correction suggérée.</p></section>
+    <section id="tab-issues" class="on"><p class="muted">Cliquez sur « Vérifier » : les erreurs s'affichent ici, avec le fichier, la ligne ou le chemin et la correction suggérée.</p></section>
     <section id="tab-output"><p class="muted">Cliquez sur « Compiler » : la sortie PHP + JS + CSS est produite en mémoire, téléchargeable en zip, et l'aperçu montre la version texte de chaque page.</p></section>
     <section id="tab-deploy">
       <div class="row"><label for="deployUrl">Site</label><input type="url" id="deployUrl" placeholder="https://mon-site.fr" size="36"><label for="deploySecret">Secret</label><input type="password" id="deploySecret" placeholder="DEPLOY_SECRET du .env" size="24"><button id="deploy" class="primary">Compiler et déployer</button></div>
@@ -112,15 +118,16 @@
     </section>
     <section id="tab-components"><div class="comp"><ul id="compList"></ul><div id="compDetail" class="muted">Choisissez un composant.</div></div></section>
     <section id="tab-help" class="help">
-      <p><b>Structure</b> : <code>site.yaml</code> (identité, nav, thème, coordonnées), <code>pages/&lt;id&gt;.page.yaml</code> (une page par fichier : <code>route</code>, <code>seo</code>, <code>sections</code>), <code>assets/</code> (images), et selon le site <code>segments.yaml</code>, <code>data/products.yaml</code>, <code>brief.md</code>, <code>custom/</code>.</p>
-      <p><b>Section</b> = un objet avec une seule clé, le nom du composant, et ses props dessous. Toute section accepte <code>id</code> (ancre), <code>keywords</code> (recherche) et <code>variants</code> (personnalisation).</p>
+      <p><b>Un site en documents</b> : <code>site.md</code> (nom, slogan, thème, menu, coordonnées), <code>pages/&lt;id&gt;.md</code> (une page par fichier), <code>assets/</code> (images), et selon le site <code>segments.md</code>, <code>data/products.md</code>, <code>brief.md</code>, <code>components/</code>.</p>
+      <p><b>Page</b> : <code># Titre</code>, une ligne de description, <code>Adresse : /route</code>, puis une section par <code>## composant : Titre</code>. Sous l'intitulé : un paragraphe est le texte du composant, <code>Nom : valeur</code> une donnée, <code>Libellé → /cible</code> un lien, <code>- valeur | valeur</code> un élément de liste. Les données de chaque composant sont dans l'onglet « Composants ».</p>
       <ul>
-        <li><b>Piège n° 1</b> : en notation <code>{ a: x, b: y }</code>, une virgule ou un deux-points dans un texte coupe la valeur. Texte long → notation bloc ou guillemets.</li>
-        <li><b>Piège n° 2</b> : un <code>#</code> précédé d'un espace commence un commentaire. Ancre seule ou couleur toujours entre guillemets : <code>"#contact"</code>, <code>"#6b2d5c"</code>.</li>
-        <li>Un lien est toujours <code>{ label: Texte, to: cible }</code> ; <code>to</code> est une route déclarée, une ancre, ou une URL <code>https:</code>, <code>mailto:</code>, <code>tel:</code>.</li>
+        <li>Une ligne qui ne trouve pas sa place est refusée, à sa ligne : rien n'est deviné.</li>
+        <li>Un texte dont une phrase commence par « Mot : … » s'annonce par <code>Texte :</code> seul sur sa ligne.</li>
+        <li><b>Lecture à accepter</b> : après une modification, « Vérifier » montre ce que le compilateur comprend du document ; le bouton « Accepter cette lecture » la fige dans <code>lecture/</code> (jamais modifié à la main).</li>
         <li>N'inventez ni prix, ni délai, ni distinction absents du brief : écrivez <code>[à compléter]</code>, la compilation le signale.</li>
       </ul>
-      <p><b>Équivalents en ligne de commande</b> : <code>node bin/sitec.js check | build | catalog | explain | review | keywords | host | deploy</code>.</p>
+      <p><b>Un site en YAML</b> (<code>site.yaml</code>, <code>pages/&lt;id&gt;.page.yaml</code>) se lit toujours : une section est un objet à une seule clé, le nom du composant ; un texte qui contient une virgule ou un deux-points s'écrit entre guillemets, de même qu'une ancre ou une couleur (<code>"#contact"</code>) ; un lien est <code>{ label: Texte, to: cible }</code>.</p>
+      <p><b>Équivalents en ligne de commande</b> : <code>node bin/sitec.js check | build | lire | rediger | catalog | explain | review | keywords | host | deploy</code>.</p>
       <p><b>Après déploiement</b> : le back-office du site est sur <code>/_admin</code> (jeton <code>ADMIN_TOKEN</code>), la version texte sur <code>/lisible…</code>, le jumeau pour agents sur <code>/site.json</code> et <code>/llms.txt</code>.</p>
     </section>
   </div>

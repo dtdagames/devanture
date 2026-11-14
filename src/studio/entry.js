@@ -7,6 +7,7 @@ import { validateProject, collectWarnings } from '../validate.js';
 import { emit } from '../emit/index.js';
 import { reviewProject } from '../review.js';
 import { formatErrors } from '../errors.js';
+import { readings, acceptReadings } from '../reading.js';
 
 let catalogPromise = null;
 function b64ToBytes(b64) { const s = atob(b64); const out = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i); return out; }
@@ -42,6 +43,16 @@ export async function check(root = '/project') {
   const warnings = collectWarnings(project).map(w => ({ ...w, file: rel(w.file) }));
   const placeholders = reviewProject(project, project.brief).filter(f => f.code === 'E_PLACEHOLDER').map(f => ({ ...f, file: rel(f.file) }));
   return { ok: true, errors: [], warnings, placeholders, project, pages: project.pages.length, sections: project.pages.reduce((n, p) => n + (p.data?.sections?.length || 0), 0) };
+}
+
+/** Lecture des documents du site : pour chacun, à jour, à accepter (avec les lignes changées) ou refusé. Même calcul que « sitec lire ». */
+export async function reading(root = '/project') {
+  const project = await loadProject(root);
+  return readings(project, root).map(({ frozenFile, ...r }) => ({ ...r, frozen: frozenFile.replace(root + '/', '') }));
+}
+/** Fige la lecture des documents à accepter, comme « sitec lire --accepter ». Renvoie les fichiers de lecture écrits. */
+export async function acceptReading(root = '/project') {
+  return acceptReadings(await loadProject(root), root);
 }
 
 /** Compile dans out/ (en mémoire). Retourne la liste des fichiers produits. */

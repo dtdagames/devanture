@@ -1,0 +1,111 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+route: /nos-produits
+seo:
+  title: Nos produits — Pains, viennoiseries, pâtisseries et sandwichs | Le Fournil Nantes
+  description: Pains au levain naturel, baguette tradition médaillée, viennoiseries pur beurre, pâtisseries de saison et sandwichs du midi, faits maison à Nantes.
+sections:
+  - hero:
+      title: Nos produits
+      subtitle: Tout est fabriqué sur place, chaque jour, à partir de matières premières choisies. Voici ce que vous trouverez au comptoir.
+      align: left
+  - richtext:
+      title: Les pains
+      text: |-
+        Notre pain au levain naturel est le cœur de la maison. Le levain, entretenu depuis l'ouverture en 2009, donne une mie souple, une croûte épaisse et une conservation de plusieurs jours. Nous travaillons des farines de blé, de seigle et d'épeautre issues de meuneries de Loire-Atlantique et de Vendée.
+
+        Au quotidien : la tourte de meule (500 g et 1 kg), le pain de campagne, le seigle-noix, le complet au levain, le petit épeautre. La baguette tradition, médaille d'argent départementale 2024, est cuite en trois fournées dans la journée.
+
+        Le week-end s'ajoutent le pain aux figues, la miche au sarrasin et la fougasse aux olives.
+      image: pains.svg
+      image_position: right
+  - richtext:
+      title: Les viennoiseries
+      text: |-
+        Croissant, pain au chocolat, pain aux raisins, chausson aux pommes, brioche nantaise : toutes nos viennoiseries sont feuilletées à la main avec du beurre AOP Charentes-Poitou. La pâte repose une nuit avant d'être tourée.
+
+        Le kouign-amann et la brioche feuilletée au sucre sont disponibles le samedi et le dimanche. Pour les quantités à partir de 20 pièces (réunions, petits-déjeuners d'entreprise), merci de commander la veille avant 17 h.
+      image: viennoiseries.svg
+      image_position: left
+  - richtext:
+      title: Les pâtisseries
+      text: |-
+        La vitrine change avec les saisons. Au printemps et en été, les tartes aux fraises, abricots et pêches de producteurs locaux ; à l'automne, la tarte aux pommes et le gâteau aux noix ; en hiver, le Paris-Brest, le Saint-Honoré et la bûche de Noël sur commande.
+
+        Toute l'année : le flan pâtissier à la vanille, l'éclair café ou chocolat, la tarte au citron meringuée et le gâteau nantais, spécialité au rhum et aux amandes.
+
+        Gâteaux d'anniversaire de 6 à 12 personnes sur commande, 48 heures à l'avance.
+      image: patisseries.svg
+      image_position: right
+  - richtext:
+      title: Les sandwichs du midi
+      text: |-
+        À partir de 11 h, du mardi au samedi, nous préparons une gamme courte de sandwichs dans nos propres pains : jambon-beurre à la tradition, poulet rôti et crudités au pain de campagne, chèvre-miel-noix au seigle, végétarien du jour à la fougasse.
+
+        Une formule sandwich + boisson + viennoiserie ou pâtisserie est proposée. Les sandwichs sont préparés en quantité limitée ; il est possible d'en réserver par téléphone le matin.
+      image: sandwichs.svg
+      image_position: left
+  - comptoir:
+      title: Le comptoir en un coup d'œil
+      intro: Filtrez par famille, cliquez sur une photo pour l'agrandir.
+      items:
+        - name: Tourte de meule
+          category: Pains
+          image: pains.svg
+          note: 500 g et 1 kg
+          detail: Pain au levain naturel, entretenu depuis l'ouverture en 2009.
+        - name: Baguette tradition
+          category: Pains
+          image: tradition.svg
+          note: Trois fournées dans la journée
+          baked: 06:30
+          detail: Médaille d'argent départementale 2024.
+        - name: Croissant
+          category: Viennoiseries
+          image: viennoiseries.svg
+          note: Beurre AOP Charentes-Poitou
+        - name: Kouign-amann
+          category: Viennoiseries
+          image: viennoiseries.svg
+          note: Samedi et dimanche
+        - name: Gâteau nantais
+          category: Pâtisseries
+          image: patisseries.svg
+          note: Toute l'année
+          detail: Spécialité au rhum et aux amandes.
+        - name: Bûche de Noël
+          category: Pâtisseries
+          image: patisseries.svg
+          note: En hiver
+          detail: Sur commande.
+        - name: Jambon-beurre
+          category: Sandwichs
+          image: sandwichs.svg
+          note: À partir de 11 h, du mardi au samedi
+          detail: Préparé dans la baguette tradition, en quantité limitée. Réservation possible par téléphone le matin.
+      phone: "{{ site.contact.phone }}"
+      id: comptoir
+      keywords:
+        - comptoir
+        - filtrer
+        - familles
+        - week-end
+        - sur commande
+  - faq:
+      title: Questions sur nos produits
+      items:
+        - q: Vos pains contiennent-ils des additifs ?
+          a: Non. Nos pains sont composés de farine, d'eau, de sel et de levain naturel. Aucun améliorant, aucun conservateur. La baguette tradition respecte le décret de 1993 qui l'encadre.
+        - q: Proposez-vous des produits sans gluten ?
+          a: "Nous ne fabriquons pas de produits sans gluten : notre fournil travaille le blé en permanence et nous ne pouvons pas garantir l'absence de traces."
+        - q: Quelle est la liste des allergènes ?
+          a: La liste des allergènes de chaque produit est affichée en boutique et disponible sur demande au comptoir. N'hésitez pas à nous interroger.
+        - q: Faites-vous des pains spéciaux sur commande ?
+          a: Oui. Pour un pain de 2 kg, une tourte à partager ou une quantité importante, commandez la veille avant 17 h par téléphone ou en boutique.
+  - cta:
+      title: Une commande pour un événement ?
+      text: Buffets, pièces montées, plateaux de mini-viennoiseries. Nous préparons vos commandes à partir de 10 personnes.
+      button:
+        label: Voir les commandes événements
+        to: /commandes-evenements
+      style: surface

@@ -1,0 +1,157 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+route: /services
+seo:
+  title: Services · Plomberie Martin
+  description: Dépannage, installation sanitaire, chauffage et entretien à Lyon. Tarifs transparents.
+sections:
+  - hero:
+      title: Nos services
+      subtitle: Dépannage, installation, chauffage, entretien. Tarifs annoncés avant toute intervention.
+      align: left
+      keywords:
+        - ce que vous faites
+        - liste des prestations
+        - quels travaux
+        - domaines d'intervention
+        - plomberie et chauffage
+  - features:
+      columns: 2
+      items:
+        - icon: clock
+          title: Dépannage 7j/7
+          text: Fuites, débouchage, chasse d'eau, robinetterie. Déplacement + {{ const.delai_depannage }} de main-d'œuvre à partir de {{ const.tarif_deplacement }}.
+        - icon: tools
+          title: Salle de bain et cuisine
+          text: Création ou rénovation complète, douche à l'italienne, meubles vasques, raccordements électroménager.
+        - icon: sun
+          title: Chauffage
+          text: Chaudières gaz à condensation, pompes à chaleur air/eau, planchers chauffants, radiateurs. Certifié RGE.
+        - icon: shield
+          title: Entretien annuel
+          text: Contrat d'entretien chaudière à 129 € par an, attestation fournie, priorité en cas de panne.
+        - icon: home
+          title: Chauffe-eau
+          text: Remplacement sous 24 h, modèles électriques et thermodynamiques. Reprise de l'ancien appareil.
+        - icon: check
+          title: Recherche de fuite
+          text: Détection non destructive par caméra thermique et gaz traceur. Rapport pour votre assurance.
+      keywords:
+        - débouchage
+        - chasse d'eau qui fuit
+        - robinetterie
+        - douche à l'italienne
+        - meuble vasque
+        - raccordement lave-vaisselle
+        - chaudière gaz
+        - pompe à chaleur air eau
+        - plancher chauffant
+        - entretien chaudière annuel
+        - remplacement chauffe-eau
+        - recherche de fuite
+        - caméra thermique
+        - attestation d'entretien
+  - offre:
+      titre: Dépannage express
+      prix: "{{ const.tarif_deplacement }}"
+      detail: Déplacement et première heure de main-d'œuvre, sur {{ const.zone }}.
+      points:
+        - Intervention sous {{ const.delai_depannage }}
+        - Prix annoncé avant de commencer
+        - Pièces courantes dans le camion
+      cta:
+        label: Appeler maintenant
+        to: tel:+33472001122
+      id: offre-depannage
+  - devis-express:
+      title: Un devis en quelques minutes
+      intro: Décrivez les travaux, un plombier vous rappelle avec un prix.
+      delai: "{{ const.delai_devis }}"
+      id: devis
+  - steps:
+      title: Comment se passe une intervention
+      items:
+        - title: Vous appelez
+          text: Vous décrivez le problème, nous annonçons le tarif de déplacement et un créneau.
+        - title: Diagnostic sur place
+          text: Le plombier établit un devis ferme avant de commencer. Vous décidez.
+        - title: Intervention
+          text: Pièces courantes dans le camion. La plupart des dépannages se font en une visite.
+        - title: Facture et garantie
+          text: Facture détaillée sur place, main-d'œuvre garantie un an.
+      id: deroulement
+  - pricelist:
+      title: Nos tarifs
+      intro: Prix TTC annoncés avant toute intervention. Devis gratuit pour les travaux.
+      note: Majoration de 30 % les dimanches et jours fériés. Pièces en sus sur présentation du devis.
+      cta:
+        label: Demander un devis
+        to: /contact
+      groups:
+        - title: Dépannage
+          items:
+            - name: Déplacement + 1 h de main-d'œuvre
+              price: à partir de 95 €
+              description: Lyon et métropole
+            - name: Débouchage canalisation
+              price: à partir de 140 €
+            - name: Recherche de fuite non destructive
+              price: "180"
+              badge: Rapport assurance inclus
+        - title: Entretien et installation
+          items:
+            - name: Contrat d'entretien chaudière
+              price: "129"
+              badge: Priorité en cas de panne
+              unit: par an
+            - name: Remplacement chauffe-eau électrique
+              price: à partir de 690 €
+              description: Appareil 200 L fourni et posé, reprise de l'ancien
+            - name: Salle de bain complète
+              price: sur devis
+      id: tarifs
+      keywords:
+        - prix dépannage
+        - tarif horaire
+        - frais de déplacement
+        - combien ça coûte
+        - majoration dimanche
+        - prix entretien chaudière
+        - prix remplacement chauffe-eau
+        - grille tarifaire
+        - tarifs ttc
+        - coût d'une recherche de fuite
+        - devis gratuit
+  - faq:
+      title: Questions fréquentes
+      items:
+        - q: Quels sont vos délais d'intervention ?
+          a: En urgence, nous intervenons sous 1 h à Lyon et sous 2 h dans la métropole. Pour les travaux, un rendez-vous est fixé sous 5 jours.
+        - q: Vos devis sont-ils gratuits ?
+          a: Oui, le devis est gratuit et sans engagement pour tous les travaux. En dépannage, le tarif est annoncé par téléphone avant le déplacement.
+        - q: Intervenez-vous le week-end ?
+          a: Oui, 7 jours sur 7 de 7 h à 22 h. Une majoration de 30 % s'applique les dimanches et jours fériés.
+        - q: Acceptez-vous les paiements en plusieurs fois ?
+          a: Pour les travaux supérieurs à 1 500 €, nous proposons un paiement en 3 fois sans frais.
+      keywords:
+        - délai d'intervention
+        - devis gratuit ou payant
+        - ouvert le week-end
+        - majoration férié
+        - paiement en plusieurs fois
+        - facilités de paiement
+        - en combien de temps
+        - rendez-vous travaux
+  - cta:
+      title: Besoin d'un devis ?
+      text: Décrivez votre projet, nous revenons vers vous sous 2 h ouvrées.
+      button:
+        label: Demander un devis
+        to: /contact
+      style: surface
+      keywords:
+        - obtenir un devis
+        - estimation gratuite
+        - chiffrer mon projet
+        - demande de prix
+        - réponse rapide

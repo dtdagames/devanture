@@ -114,8 +114,9 @@ const tell = e => `${e.code} ${norm(e.file)}${e.path ? ' › ' + e.path : ''} : 
 function fences(text) {
   const L = text.split('\n'); const out = [];
   for (let i = 0; i < L.length; i++) {
-    const m = /^(\s*)```(\w*)\s*$/.exec(L[i]); if (!m) continue;
-    let j = i + 1; while (j < L.length && !/^\s*```\s*$/.test(L[j])) j++;
+    const m0 = /^(\s*)(`{3,})(\w*)\s*$/.exec(L[i]); if (!m0) continue;
+    const m = [m0[0], m0[1], m0[3]]; // un bloc se ferme par autant d'accents graves qu'il s'ouvre : il peut en contenir un plus court
+    let j = i + 1; while (j < L.length && L[j].trim() !== m0[2]) j++;
     const body = L.slice(i + 1, j).map(l => (l.startsWith(m[1]) ? l.slice(m[1].length) : l.trimStart())).join('\n') + '\n';
     let k = i - 1; while (k >= 0 && !L[k].trim()) k--;
     const mk = k >= 0 ? /^\s*<!--\s*sitec:\s*(.+?)\s*-->\s*$/.exec(L[k]) : null;
@@ -253,7 +254,7 @@ const fnName = s => s.replace(/\(.*$/, '');
 async function claims() {
   const L = doc['docs/LANGAGE.md'], C = doc['CLAUDE.md'], R = doc['README.md'];
   const langageNatives = [], targetNatives = [];
-  for (const n of catalogNames) { const m = await read(`components/${n}/manifest.yaml`); if (/^forme:/m.test(m)) langageNatives.push(n); if (await exists(path.join(ROOT, 'components', n, 'template.php'))) targetNatives.push(n); }
+  for (const n of catalogNames) { const m = await read(`components/${n}/composant.md`); if (/^## Forme\s*$/m.test(m)) langageNatives.push(n); if (await exists(path.join(ROOT, 'components', n, 'template.php'))) targetNatives.push(n); }
 
   // docs/LANGAGE.md
   claim('LANGAGE.md : événements = ceux du compilateur', ticks(sentence(lineWith(L, /^Événements : /))), EVENTS);
@@ -304,10 +305,10 @@ async function claims() {
     const c = grab(C, /Sources : (.*?)\. Valeur d'un paramètre/) || '';
     claim('CLAUDE.md : sources et paramètres cités', c.split(/,\s*(?![^()]*\))/).map(x => x.trim()).filter(Boolean).map(x => { const m = /^(.*?)\s*\((.*)\)$/.exec(x); return m ? `${m[1]} : ${m[2]}` : `${x} : aucun`; }), PUBLIC_SOURCE_NAMES.map(n => `${n} : ${Object.keys(SOURCES[n].params).join(', ') || 'aucun'}`)); }
   // Vocabulaire : clés d'un mot, mots natifs (components/vocabulaire.yaml), et natifs qui les emploient.
-  { const nativeWords = [...compileVocabulaire(await read('components/vocabulaire.yaml'), { scope: 'natif', lint: false }).own.keys()];
+  { const nativeWords = [...compileVocabulaire(await read('components/vocabulaire.md'), { scope: 'natif', lint: false, outline: true }).own.keys()];
     const t = rows(L, /^\| Dans la définition d'un mot \| Signifie \|/); claim('LANGAGE.md : clés de la définition d\'un mot = WORD_KEYS', t && t.map(r => ticks(r[0])[0]), WORD_KEYS);
     const l = lineWith(L, /Mots natifs : /) || ''; claim('LANGAGE.md : mots natifs = components/vocabulaire.yaml', ticks(grab(l, /Mots natifs : ([^;]*);/) || ''), nativeWords);
-    const users = []; for (const n of catalogNames) { const m = await read(`components/${n}/manifest.yaml`); if (nativeWords.some(w => new RegExp('^\\s*- ' + w + '(:|,|$)', 'm').test(m))) users.push(n); }
+    const users = []; for (const n of catalogNames) { const m = await read(`components/${n}/composant.md`); if (nativeWords.some(w => new RegExp('^\\s*- ' + w + '\\s*(:|,|$)', 'm').test(m))) users.push(n); }
     claim('LANGAGE.md : natifs écrits avec les mots natifs', ticks(grab(l, /; les natifs (.*?) sont écrits avec eux/) || ''), users);
     claim('CLAUDE.md : mots natifs cités', words(grab(C, /Mots natifs : ([^.]*)\./) || ''), nativeWords); }
   { const l = lineWith(L, /^Composants natifs écrits sans code de la cible/); const a = l ? l.split('Aucun composant natif n\'est écrit pour la cible')[0] : null;
@@ -423,7 +424,7 @@ async function explainComponents() {
 // ───────────────────────────── E. CLAUDE.md d'un dépôt créé par sitec init ─────────────────────────────
 
 async function initCopy() {
-  const dir = path.join(tmp, 'init'); const r = run('init', dir, '--name', 'Site du banc', '--local', '--no-git');
+  const dir = path.join(tmp, 'init'); const r = run('init', dir, '--name', 'Site du banc', '--local', '--no-git', '--yaml');
   const f = path.join(dir, 'CLAUDE.md'); if (r.code !== 0 || !await exists(f)) return ok('sitec init : CLAUDE.md du dépôt de site créé', false, r.out.slice(0, 400));
   const text = (await fs.readFile(f, 'utf8')).replace(/\r\n/g, '\n');
   ok('CLAUDE.md du dépôt de site : aucune commande du dépôt du compilateur (node bin/sitec.js)', !text.includes('node bin/sitec.js') && /npx sitec check/.test(text));
@@ -432,6 +433,15 @@ async function initCopy() {
   const a = fences(doc['CLAUDE.md']).filter(b => b.lang === 'yaml').map(b => b.body), b = fences(text).filter(x => x.lang === 'yaml').map(x => x.body);
   ok('CLAUDE.md du dépôt de site : mêmes exemples yaml que le CLAUDE.md vérifié', a.length > 0 && a.length === b.length && a.every((x, i) => x === b[i]), `${a.length} blocs ici, ${b.length} dans le dépôt créé`);
   await compileDoc('CLAUDE.md', text, 'CLAUDE.md (sitec init)');
+  // Par défaut, le dépôt créé est en documents : son mode d'emploi remplace la structure YAML par celle des documents, et garde les règles.
+  const dirD = path.join(tmp, 'init-documents'); const rd = run('init', dirD, '--name', 'Site du banc', '--local', '--no-git');
+  const textD = rd.code === 0 ? (await fs.readFile(path.join(dirD, 'CLAUDE.md'), 'utf8')).replace(/\r\n/g, '\n') : '';
+  const cut = t => { const i = t.indexOf('## Structure d\'un site'), j = t.indexOf('## Règles'); return i >= 0 && j > i ? t.slice(0, i) + t.slice(j) : t; };
+  const aD = fences(cut(doc['CLAUDE.md'])).filter(x => x.lang === 'yaml').map(x => x.body), bD = fences(textD).filter(x => x.lang === 'yaml').map(x => x.body);
+  ok('CLAUDE.md du dépôt de site en documents : structure des documents à la place de la structure YAML, mêmes exemples yaml dans les règles', rd.code === 0 && !textD.includes('node bin/sitec.js') && /## Structure du site/.test(textD) && !/### site\.yaml/.test(textD) && aD.length > 0 && aD.length === bD.length && aD.every((x, i) => x === bD[i]), `${aD.length} blocs attendus, ${bD.length} dans le dépôt créé`);
+  const badD = [...textD.matchAll(/npx sitec[ \t]+([a-z]+)/g)].map(m => m[1]).filter(c => !COMMANDS.includes(c));
+  ok('CLAUDE.md du dépôt de site en documents : commandes npx sitec connues', !badD.length, uniq(badD));
+  await compileDoc('CLAUDE.md', textD, 'CLAUDE.md (sitec init, documents)');
 }
 
 // ───────────────────────────── Exécution ─────────────────────────────

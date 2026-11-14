@@ -1,0 +1,11 @@
+.encart-wrap{padding-top:8px;padding-bottom:8px}
+.encart{display:flex;gap:16px;align-items:flex-start;padding:20px 22px;border-radius:var(--radius);border-left:5px solid var(--color-primary);background:var(--color-surface)}
+.encart-attention{border-left-color:var(--color-warning)}
+.encart-attention .encart-icon{color:var(--color-warning)}
+.encart-succes{border-left-color:var(--color-success)}
+.encart-succes .encart-icon{color:var(--color-success)}
+.encart-icon{flex:0 0 32px;color:var(--color-primary)}
+.encart-icon svg{width:28px;height:28px}
+.encart-title{font-size:1.15rem;margin:0 0 6px}
+.encart-body p{margin:0 0 8px}
+.encart-link{font-weight:600}

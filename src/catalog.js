@@ -1,3 +1,4 @@
+import YAML from 'yaml';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,6 +11,8 @@ import { parseWithLines } from './lang/lines.js';
 import { compileVocabulaire } from './lang/vocabulaire.js';
 import { compileLit, sourceSchema } from './lang/sources.js';
 import { readDocument, readingDiff } from './lang/document.js';
+import { parseComponentOutline } from './lang/outline.js';
+import { readPageDocument } from './lang/site-document.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const COMPONENTS_DIR = path.join(ROOT, 'components');
@@ -47,8 +50,16 @@ function lintManifest(name, schema, errors, p = 'props') {
  * rapporte), précédées de « ligne N : » quand la ligne du manifeste est connue ; details : [{ line, message }], même ordre.
  * words : mots du vocabulaire visibles depuis ce composant (Map), employés dans sa forme comme des primitives.
  */
-export function buildComponent({ name, shortName = null, pkg = null, dir, manifestText, files, project = false, words = null, documentText, lectureText }) {
+export function buildComponent({ name, shortName = null, pkg = null, dir, manifestText, files, project = false, words = null, documentText, lectureText, outlineText }) {
   const details = [];
+  // Format plan : composant.md, les lignes du format langage en puces. Le lecteur rend le manifeste et la ligne de chaque clé.
+  let outline = null;
+  if (outlineText !== undefined) {
+    if (manifestText !== undefined || documentText !== undefined) { details.push({ line: null, file: 'composant.md', message: 'composant.md et ' + (manifestText !== undefined ? 'manifest.yaml' : 'document.md') + ' à la fois : un composant n\'a qu\'une source' }); return { entry: null, errors: [details[0].message], details }; }
+    outline = parseComponentOutline(outlineText);
+    for (const e of outline.errors) details.push({ line: e.line, file: 'composant.md', message: e.message });
+    if (outline.errors.length) return { entry: null, errors: details.map(d => `ligne ${d.line} : ${d.message}`), details };
+  }
   // Format document (prototype) : document.md est la source ; sa lecture est un manifeste au format langage, figé dans lecture.yaml.
   let document = null;
   if (documentText !== undefined) {
@@ -66,9 +77,10 @@ export function buildComponent({ name, shortName = null, pkg = null, dir, manife
   }
   let manifest, lineOf = () => null;
   // Une erreur garde la ligne du manifeste quand on la connaît (ref : objet lu, ou { in: conteneur, at: clé ou indice }).
-  const errors = { push: (message, ref, fallback) => details.push({ line: (ref ? lineOf(ref) : null) ?? (fallback ? lineOf(fallback) : null), message, ...(document ? { file: 'lecture.yaml' } : {}) }) };
+  const errors = { push: (message, ref, fallback) => details.push({ line: (ref ? lineOf(ref) : null) ?? (fallback ? lineOf(fallback) : null), message, ...(document ? { file: 'lecture.yaml' } : outline ? { file: 'composant.md' } : {}) }) };
   const done = entry => ({ entry, errors: details.map(d => (d.line ? `ligne ${d.line} : ${d.message}` : d.message)), details });
-  try { ({ value: manifest, lineOf } = parseWithLines(manifestText)); } catch (e) { errors.push(`manifest.yaml illisible : ${e.message.split('\n')[0]}`); return done(null); }
+  if (outline) ({ value: manifest, lineOf } = outline);
+  else try { ({ value: manifest, lineOf } = parseWithLines(manifestText)); } catch (e) { errors.push(`manifest.yaml illisible : ${e.message.split('\n')[0]}`); return done(null); }
   if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) { errors.push('manifest.yaml doit décrire un objet (name, description, données, forme)'); return done(null); }
   const at = k => ({ in: manifest, at: k });
   for (const k of Object.keys(manifest)) if (!MANIFEST_KEYS.has(k)) { const s = nearest(k, [...MANIFEST_KEYS]); errors.push(`clé inconnue « ${k} » dans manifest.yaml${s ? ` (vouliez-vous dire ${s} ?)` : ''}`, at(k)); }
@@ -164,23 +176,31 @@ export function buildComponent({ name, shortName = null, pkg = null, dir, manife
     if (files['template.html'] === undefined) errors.push('template.html manquant (gabarit du composant) : écrivez une forme dans manifest.yaml, ou template.html');
   }
   if (!/^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*$/.test(name)) errors.push(`nom de composant mal formé : ${name} (minuscules, chiffres et tirets, points pour les familles : produit.carte)`);
+  // Exemple d'un plan : écrit comme une section de page, lu avec les données du composant, gardé comme les autres en YAML.
+  if (manifest.example && typeof manifest.example === 'object' && typeof manifest.example.document === 'string') {
+    const ex = manifest.example, r = readPageDocument(`Adresse : /x\n\n${ex.document}\n`, { schemas: new Map([[name, manifest.props]]) });
+    for (const e of r.errors) details.push({ line: ex.line + Math.max(1, e.line - 2), file: 'composant.md', message: `exemple : ${e.message}` });
+    manifest.example = YAML.stringify(r.data.sections || [], { lineWidth: 0 });
+  }
   // produced : ce que chaque bloc du langage a donné (gabarit, feuille de la forme, feuille de l'apparence), pour sitec component show.
-  return done({ name, dir, manifest, files, project, package: pkg, produced, wordsCss, ...(document ? { document } : {}) });
+  return done({ name, dir, manifest, files, project, package: pkg, produced, wordsCss, ...(document ? { document } : {}), ...(outline ? { outline: true } : {}) });
 }
 
 const COMPONENT_FILES = ['template.php', 'template.html', 'styles.css', 'module.js'];
 
 /** Lit un dossier de composant (manifest + fichiers) ; renvoie { name, dir, manifestText, files } ou null sans manifeste. */
 export async function readComponentDir(dir) {
-  let manifestText, documentText, lectureText;
+  let manifestText, documentText, lectureText, outlineText;
   try { manifestText = await fs.readFile(path.join(dir, 'manifest.yaml'), 'utf8'); } catch { /* peut-être un document */ }
+  // Format plan : composant.md, le format langage écrit en puces.
+  try { outlineText = await fs.readFile(path.join(dir, 'composant.md'), 'utf8'); } catch { /* manifeste ou document */ }
   // Format document : document.md (la source) et lecture.yaml (ce que le compilateur en a compris, relu et accepté).
   try { documentText = await fs.readFile(path.join(dir, 'document.md'), 'utf8'); } catch { /* format langage ou html */ }
-  if (manifestText === undefined && documentText === undefined) return null;
+  if (manifestText === undefined && documentText === undefined && outlineText === undefined) return null;
   if (documentText !== undefined) { try { lectureText = await fs.readFile(path.join(dir, 'lecture.yaml'), 'utf8'); } catch { /* pas encore relu */ } }
   const files = {};
   for (const f of COMPONENT_FILES) { try { files[f] = await fs.readFile(path.join(dir, f), 'utf8'); } catch { /* optionnel */ } }
-  return { name: path.basename(dir), dir, manifestText, files, ...(documentText !== undefined ? { documentText, lectureText } : {}) };
+  return { name: path.basename(dir), dir, manifestText, files, ...(documentText !== undefined ? { documentText, lectureText } : {}), ...(outlineText !== undefined ? { outlineText } : {}) };
 }
 
 function makeCatalog(components, words = new Map()) {
@@ -205,7 +225,9 @@ export async function loadCatalog() {
   // Vocabulaire natif : les mots que les composants natifs partagent, écrits dans le langage comme ceux d'un site.
   let words = new Map();
   try {
-    const v = compileVocabulaire(await fs.readFile(path.join(COMPONENTS_DIR, 'vocabulaire.yaml'), 'utf8'), { scope: 'natif', lint: false });
+    // Le vocabulaire natif est écrit en document (vocabulaire.md) ; l'ancienne écriture, vocabulaire.yaml, reste lue.
+    const md = await fs.readFile(path.join(COMPONENTS_DIR, 'vocabulaire.md'), 'utf8').catch(() => null);
+    const v = compileVocabulaire(md ?? await fs.readFile(path.join(COMPONENTS_DIR, 'vocabulaire.yaml'), 'utf8'), { scope: 'natif', lint: false, outline: md !== null });
     if (v.errors.length) throw new Error(`Vocabulaire natif : ${v.errors.map(e => (e.line ? `ligne ${e.line} : ` : '') + e.message).join(' ; ')}`);
     words = v.words;
   } catch (e) { if (e.code !== 'ENOENT') throw e; }

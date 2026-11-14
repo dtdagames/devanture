@@ -1,6 +1,7 @@
 // Mesure du format document du site : ce qu'il y a à écrire, en tokens, pour le même site en YAML et en documents.
 //
 //   création : la source entière de chaque site d'exemple (site.yaml + pages/*.page.yaml, contre site.md + pages/*.md).
+//              Le YAML est celui de scripts/reference/exemples-yaml : les exemples du dépôt sont, eux, écrits en documents.
 //              Les documents sont ceux que « sitec rediger » écrit depuis le YAML : relus, ils rendent les mêmes données.
 //   éditions : les quatre modifications du test de maintenance (maintenance/MODIFICATIONS-*.md : une FAQ, le thème, une page,
 //              un champ de formulaire). Avant et après sont au dépôt en YAML (maintenance/originaux/dsl → maintenance/dsl) ;
@@ -72,7 +73,7 @@ function edits(before, after) {
 
 const result = { creation: [], editions: [] };
 for (const site of ['garnier-associes', 'plomberie-martin', 'le-fournil', 'savonnerie']) {
-  const w = await both(path.join('examples', site));
+  const w = await both(path.join('scripts', 'reference', 'exemples-yaml', site));
   const row = { site, pages: w.yaml.size - 1, yaml: total(w.yaml), documents: total(w.md), gain_pct: pct(total(w.yaml), total(w.md)), blocs_yaml_gardes: w.blocs };
   if (detail) row.fichiers = [...w.yaml.keys()].map(k => ({ fichier: k, yaml: tok(w.yaml.get(k)), documents: tok(w.md.get(k)) }));
   result.creation.push(row);

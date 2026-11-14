@@ -1,0 +1,52 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+route: /domaines
+seo:
+  title: Domaines d'intervention
+  description: "Droit du travail, droit des affaires et droit de la famille : les trois domaines du cabinet."
+sections:
+  - hero:
+      title: Nos domaines d'intervention
+      subtitle: "Trois associés, trois spécialités, un même engagement : vous défendre avec rigueur."
+      cta:
+        label: Prendre rendez-vous
+        to: /contact
+  - features:
+      title: Nos trois spécialités
+      columns: 3
+      items:
+        - icon: scale
+          title: Droit du travail
+          text: Me Hélène Garnier intervient en conseil et en contentieux. Elle accompagne salariés et employeurs.
+        - icon: euro
+          title: Droit des affaires
+          text: Me Thomas Ruiz accompagne les entreprises dans leurs décisions. Il intervient en conseil comme en défense.
+        - icon: users
+          title: Droit de la famille
+          text: Me Inès Kaddour vous assiste dans vos démarches familiales. Elle vous écoute et vous conseille avec discrétion.
+  - steps:
+      title: Comment se déroule un dossier
+      items:
+        - title: Premier rendez-vous
+          text: Une consultation de 30 minutes, offerte, pour comprendre votre situation.
+        - title: Convention d'honoraires
+          text: Une convention d'honoraires est établie systématiquement avant toute démarche.
+        - title: Traitement du dossier
+          text: Votre avocat traite votre dossier et vous informe de chaque étape.
+        - title: Suivi
+          text: Nous restons à votre écoute jusqu'à la fin du dossier.
+  - faq:
+      title: Questions fréquentes
+      items:
+        - q: La première consultation est-elle payante ?
+          a: Non, la première consultation de 30 minutes est offerte.
+        - q: Dans quelles villes intervenez-vous ?
+          a: Nous intervenons à Bordeaux, Libourne et Arcachon.
+        - q: Quels sont les domaines du cabinet ?
+          a: Le droit du travail, le droit des affaires et le droit de la famille.
+  - cta:
+      title: Un dossier à nous confier ?
+      text: Contactez le cabinet pour un premier rendez-vous.
+      button:
+        label: Nous contacter
+        to: /contact

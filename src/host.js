@@ -8,13 +8,18 @@ import { loadProject } from './load.js';
 import { validateProject } from './validate.js';
 import { emit } from './emit/index.js';
 import { formatErrors } from './errors.js';
+import { readHostsDocument } from './lang/site-document.js';
 
 const MIME = { css: 'text/css', js: 'application/javascript', json: 'application/json', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', svg: 'image/svg+xml', webp: 'image/webp', avif: 'image/avif', ico: 'image/x-icon', woff: 'font/woff', woff2: 'font/woff2', txt: 'text/plain', html: 'text/html', webmanifest: 'application/manifest+json', pdf: 'application/pdf', mp4: 'video/mp4' };
 
 /** hosts.yaml : sites: [ { domain, aliases: [], project } ]. Chaque projet est compilé dans dist/sites/<nom>. */
 export async function buildHost(hostDir, catalog, { draft = false } = {}) {
   const root = path.resolve(hostDir);
-  const cfg = parse(await fs.readFile(path.join(root, 'hosts.yaml'), 'utf8'));
+  // L'hôte se décrit dans hosts.yaml, ou en document dans hosts.md (une puce « - domaine | alias, alias | ../dossier » par site).
+  const hostsMd = await fs.readFile(path.join(root, 'hosts.md'), 'utf8').catch(() => null);
+  let cfg;
+  if (hostsMd !== null) { const r = readHostsDocument(hostsMd); if (r.errors.length) throw new Error(`hosts.md, ligne ${r.errors[0].line} : ${r.errors[0].message}`); cfg = r.data; }
+  else cfg = parse(await fs.readFile(path.join(root, 'hosts.yaml'), 'utf8'));
   if (!cfg?.sites?.length) throw new Error('hosts.yaml : liste « sites » attendue ({ domain, aliases, project })');
   const out = path.join(root, 'dist');
   await fs.mkdir(path.join(out, 'sites'), { recursive: true });

@@ -1,0 +1,43 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+route: /honoraires
+seo:
+  title: Honoraires
+  description: Première consultation offerte, honoraires au forfait ou au temps passé, convention d'honoraires systématique.
+sections:
+  - hero:
+      title: Nos honoraires
+      subtitle: Une convention d'honoraires est systématiquement établie avant toute intervention.
+      image: hero.svg
+      cta:
+        label: Prendre rendez-vous
+        to: /contact
+  - pricelist:
+      title: Comment nous facturons
+      groups:
+        - title: Nos formules
+          items:
+            - name: Première consultation
+              price: Offerte
+              description: 30 minutes pour étudier votre situation
+            - name: Forfait
+              price: Montant fixé à l'avance
+              description: Défini dans la convention d'honoraires
+            - name: Temps passé
+              price: Selon le temps consacré au dossier
+              description: Défini dans la convention d'honoraires
+  - faq:
+      title: Questions sur les honoraires
+      items:
+        - q: La première consultation est-elle payante ?
+          a: Non, la première consultation de 30 minutes est offerte.
+        - q: "Forfait ou temps passé : qui choisit ?"
+          a: Les honoraires sont fixés au forfait ou au temps passé, selon votre dossier, et précisés dans la convention d'honoraires.
+        - q: Y a-t-il une convention d'honoraires ?
+          a: Oui, elle est systématique.
+  - cta:
+      title: Un devis pour votre dossier
+      text: Parlons-en lors de votre première consultation.
+      button:
+        label: Nous contacter
+        to: /contact

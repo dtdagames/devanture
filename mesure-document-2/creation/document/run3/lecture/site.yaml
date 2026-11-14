@@ -1,0 +1,29 @@
+# Lecture de site.md par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+language: 1
+site:
+  name: Cabinet Garnier & Associés
+  tagline: Avocats à Bordeaux depuis 2011
+  locale: fr-FR
+  theme:
+    preset: clair
+  nav:
+    - label: Accueil
+      to: /
+    - label: Domaines
+      to: /domaines
+    - label: Le cabinet
+      to: /cabinet
+    - label: Honoraires
+      to: /honoraires
+    - label: Contact
+      to: /contact
+  footer:
+    text: Cabinet Garnier & Associés, 25 cours de l'Intendance, 33000 Bordeaux
+    links:
+      - label: Mentions légales
+        to: /mentions-legales
+  contact:
+    email: contact@garnier-associes.fr
+    phone: 05 56 00 00 00
+    address: 25 cours de l'Intendance, 33000 Bordeaux

@@ -1,0 +1,13 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+route: /commande/[id]
+source: orders
+seo:
+  title: Commande {{ order.id }} · Maison Dubois
+  description: Confirmation de votre commande.
+sections:
+  - order.confirmation:
+      text: Merci de votre confiance. Un e-mail récapitulatif vient de vous être envoyé.
+      cta:
+        label: Retour à l'accueil
+        to: /

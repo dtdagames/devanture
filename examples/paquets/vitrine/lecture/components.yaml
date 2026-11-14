@@ -1,0 +1,31 @@
+# Lecture de components.md par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+components:
+  contact-rapide:
+    description: "Un encart puis un bandeau d'appel : le téléphone et l'adresse viennent de site.contact."
+    params:
+      titre:
+        type: string
+        required: true
+        description: titre de l'encart
+      texte:
+        type: string
+        default: ""
+        description: phrase sous le titre
+      bouton:
+        type: link
+        default:
+          label: Nous écrire
+          to: /contact
+        description: bouton du bandeau
+    sections:
+      - vitrine.encart:
+          title: "{{ p.titre }}"
+          text: "{{ p.texte }}"
+          icon: phone
+          tone: succes
+      - cta:
+          title: Appelez le {{ site.contact.phone }}
+          text: "{{ site.contact.address }}"
+          button: "{{ p.bouton }}"
+          style: surface

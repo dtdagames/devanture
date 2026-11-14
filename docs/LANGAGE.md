@@ -136,6 +136,45 @@ Dans une page, l'assemblage s'emploie comme un composant natif :
 
 Types de paramètre : `string`, `text`, `number`, `boolean`, `list`, `object`, `link`, `asset`. L'usage est remplacé à la compilation par les sections produites, qui sont ensuite validées comme les autres ; une erreur dans une section produite nomme l'assemblage et l'usage. `{ for: liste, as: x, item: gabarit }` construit une liste. L'`id` de l'usage va à la première section produite (les suivantes reçoivent `id-2`, `id-3`), `keywords` à la première ; `variants` est refusé sur un assemblage. La composition est récursive, profondeur limitée.
 
+### Les mêmes composés, écrits en document
+
+`components.md` à la place de `components.yaml` (l'un ou l'autre), à la racine du site ou d'un paquet. Un composé par section `## nom` : sa description, puis ses paramètres et ses sections.
+
+<!-- banc : composés en document -->
+````
+# Composants composés
+
+## offre
+Une offre tarifaire et ses points forts
+
+### Paramètres
+- titre : texte — nom de l'offre
+- prix : texte
+- detail : texte, facultatif — phrase sous le prix
+- points : liste, par défaut vide
+- cta : lien, par défaut Nous contacter → /contact
+
+### Sections
+```
+## Tarifs : {{ p.titre }}
+- rien
+  - {{ p.titre }} | {{ p.prix }} | {{ p.detail }}
+
+## Points forts
+- pour chaque pt de p.points : check | {{ pt }}
+
+## Appel : {{ p.titre }} : parlons-en
+Bouton : {{ p.cta }}
+```
+````
+
+- **Paramètres** : une puce « nom : type, précisions — description ». Types : texte (`string`), texte long (`text`), nombre, oui ou non (`boolean`), liste, groupe (`object`), lien, image (`asset`). Sans précision, le paramètre est obligatoire ; « facultatif » le laisse sans valeur ; « par défaut … », en dernier, lui en donne une (« par défaut vide » pour un texte, une liste ou un groupe ; « Libellé → /cible » pour un lien ; oui ou non ; un nombre ; « a, b, c » pour une liste).
+- **Sections** : dans un bloc entre deux lignes d'accents graves, les sections que le composé produit, écrites et lues comme celles d'une page (section 6 sexies), avec les paramètres en expressions. Une valeur faite d'une seule expression s'écrit par son nom là où un lien, un nombre ou un choix est attendu : « Bouton : {{ p.cta }} ».
+- **Boucle** : « pour chaque pt de p.points : » en tête d'une puce vaut `{ for: p.points, as: pt, item: … }` : la puce produit un élément par valeur de la liste, et la liste tient en cette seule puce. Cette tournure n'existe que dans les sections d'un composé.
+- « - rien » ouvre un élément qui n'a que sa liste en retrait (un groupe de tarifs sans titre).
+- La lecture est figée dans `lecture/components.yaml` (celle d'un paquet dans son propre dossier `lecture/`), comme celle d'une page : `sitec lire <dossier> --accepter` après toute modification. Une erreur dans une section produite renvoie à la ligne de `components.md` et nomme la page qui emploie le composé.
+- `sitec rediger` convertit `components.yaml` ; le document écrit est relu et doit valoir le fichier d'origine.
+
 ## 5 bis. Segments, variantes et expériences
 
 `segments.yaml`, à la racine du site, dit qui voit quoi, ce qu'on cherche à obtenir, et ce qu'on mesure.
@@ -234,6 +273,58 @@ components/<nom>/
   module.js        comportement navigateur (optionnel, signalé)
 ```
 
+### Le même composant, écrit en plan
+
+Le format langage s'écrit aussi sans YAML, dans `components/<nom>/composant.md` à la place de `manifest.yaml` (l'un ou l'autre). Ce sont les mêmes lignes en français, en puces : un titre (le nom), la description, puis une section par bloc. Rien ne se met entre guillemets, et il n'y a pas de bloc « | ». C'est l'écriture du catalogue natif et celle du squelette que pose `sitec component new`.
+
+<!-- sitec: components/annonce/composant.md -->
+````markdown
+# annonce
+
+Bandeau d'annonce : un texte, un code à donner et une date de fin.
+
+Mots-clés : annonce, offre, promotion
+
+## Données
+> Une note pour qui lit : les lignes qui commencent par « > » ne sont pas lues.
+- text : texte — l'annonce
+- code : texte, facultatif — code à donner au téléphone
+- until : texte, facultatif — date de fin (ex. 30 novembre)
+
+## Forme
+section, conteneur « annonce-inner » :
+- texte : **À noter :** {{ text }}
+- si code :
+  - texte « annonce-code » : Code **{{ code }}**
+- si until :
+  - texte discret : jusqu'au {{ until }}
+
+## Apparence
+- annonce-inner : fond d'accent, coins arrondis, en ligne, compactes
+- annonce-code : gras
+- sur téléphone :
+  - annonce-inner : empilés
+
+## Exemple
+```
+## annonce
+-15 % sur l'entretien annuel de chaudière
+Code : ENTRETIEN15
+Until : 30 novembre
+```
+````
+
+| Dans un plan | Ce que le lecteur en fait |
+|---|---|
+| `# nom`, puis un paragraphe | le nom du composant et sa description |
+| `Ordre : 10`, `Mots-clés : a, b`, `Comportements : tabs` | `order`, `intents`, `behaviors` |
+| `## Données`, `## Calculé`, `## Fonctionnement`, `## Apparence` | les blocs du même nom : une puce « nom : valeur » par ligne, des puces en retrait pour ce qui est dessous |
+| `## Forme` | une ligne d'ouverture facultative qui finit par « : », puis les éléments en puces ; les éléments d'un élément en retrait |
+| `## Exemple` | un bloc entre accents graves : le composant écrit comme une section de page (section 6 sexies), lu avec ses propres données |
+| `> …` | une note, non lue |
+
+Une ligne qui n'est pas une puce sous une section, une section inconnue, une clé dite deux fois sont des erreurs, à leur ligne ; les erreurs des blocs citent la ligne de `composant.md`. `sitec rediger <dossier> --composants` récrit en plans les composants d'un site, `sitec rediger <dossier-paquet>` ceux d'un paquet ; chaque plan est relu et doit rendre le manifeste d'origine, clé pour clé.
+
 Le nom ne peut pas être celui d'un composant natif. `template.php` est interdit : un composant de projet ne contient pas de code de la cible. `sitec component new <dossier> <nom>` crée le squelette.
 
 ### Données
@@ -242,9 +333,9 @@ Ce que le composant accepte, une ligne par champ : « nom: type, précisions —
 
 | Écrit | Signifie |
 |---|---|
-| `texte`, `texte long`, `texte ou nombre`, `nombre`, `nombre entier` (ou `entier`), `oui ou non`, `date` | types simples |
+| `texte`, `texte long`, `texte ou nombre`, `nombre`, `nombre entier` (ou `entier`), `oui ou non`, `date`, `e-mail` | types simples |
 | `lien`, `image`, `icône` | lien `{ label, to }`, fichier d'`assets/`, pictogramme du catalogue |
-| `liste de textes` (ou `liste`), `liste de liens`, `liste d'images` | listes simples |
+| `liste de textes` (ou `liste`), `liste de liens`, `liste d'images`, `liste de champs`, `liste de plages horaires` | listes simples ; `liste de champs` reçoit les champs d'un formulaire, `liste de plages horaires` des plages `HH:MM-HH:MM` ; sur une `liste de textes`, « un parmi a, b » dit les valeurs permises |
 | `items (liste, au moins 1):` puis des champs en dessous | liste d'éléments ; `nom (groupe):` puis des champs pour un objet (`groupe`) ; `groupe libre`, sans champs en dessous, pour un objet dont la page choisit les clés (un filtre `{ champ: valeur }`) |
 | `facultatif` | champ non obligatoire (tout champ est obligatoire sinon) |
 | `au moins N`, `au plus N`, `de A à B` | bornes (éléments d'une liste, longueur d'un texte, valeur d'un nombre) |
@@ -464,7 +555,7 @@ forme:
 
 Une source est un **service de la cible** : la boutique, les horaires, la mémoire du visiteur. Le langage dit ce qu'on lui demande et connaît la forme de ce qu'elle rend ; il ne décrit pas comment elle le calcule (`docs/CIBLES.md`). Les **actions** suivent la même frontière : un composant ne modifie pas le panier, il affiche le formulaire d'une action que la cible exécute, par un mot natif (`ajout au panier`, `tableau du panier`, `formulaire de commande`). Tous les composants natifs à état sont écrits ainsi, et un composant de site ou de paquet dispose des mêmes sources et des mêmes mots. `sitec component show` montre l'appel produit pour chaque lecture.
 
-Deux conséquences. Une page qui contient un composant qui lit n'est pas servie depuis le cache statique : ce qu'il lit change d'une visite à l'autre. Et un cas de test fournit lui-même ce qui serait lu, sous la clé `à la visite`, vérifié contre ce que la source annonce : le rendu ne dépend ni du stock ni de l'heure. `components/a-saisir/fixtures/un-produit.yaml` :
+Deux conséquences. Une page qui contient un composant qui lit n'est pas servie depuis le cache statique : ce qu'il lit change d'une visite à l'autre. Et un cas de test fournit lui-même ce qui serait lu, sous la clé `à la visite` (en document : « À la visite : » puis une section « ### nom » par lecture, voir « Vocabulaire, cas de test, paquet et hôte en documents »), vérifié contre ce que la source annonce : le rendu ne dépend ni du stock ni de l'heure. `components/a-saisir/fixtures/un-produit.yaml` :
 
 <!-- sitec: components/a-saisir/fixtures/un-produit.yaml -->
 ```yaml
@@ -685,6 +776,59 @@ Le compilateur produit la validation serveur, le jeton CSRF, le pot de miel, l'e
 
 Un cas de test est un fichier `components/<nom>/fixtures/<cas>.yaml` contenant des props. `sitec test <dossier>` valide chaque cas contre le manifeste, le rend par le runtime de la cible et le compare à l'instantané `<cas>.html` (créé au premier passage, mis à jour par `--update`). Un composant sans cas est rendu avec l'exemple de son manifeste, pour vérifier l'absence d'erreur. `--catalog` étend le test aux composants natifs à gabarit. Le rendu se fait sans variantes d'images et sans session réelle (jeton constant), pour des instantanés stables.
 
+### Vocabulaire, cas de test, paquet et hôte en documents
+
+Les autres fichiers d'un composant et de ce qui l'entoure s'écrivent de la même façon, sans YAML.
+
+**Vocabulaire** : `vocabulaire.md` à la place de `vocabulaire.yaml` (site, paquet ; le vocabulaire natif est écrit ainsi). Une section `## mot` par mot, sa description, puis `### Données`, `### Forme` et `### Apparence` en puces, `### Gabarit` et `### Feuille` dans des blocs.
+
+<!-- sitec: aucun — le site d'essai de ce document a déjà un vocabulaire.yaml ; scripts/verify-site-document.mjs lit cette écriture -->
+```markdown
+# Vocabulaire
+
+## carte de visite
+Une carte avec un nom et un rôle.
+
+### Données
+- nom : texte
+- role : texte, facultatif
+
+### Forme
+- carte « fiche » :
+  - sous-titre : nom
+  - texte discret : role
+
+### Apparence
+- fiche : centré
+```
+
+**Cas de test** : `components/<nom>/fixtures/<cas>.md` à la place de `<cas>.yaml`. Le composant y est écrit comme une section de page ; pour un composant qui lit à la visite, « À la visite : » ouvre ce que chaque lecture rendrait, une section « ### nom » par lecture. Sous elle, ce que la source rend, lu d'après les champs qu'elle annonce : si elle rend une liste, une puce par élément (« - valeur | valeur | nom : valeur », les premières valeurs dans l'ordre des champs, les autres par leur nom ; « ### nom » seul vaut une liste vide) ; si elle rend un groupe, une ligne « nom : valeur » par champ et une puce par élément de sa liste. Un bloc `yaml` reste lu à cette place. Les lignes « > … » sont des notes.
+
+<!-- sitec: aucun — cas de test d'un composant, lu par sitec test ; scripts/verify-site-document.mjs lit cette écriture -->
+```markdown
+## annonce
+-15 % sur l'entretien annuel de chaudière
+Code : ENTRETIEN15
+```
+
+<!-- banc : cas de test avec ce qui est lu à la visite -->
+<!-- sitec: aucun — cas de test d'un composant qui lit à la visite ; scripts/verify-site-document.mjs lit cette écriture -->
+```markdown
+> Ce que la boutique rendrait à la visite : un produit en stock, un produit épuisé.
+## selection : À découvrir
+Limite : 2
+
+À la visite :
+
+### produits
+- savon-lavande | Savon à la lavande | 6.5 | 6,50 € | savons | stock : 12 | stock_text : 12 en stock | in_stock : oui | max_qty : 12
+- baume-levres | Baume à lèvres | 4.9 | 4,90 € | soins | stock : 0 | in_stock : non | max_qty : 0
+```
+
+**Paquet** : `package.md` à la place de `package.yaml` (`# vitrine`, la description, `Version : 1.0.0`, `Langage : 1`). **Hôte** : `hosts.md` à la place de `hosts.yaml`, une puce « - domaine | alias, alias | ../dossier-du-site » par site.
+
+`sitec rediger` convertit tous ces fichiers, dans un site, un paquet ou un hôte, ainsi que les composants composés (`components.md`, section 5) et, dans un cas de test déjà en document, le bloc yaml de ce qu'une lecture rendrait « à la visite ».
+
 ## 6 bis. Paquets de composants
 
 Un paquet regroupe des composants à gabarit et des composés, partagés par plusieurs sites :
@@ -693,7 +837,7 @@ Un paquet regroupe des composants à gabarit et des composés, partagés par plu
 <paquet>/
   package.yaml      name: vitrine (préfixe), description, version, language
   components/<nom>/ composants à gabarit neutre (même format qu'un composant de projet, fixtures/ comprises)
-  components.yaml   composés du paquet
+  components.yaml   composés du paquet (ou components.md)
   vocabulaire.yaml  mots du paquet (facultatif)
 ```
 
@@ -701,7 +845,7 @@ Un site les déclare à la racine de `site.yaml` : `packages: [ ./paquets/vitrin
 
 ## 6 quater. Composants décrits en langage naturel
 
-`sitec component new <dossier> <nom> --describe "…" --export consigne.json` (ou `--from description.md`) écrit la consigne et le schéma de sortie à soumettre à un modèle ; sa réponse s'importe par `--import reponse.json`. Le compilateur n'appelle lui-même aucun modèle. Par défaut, la consigne demande le format langage (données, forme, apparence et cas de test : aucun HTML ni CSS) ; `--format html` demande gabarit et feuille. Le guide donné au modèle est construit depuis le compilateur (vocabulaire du gabarit, filtres, comportements, jetons, pictogrammes, deux composants natifs de référence) et le contexte du site (thème, images, noms déjà pris, mots du vocabulaire utilisables avec leurs données). La proposition est écrite dans `components/<nom>/`, puis vérifiée comme tout composant (`check`, règles CSS, comportements, cas de test rendus) ; si elle ne passe pas, `--import reponse.json --export reparation.json` écrit la consigne du tour suivant, avec les erreurs et les avertissements. La description reste dans `components/<nom>/description.md`, source lisible ; le reste est figé et versionné. La compilation n'appelle jamais le modèle.
+`sitec component new <dossier> <nom> --describe "…" --export consigne.json` (ou `--from description.md`) écrit la consigne et le schéma de sortie à soumettre à un modèle ; sa réponse s'importe par `--import reponse.json`. Le modèle rend un plan (`composant.md`) et des cas de test écrits comme des sections de page (`fixtures/<cas>.md`, avec « À la visite : » et un bloc yaml pour ce que ses lectures rendraient) : ni manifeste ni YAML d'auteur. Les erreurs de vérification citent la ligne du plan. `component edit` lit un composant écrit en plan ou en manifeste ; dans le second cas il le montre en plan au modèle, dont la réponse le récrit ainsi. Le compilateur n'appelle lui-même aucun modèle. Par défaut, la consigne demande le format langage (données, forme, apparence et cas de test : aucun HTML ni CSS) ; `--format html` demande gabarit et feuille. Le guide donné au modèle est construit depuis le compilateur (vocabulaire du gabarit, filtres, comportements, jetons, pictogrammes, deux composants natifs de référence) et le contexte du site (thème, images, noms déjà pris, mots du vocabulaire utilisables avec leurs données). La proposition est écrite dans `components/<nom>/`, puis vérifiée comme tout composant (`check`, règles CSS, comportements, cas de test rendus) ; si elle ne passe pas, `--import reponse.json --export reparation.json` écrit la consigne du tour suivant, avec les erreurs et les avertissements. La description reste dans `components/<nom>/description.md`, source lisible ; le reste est figé et versionné. La compilation n'appelle jamais le modèle.
 
 `sitec component edit <dossier> <nom> --ask "…" --export consigne.json` prépare la modification d'un composant existant : la consigne porte les fichiers actuels et la demande ; à l'import, la même vérification s'applique et la demande s'ajoute à l'historique de `description.md`. `--package chemin` écrit dans un paquet déclaré par le site (nom court dans le manifeste, nom préfixé dans les pages).
 
@@ -867,7 +1011,7 @@ Dans une puce, un champ dont le type ne convient pas à la valeur est sauté : u
 
 `site.md` suit les mêmes règles, avec ses propres noms :
 
-<!-- sitec: aucun — le site d'essai de ce document est écrit en YAML ; examples/garnier-document porte un site.md compilé par le banc -->
+<!-- sitec: aucun — le site d'essai de ce document est écrit en YAML ; examples/garnier-associes porte un site.md compilé par le banc -->
 ```markdown
 # Garnier & Associés
 
@@ -932,7 +1076,7 @@ La lecture de ces documents est figée comme les autres, dans `lecture/data/` et
 
 ### Les garde-fous
 
-1. **Toute ligne a un rôle.** Une ligne qui ne trouve pas sa place est refusée, à sa ligne (`E_DOCUMENT`) : un texte sous un composant qui n'a pas de texte libre, une valeur de puce sans champ, un lien de trop, un intertitre. Une ligne « nom : suite » d'un à trois mots avant les deux-points est toujours une donnée : si le nom n'en est pas une, elle est refusée, avec le nom le plus proche (« Image côté : left » pour « Côté de l'image »), jamais rangée dans le texte. Un texte dont une phrase commence ainsi (« Téléphone : 05 56 00 00 00 ») s'annonce par « Texte : » seul sur sa ligne et se lit alors tel quel.
+1. **Toute ligne a un rôle.** Une ligne qui ne trouve pas sa place est refusée, à sa ligne (`E_DOCUMENT`) : un texte sous un composant qui n'a pas de texte libre, une valeur de puce sans champ, un lien de trop, un intertitre. Une ligne « nom : suite » d'un à trois mots avant les deux-points est toujours une donnée : si le nom n'en est pas une, elle est refusée, avec le nom le plus proche (« Image côté : left » pour « Côté de l'image »), jamais rangée dans le texte. Une exception, depuis la v0.16.0 : dans un **texte long** (une donnée déclarée « texte long », comme le texte du composant `richtext`), une ligne dont le nom ne ressemble à aucune donnée et dont la suite fait plusieurs mots est une phrase du texte (« Éditeur : Cabinet Garnier, 25 cours de l'Intendance… », « Profil : titulaire du CAPA… »). Tout le reste garde la règle : un nom proche d'une donnée (« Position : left »), une suite d'un seul mot, un lien, ou un texte court comme un sous-titre. Un texte dont une phrase commence ainsi sans tomber dans l'exception (« Téléphone : 0556000000 ») s'annonce par « Texte : » seul sur sa ligne et se lit alors tel quel. Un mot seul en minuscules là où un choix est attendu en tête de puce (une icône qui n'existe pas) est refusé à sa place, au lieu de glisser dans le champ suivant.
 2. **Une seule lecture.** Les valeurs d'une puce suivent l'ordre des champs, et le type tranche. Il n'y a pas de seconde règle.
 3. **La lecture est redite et figée.** Ce que vaut chaque document est un YAML, gardé dans `lecture/` (`lecture/site.yaml`, `lecture/pages/<id>.page.yaml`). Un document modifié ou nouveau arrête `check` et `build` (`E_READING`) jusqu'à `sitec lire <dossier> --accepter`, qui dit, pour un document changé, les lignes de lecture retirées et ajoutées, et pour un document nouveau, chaque section avec ses données.
 
@@ -948,9 +1092,12 @@ Hors du format à ce jour : `sitec migrate`, `sitec keywords --import`, les sch�
 
 ### Ce qui est mesuré
 
-- **Même site.** `examples/garnier-document` est `examples/garnier-associes` écrit en documents : mêmes données, mêmes fichiers compilés à l'octet hors pages PHP (qui gardent l'ordre des données de leur source), même HTML rendu sur toutes les pages. `scripts/verify-site-document.mjs` le vérifie. Les quatre sites d'exemple (29 pages) s'écrivent en documents sans aucun bloc `yaml` et se relisent à l'identique, à ceci près qu'un nombre y devient son écriture (`1999` et « 1999 ») là où le composant accepte les deux.
+- **Même site.** Les exemples du dépôt sont écrits en documents ; leur écriture YAML d'origine est gardée dans `scripts/reference/exemples-yaml/`. `examples/garnier-associes` vaut sa référence YAML : mêmes données, mêmes fichiers compilés à l'octet hors pages PHP (qui gardent l'ordre des données de leur source), même HTML rendu sur toutes les pages. `scripts/verify-site-document.mjs` le vérifie. Les quatre sites d'exemple (29 pages) s'écrivent en documents sans aucun bloc `yaml` et se relisent à l'identique, à ceci près qu'un nombre y devient son écriture (`1999` et « 1999 ») là où le composant accepte les deux.
 - **Texte à écrire.** `scripts/measure-site-document.mjs` : la source des quatre sites d'exemple pèse 17 079 tokens en YAML (hors commentaires) et 13 686 en documents, soit 20 % de moins (de 18 à 23 % selon le site). Les quatre modifications du test de maintenance demandent 916 tokens écrits en YAML et 734 en documents, 20 % de moins.
 - **Travail d'un agent.** Douze agents Sonnet sans contexte, trois par case, tous réussis (`mesure-document/`, `scripts/measure-site-document-agents.mjs`). Création d'un site depuis un brief : 58 % de tokens produits en moins et 52 % de tokens traités en moins en documents. Cet écart tient pour partie à un seuil : les trois sites YAML dépassaient la longueur d'une commande sous Windows, leur écriture groupée a échoué et ils ont été écrits deux fois ; les trois sites en documents tenaient dessous. Éditions (quatre modifications) : aucun gain, 31 % de tokens produits en plus et 25 % de tokens traités en plus en documents (10 % et 4 % sans l'essai où le script de l'agent n'avait rien écrit), parce que la relecture ajoute une commande et que le champ de formulaire libre retombe en YAML. Trois essais par case, un seul modèle, un seul site : des ordres de grandeur.
+- **Travail d'un agent, seconde mesure.** Refaite le 14 novembre 2026 en retirant les biais de la première (`mesure-document-2/`, `scripts/measure-documents-agents-2.mjs`, `docs/rapports/RAPPORT-MESURE-AGENTS-2.html`) : même plan de site imposé aux deux formats (22 sections), un fichier par appel d'écriture, un mode d'emploi par format. Douze agents Sonnet, tous réussis. Le site écrit en documents reste plus court (-22 % de tokens de source à la création, -23 % après les éditions), mais l'agent ne dépense pas moins : tokens produits +9 % à la création et +12 % aux éditions, tokens traités +22 % et +42 %. Un essai en documents prend un ou deux tours de plus (la relecture `lire --accepter`, et presque toujours une correction : une phrase d'un texte libre qui commence par « Mot : » est refusée comme donnée inconnue), et chaque tour relit tout le contexte. Les 58 % de tokens produits en moins de la première mesure ne se retrouvent pas : ils tenaient à la taille des sites et à la façon de les écrire. Trois essais par case, un brief, un modèle.
+- **Travail d'un agent, après correction.** Les deux causes relevées par la seconde mesure ont été corrigées (`check --accepter` ; une phrase « Mot : suite » lue comme du texte dans un texte long) et les six essais en documents refaits (`mesure-document-3/`, `docs/rapports/RAPPORT-MESURE-AGENTS-3.html`). Les six passent `check` du premier coup. Contre les essais en YAML de la seconde mesure : tokens produits -4 % à la création et -1 % aux éditions, tokens traités +7 % et -11 %, pour une source plus courte de 27 % et 23 %. À trois essais par case, ces écarts sont dans le bruit : l'agent ne dépense plus davantage en documents, et pas moins non plus.
+- **Relire, accepter et vérifier en une commande.** `sitec check <dossier> --accepter` fige la lecture des documents modifiés avant de valider, et dit ce qu'il accepte : une ligne `I_READING` par document, avec les lignes retirées et ajoutées, ou ce que vaut un document nouveau. `sitec lire` reste la commande qui montre sans rien figer.
 - **Une lecture fausse passée.** Sur les trois créations en documents, une portait une ligne de réglage mal nommée, lue comme du texte et affichée sur la page ; `check` et le banc ne la voyaient pas, l'agent l'a vue dans la lecture redite. Depuis la v0.15.0, le lecteur refuse toute ligne « nom : suite » courte dont le nom n'est pas une donnée ; cinq des six sites en documents laissés par les agents, écrits avant cette règle, ne passent plus `check` (leurs mentions légales commencent par « Éditeur du site : … ») et gardent leurs mesures d'alors.
 
 ## 6 ter. Éditeur
@@ -969,7 +1116,7 @@ Composants natifs écrits sans code de la cible, tous au format langage (aucun g
 
 ## 9. Versions et migration
 
-`sitec migrate <dossier>` fait passer un site à la dernière version, étape par étape, en modifiant le texte des fichiers (commentaires et mise en forme conservés), puis vérifie que le site migré passe `check`. `--dry-run` montre les changements sans écrire. Chaque migration propose aussi des suggestions non appliquées : ce que la nouvelle version permet d'écrire mieux (coordonnées recopiées en dur, valeurs répétées à mettre en constantes). Un site sans `language` est lu comme version 1 avec l'avertissement `W_LANGUAGE`.
+`sitec migrate <dossier>` fait passer un site à la dernière version, étape par étape, en modifiant le texte des fichiers (commentaires et mise en forme conservés), puis vérifie que le site migré passe `check`. `--dry-run` montre les changements sans écrire. Un site écrit en documents est lu de la même façon (sa version est celle que vaut `site.md`, 1 par défaut ; les suggestions lisent `pages/<id>.md` et parlent leur écriture). Chaque migration propose aussi des suggestions non appliquées : ce que la nouvelle version permet d'écrire mieux (coordonnées recopiées en dur, valeurs répétées à mettre en constantes). Un site sans `language` est lu comme version 1 avec l'avertissement `W_LANGUAGE`.
 
 - **0** : sites écrits avant la déclaration de version (compilateur ≤ 0.1.3). Migration vers 1 : ajout de `language: 1`, aucune construction ne change.
-- **1** (2026-11-08) : première version écrite. Expressions, constantes, collections, composants composés, composants de projet avec gabarit neutre et effet `form`, paquets de composants, tests de composants, feuille de style encadrée, comportements déclarés. Ajouts compatibles, sans changement de version : composants en français contrôlé (compilateur 0.7.0 et 0.8.0), objectifs et expériences dans `segments.yaml` (0.9.0), vocabulaire ouvert (`vocabulaire.yaml`, 0.10.0), lectures à la visite (`fonctionnement: lit:`, 0.11.0), registres à règles (`places`, `liste d'attente`, `une fois par`, 0.12.0), composant et site écrits en documents (0.13.0 à 0.15.0). Retrait, sans changement de version : le bloc `custom` (0.15.0), qui incluait un fichier PHP du projet hors de toute validation ; une page qui l'emploie encore reçoit `E_UNKNOWN_COMPONENT` avec la marche à suivre (un composant du site).
+- **1** (2026-11-08) : première version écrite. Expressions, constantes, collections, composants composés, composants de projet avec gabarit neutre et effet `form`, paquets de composants, tests de composants, feuille de style encadrée, comportements déclarés. Ajouts compatibles, sans changement de version : composants en français contrôlé (compilateur 0.7.0 et 0.8.0), objectifs et expériences dans `segments.yaml` (0.9.0), vocabulaire ouvert (`vocabulaire.yaml`, 0.10.0), lectures à la visite (`fonctionnement: lit:`, 0.11.0), registres à règles (`places`, `liste d'attente`, `une fois par`, 0.12.0), composant et site écrits en documents (0.13.0 à 0.15.0), composant écrit en plan (`composant.md`, 0.16.0). Retrait, sans changement de version : le bloc `custom` (0.15.0), qui incluait un fichier PHP du projet hors de toute validation ; une page qui l'emploie encore reçoit `E_UNKNOWN_COMPONENT` avec la marche à suivre (un composant du site).

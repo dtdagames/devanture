@@ -20,6 +20,7 @@
 // aucune primitive ne produit le balisage voulu, par un fragment de gabarit neutre (« gabarit: », avec « feuille: » pour son CSS).
 // Dans les deux cas le mot ne voit que ses données : c'est l'appelant qui les lui passe, dans l'ordre de la définition.
 import { parseWithLines } from './lines.js';
+import { parseVocabularyOutline } from './outline.js';
 import { compileDonnees } from './donnees.js';
 import { compileForme, PRIMITIVES, RESERVED_WORDS, COLLECTION_PRIMITIVES, slug } from './forme.js';
 import { wantedParts } from './apparence.js';
@@ -46,14 +47,21 @@ export function wordUsage(w) {
  * redéfinissables), lint (feuilles encadrées comme celles des composants de projet).
  * Renvoie { words (visibles : hérités + propres), own, errors: [{ line, message }], warnings: [{ line, message }] }.
  */
-export function compileVocabulaire(text, { scope = 'site', inherited = new Map(), lint = true } = {}) {
+export function compileVocabulaire(text, { scope = 'site', inherited = new Map(), lint = true, outline = false } = {}) {
   const errors = [], warnings = [], own = new Map(), words = new Map(inherited);
   // Mots dont la définition est en erreur : un composant qui les emploie ne répète pas l'erreur (elle est dite une fois, ici).
   const broken = new Set(inherited.broken || []); words.broken = broken;
   const seen = new Set();
   const push = (list, line, message) => { const k = `${line}|${message}`; if (seen.has(k)) return; seen.add(k); list.push({ line: line ?? null, message }); };
   let doc, lineOf;
-  try { ({ value: doc, lineOf } = parseWithLines(text)); } catch (e) { push(errors, e.linePos?.[0]?.line ?? null, `vocabulaire.yaml illisible : ${e.message.split('\n')[0]}`); words.unreadable = true; return { words, own, errors, warnings }; }
+  if (outline) {
+    // Vocabulaire écrit en document (vocabulaire.md) : même structure, mêmes lignes ; une ligne sans rôle arrête la lecture.
+    const r = parseVocabularyOutline(text);
+    for (const e of r.errors) push(errors, e.line, e.message);
+    if (r.errors.length) { words.unreadable = true; return { words, own, errors, warnings }; }
+    ({ value: doc, lineOf } = r);
+    if (!Object.keys(doc.mots).length) return { words, own, errors, warnings };
+  } else try { ({ value: doc, lineOf } = parseWithLines(text)); } catch (e) { push(errors, e.linePos?.[0]?.line ?? null, `vocabulaire.yaml illisible : ${e.message.split('\n')[0]}`); words.unreadable = true; return { words, own, errors, warnings }; }
   if (doc === null || doc === undefined) return { words, own, errors, warnings };
   if (typeof doc !== 'object' || Array.isArray(doc) || !doc.mots || typeof doc.mots !== 'object' || Array.isArray(doc.mots)) { push(errors, 1, 'vocabulaire.yaml : attendu « mots: » puis un mot par clé (description, données, forme ou gabarit)'); return { words, own, errors, warnings }; }
   for (const k of Object.keys(doc)) if (k !== 'mots') push(errors, lineOf({ in: doc, at: k }), `clé inconnue « ${k} » : un vocabulaire ne contient que « mots: »`);

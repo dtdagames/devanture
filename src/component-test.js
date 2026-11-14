@@ -7,6 +7,7 @@ import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import YAML from 'yaml';
+import { readFixtureDocument } from './lang/site-document.js';
 import Ajv from 'ajv';
 import { RENDER_PHP, FORMS_PHP, phpValue } from './emit/php/php.js';
 import { sourceSchema } from './lang/sources.js';
@@ -51,17 +52,19 @@ async function casesOf(c) {
   const out = [];
   const fdir = path.join(c.dir, 'fixtures');
   let files = [];
-  try { files = (await fs.readdir(fdir)).filter(f => /\.ya?ml$/.test(f)).sort(); } catch { /* pas de fixtures */ }
+  // Un cas s'écrit en YAML (fixtures/<cas>.yaml) ou en document (fixtures/<cas>.md : le composant écrit comme une section de page).
+  try { files = (await fs.readdir(fdir)).filter(f => /\.(ya?ml|md)$/.test(f)).sort(); } catch { /* pas de fixtures */ }
   for (const f of files) {
     const file = path.join(fdir, f);
     let props, error = null;
-    try { props = YAML.parse(await fs.readFile(file, 'utf8')) ?? {}; } catch (e) { error = `YAML invalide : ${e.message.split('\n')[0]}`; }
-    out.push({ component: c.name, name: f.replace(/\.ya?ml$/, ''), file, snapshot: file.replace(/\.ya?ml$/, '.html'), props, error });
+    if (/\.md$/.test(f)) ({ props, error } = readFixtureDocument(await fs.readFile(file, 'utf8'), { name: c.name, props: c.manifest.props, sources: c.manifest.sources || [] }));
+    else try { props = YAML.parse(await fs.readFile(file, 'utf8')) ?? {}; } catch (e) { error = `YAML invalide : ${e.message.split('\n')[0]}`; }
+    out.push({ component: c.name, name: f.replace(/\.(ya?ml|md)$/, ''), file, snapshot: file.replace(/\.(ya?ml|md)$/, '.html'), props, error });
   }
   if (!out.length && c.manifest.example) {
     let props = null, error = null;
     try { const ex = YAML.parse(c.manifest.example); props = Array.isArray(ex) && ex[0] && typeof ex[0] === 'object' ? Object.values(ex[0])[0] ?? {} : null; } catch (e) { error = `exemple du manifeste illisible : ${e.message.split('\n')[0]}`; }
-    if (props || error) out.push({ component: c.name, name: 'exemple', file: path.join(c.dir, 'manifest.yaml'), snapshot: null, props, error });
+    if (props || error) out.push({ component: c.name, name: 'exemple', file: path.join(c.dir, c.outline ? 'composant.md' : 'manifest.yaml'), snapshot: null, props, error });
   }
   return out;
 }
@@ -142,7 +145,7 @@ export async function testComponents(project, { update = false, catalog = false,
       const r = rendered[i] || { error: 'pas de résultat' };
       if (r.error) { results.push({ component: k.component, name: k.name, status: 'error', detail: r.error }); continue; }
       if (/<!-- composant inconnu/.test(r.html)) { results.push({ component: k.component, name: k.name, status: 'error', detail: 'composant non rendu' }); continue; }
-      if (!k.snapshot) { results.push({ component: k.component, name: k.name, status: 'ok', detail: 'exemple rendu sans erreur (pas d\'instantané : ajoutez fixtures/<cas>.yaml)' }); continue; }
+      if (!k.snapshot) { results.push({ component: k.component, name: k.name, status: 'ok', detail: 'exemple rendu sans erreur (pas d\'instantané : ajoutez fixtures/<cas>.md)' }); continue; }
       const html = r.html.trim() + '\n';
       let prev = null; try { prev = await fs.readFile(k.snapshot, 'utf8'); } catch { /* premier passage */ }
       if (prev === null) { await fs.writeFile(k.snapshot, html); results.push({ component: k.component, name: k.name, status: 'created', detail: path.basename(k.snapshot) }); continue; }

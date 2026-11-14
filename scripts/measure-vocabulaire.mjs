@@ -11,9 +11,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import YAML from 'yaml';
 import { encode } from 'gpt-tokenizer';
+import { parseComponentOutline, parseVocabularyOutline } from '../src/lang/outline.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const at = (rev, p) => { if (!rev) { try { return fs.readFileSync(path.join(ROOT, p), 'utf8'); } catch { return ''; } } try { return execFileSync('git', ['show', `${rev}:${p}`], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }); } catch { return ''; } };
+// Un composant écrit en plan (composant.md) : ses blocs sont ceux d'un manifeste, rendus en YAML pour être mesurés à l'identique.
+const planAsManifest = p => { try { const v = parseComponentOutline(fs.readFileSync(path.join(ROOT, p.replace(/manifest\.yaml$/, 'composant.md')), 'utf8')).value; delete v.example; return YAML.stringify(v, { lineWidth: 0 }); } catch { return ''; } };
+// Le vocabulaire natif écrit en document se mesure tel quel : c'est le texte qu'un auteur écrit.
+const at = (rev, p) => { if (!rev) { try { return fs.readFileSync(path.join(ROOT, p), 'utf8'); } catch { return /manifest\.yaml$/.test(p) ? planAsManifest(p) : /vocabulaire\.yaml$/.test(p) ? (() => { try { return fs.readFileSync(path.join(ROOT, p.replace(/\.yaml$/, '.md')), 'utf8'); } catch { return ''; } })() : ''; } } try { return execFileSync('git', ['show', `${rev}:${p}`], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }); } catch { return ''; } };
 const authored = (text, keys) => { const m = YAML.parse(text) || {}; return keys.filter(k => m[k] !== undefined).map(k => YAML.stringify({ [k]: m[k] }, { lineWidth: 0 })).join(''); };
 const tok = t => encode(t).length, lin = t => (t.trim() ? t.trim().split('\n').length : 0);
 const FILES = ['template.html', 'template.php', 'styles.css', 'module.js'];
@@ -37,7 +41,8 @@ for (const name of want) {
     A += tok(a); B += tok(b); AL += lin(a); BL += lin(b); tplA += tpl(st.before); tplB += tpl(st.after);
   }
   const vA = at(st.before, 'components/vocabulaire.yaml'), vB = at(st.after, 'components/vocabulaire.yaml');
-  const words = t => Object.values(YAML.parse(t || 'mots: {}')?.mots || {});
+  // Le vocabulaire se lit en YAML (anciennes étiquettes) ou en document (vocabulaire.md, sans clé « mots: »).
+  const words = t => Object.values((/^motss*:/m.test(t || 'mots: {}') ? YAML.parse(t || 'mots: {}') : parseVocabularyOutline(t).value)?.mots || {});
   const gab = t => words(t).reduce((s, w) => s + (w.gabarit ? lin(w.gabarit) : 0), 0);
   const out = { etape: name, de: st.before, a: st.after || 'arbre de travail', composants: st.natives.length, tokens_avant: A, tokens_apres: B + tok(vB) - tok(vA), dont_vocabulaire: tok(vB) - tok(vA), mots_ajoutes: words(vB).length - words(vA).length, lignes_avant: AL, lignes_apres: BL + lin(vB) - lin(vA), gabarit_lignes_avant: tplA, gabarit_lignes_apres: tplB + gab(vB) - gab(vA) };
   out.reduction_pct = Math.round((1 - out.tokens_apres / out.tokens_avant) * 100);
