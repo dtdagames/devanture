@@ -5,8 +5,13 @@
 //   - un mode d'emploi par format, celui que « sitec init » pose dans un dépôt de site (manuel-yaml.md, manuel-documents.md) ;
 //   - éditions : le même site de départ (maintenance/originaux/dsl/garnier-associes), converti par « sitec rediger » pour les documents.
 //
-// Usage :
+// Troisième passe (mesure-document-3/) : seuls les essais en documents sont refaits, après deux corrections du compilateur
+// (« check --accepter » relit, accepte et vérifie en une commande ; dans un texte long, une phrase « Mot : suite » est du texte).
+// Les essais en YAML de la seconde passe servent de référence : rien n'a changé pour eux.
+//
+// Usage (--dossier <nom> : mesure-document-2 par défaut) :
 //   node scripts/measure-documents-agents-2.mjs --preparer      crée les dossiers, les modes d'emploi, les sites de départ, les consignes
+//        [--formats document] [--une-commande] [--reference mesure-document-2]
 //   node scripts/measure-documents-agents-2.mjs --releve        lit les journaux des agents (agents.json → usage.json)
 //   node scripts/measure-documents-agents-2.mjs [--sans-banc]   vérifie les sites laissés, joint les relevés, écrit mesures.json
 // PHP : PHP_BIN, sinon php. Journaux : MESURE_JOURNAUX (dossier « subagents » de la session qui a lancé les agents).
@@ -18,11 +23,17 @@ import { fileURLToPath } from 'node:url';
 import { encode } from 'gpt-tokenizer';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const BASE = path.join(ROOT, 'mesure-document-2');
+const arg = name => { const i = process.argv.indexOf(name); return i >= 0 ? process.argv[i + 1] : null; };
+const BASE = path.join(ROOT, arg('--dossier') || 'mesure-document-2');
+// Le protocole d'une passe : formats essayés, relecture en une commande ou en deux, passe de référence pour les formats non refaits.
+const PROTOCOL_FILE = path.join(BASE, 'protocole.json');
+const protocol = process.argv.includes('--preparer')
+  ? { formats: (arg('--formats') || 'yaml,document').split(','), une_commande: process.argv.includes('--une-commande'), reference: arg('--reference') }
+  : fs.existsSync(PROTOCOL_FILE) ? JSON.parse(fs.readFileSync(PROTOCOL_FILE, 'utf8')) : { formats: ['yaml', 'document'], une_commande: false, reference: null };
 const node = (...args) => spawnSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8' });
 const sitec = (...args) => node(path.join('bin', 'sitec.js'), ...args);
 const last = out => { const l = String(out || '').trim().split('\n').filter(Boolean).pop() || ''; try { return JSON.parse(l); } catch { return null; } };
-const TASKS = ['creation', 'edition'], FORMATS = ['yaml', 'document'], RUNS = [1, 2, 3];
+const TASKS = ['creation', 'edition'], FORMATS = protocol.formats, RUNS = [1, 2, 3];
 const runs = () => TASKS.flatMap(task => FORMATS.flatMap(format => RUNS.map(n => ({ key: `${task}/${format}/run${n}`, task, format, dir: path.join(BASE, task, format, `run${n}`) }))));
 
 const BRIEF = 'Cabinet Garnier & Associés, avocats à Bordeaux, fondé en 2011. Trois associés : Me Hélène Garnier (droit du travail), Me Thomas Ruiz (droit des affaires), Me Inès Kaddour (droit de la famille). Deux collaboratrices et une assistante. Première consultation de 30 minutes offerte. Honoraires au forfait ou au temps passé, convention d\'honoraires systématique. Interventions à Bordeaux, Libourne et Arcachon. Adresse : 25 cours de l\'Intendance, 33000 Bordeaux. Tél 05 56 00 00 00, email contact@garnier-associes.fr.';
@@ -42,15 +53,16 @@ function consigne(task, format) {
   const manuel = path.join(BASE, doc ? 'manuel-documents.md' : 'manuel-yaml.md');
   const ecrit = doc ? 'EN DOCUMENTS (`site.md`, `pages/<id>.md` ; aucun fichier YAML)' : 'EN YAML (`site.yaml`, `pages/<id>.page.yaml`)';
   const commandes = doc
-    ? '`node bin/sitec.js catalog`, `node bin/sitec.js explain document`, `node bin/sitec.js explain <composant> --document` (dont `explain site`), `node bin/sitec.js lire DOSSIER --accepter` et `node bin/sitec.js check DOSSIER`'
+    ? protocol.une_commande ? '`node bin/sitec.js catalog`, `node bin/sitec.js explain document`, `node bin/sitec.js explain <composant> --document` (dont `explain site`) et `node bin/sitec.js check DOSSIER --accepter`'
+    : '`node bin/sitec.js catalog`, `node bin/sitec.js explain document`, `node bin/sitec.js explain <composant> --document` (dont `explain site`), `node bin/sitec.js lire DOSSIER --accepter` et `node bin/sitec.js check DOSSIER`'
     : '`node bin/sitec.js catalog`, `node bin/sitec.js explain <composant>` (dont `explain site`) et `node bin/sitec.js check DOSSIER`';
-  const boucle = doc ? 'lance `lire DOSSIER --accepter` puis `check`' : 'lance `check`';
+  const boucle = doc ? (protocol.une_commande ? 'lance `check DOSSIER --accepter`' : 'lance `lire DOSSIER --accepter` puis `check`') : 'lance `check`';
   const tete = `Tu es un agent de test. Dépôt : ${ROOT} (Windows, Node 24). Il contient un compilateur \`sitec\` qui transforme la description d'un site vitrine en site PHP.`;
   const outils = `Sers-toi UNIQUEMENT du mode d'emploi ${manuel} (lis-le en entier d'abord) et des commandes ${commandes}, lancées depuis ${ROOT}.`;
   const rapport = 'Rapport final, COURT (10 lignes maximum) : nombre d\'appels d\'outils, nombre d\'exécutions de `check` et le nombre d\'erreurs à chacune, nombre de `explain`, une ligne par difficulté rencontrée. Rien d\'autre.';
   if (task === 'creation') return [
     `${tete} Mission : écrire un site vitrine complet ${ecrit} dans le dossier DOSSIER, qui existe déjà et contient les images (DOSSIER/assets : ${ASSETS.join(', ')}). ${outils}`,
-    'INTERDIT : lire tout autre fichier du dépôt (src/, components/, examples/, docs/, scripts/, CLAUDE.md, les autres dossiers de mesure-document-2/…) ; modifier quoi que ce soit hors de ton dossier ; exécuter `build`.',
+    'INTERDIT : lire tout autre fichier du dépôt (src/, components/, examples/, docs/, scripts/, CLAUDE.md, les autres dossiers de ' + path.basename(BASE) + '/…) ; modifier quoi que ce soit hors de ton dossier ; exécuter `build`.',
     'Écriture : écris chaque fichier avec l\'outil Write, un fichier par appel (aucune commande shell pour créer ou modifier un fichier).',
     `Brief client : « ${BRIEF} »`,
     PLAN,
@@ -60,7 +72,7 @@ function consigne(task, format) {
   ].join('\n');
   return [
     `${tete} Le dossier DOSSIER contient un site écrit ${ecrit}. Mission : lui appliquer les quatre modifications décrites dans ${path.join(ROOT, 'maintenance', 'MODIFICATIONS-garnier.md')} (lis ce fichier), sans changer de format. ${outils}`,
-    'INTERDIT : lire tout autre fichier du dépôt (src/, components/, examples/, docs/, scripts/, CLAUDE.md, le reste de maintenance/, les autres dossiers de mesure-document-2/…) ; modifier quoi que ce soit hors de ton dossier ; exécuter `build`.',
+    'INTERDIT : lire tout autre fichier du dépôt (src/, components/, examples/, docs/, scripts/, CLAUDE.md, le reste de maintenance/, les autres dossiers de ' + path.basename(BASE) + '/…) ; modifier quoi que ce soit hors de ton dossier ; exécuter `build`.',
     'Écriture : modifie les fichiers avec les outils Edit et Write (aucune commande shell pour créer ou modifier un fichier).',
     `Protocole : applique les modifications, ${boucle}, corrige jusqu'à \`{"ok":true,...}\`. Note chaque exécution de \`check\` et son nombre d'erreurs.`,
     rapport,
@@ -70,9 +82,10 @@ function consigne(task, format) {
 if (process.argv.includes('--preparer')) {
   if (fs.existsSync(BASE) && fs.readdirSync(BASE).length) { console.error(`${BASE} existe déjà : la mesure est préparée (supprimez le dossier pour la refaire).`); process.exit(1); }
   fs.mkdirSync(BASE, { recursive: true });
+  fs.writeFileSync(PROTOCOL_FILE, JSON.stringify(protocol, null, 1) + '\n');
   // Un mode d'emploi par format : celui du dépôt que pose « sitec init », commandes ramenées à celles de ce dépôt.
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sitec-mesure-'));
-  for (const [format, flag] of [['documents', []], ['yaml', ['--yaml']]]) {
+  for (const [format, flag] of [['documents', []], ['yaml', ['--yaml']]].filter(([x]) => FORMATS.includes(x === 'documents' ? 'document' : 'yaml'))) {
     const d = path.join(tmp, format), r = sitec('init', d, '--name', 'Garnier & Associés', '--no-git', '--local', ...flag);
     if (r.status !== 0) { console.error(r.stdout + r.stderr); process.exit(1); }
     const manual = fs.readFileSync(path.join(d, 'CLAUDE.md'), 'utf8').replace(/\r\n/g, '\n').replaceAll('npx sitec', 'node bin/sitec.js').replace(/(node bin\/sitec\.js (?:check|build|review|lire|test|schema|keywords|deploy)) \./g, '$1 <dossier>');
@@ -98,9 +111,11 @@ if (process.argv.includes('--preparer')) {
   }
   fs.writeFileSync(path.join(BASE, 'CONSIGNES.md'), md.join('\n'));
   fs.rmSync(tmp, { recursive: true, force: true });
-  const sizes = Object.fromEntries(['yaml', 'documents'].map(f => [f, encode(fs.readFileSync(path.join(BASE, `manuel-${f}.md`), 'utf8')).length]));
+  const sizes = Object.fromEntries(['yaml', 'documents'].filter(f => fs.existsSync(path.join(BASE, `manuel-${f}.md`))).map(f => [f, encode(fs.readFileSync(path.join(BASE, `manuel-${f}.md`), 'utf8')).length]));
+  // La consigne de chaque essai, avec son dossier.
+  for (const r of runs()) fs.writeFileSync(path.join(BASE, 'consignes', `${r.task}-${r.format}-run${r.key.slice(-1)}.txt`), consigne(r.task, r.format).replaceAll('DOSSIER', r.dir) + '\n');
   const src = d => { const fmt = fs.existsSync(path.join(d, 'site.md')) ? 'document' : 'yaml'; return encode([fmt === 'yaml' ? 'site.yaml' : 'site.md', ...fs.readdirSync(path.join(d, 'pages')).map(f => 'pages/' + f)].map(f => fs.readFileSync(path.join(d, f), 'utf8')).join('\n')).length; };
-  console.log(JSON.stringify({ prepare: path.relative(ROOT, BASE), essais: runs().length, manuels_tokens: sizes, consignes_tokens: Object.fromEntries(TASKS.flatMap(t => FORMATS.map(f => [`${t}/${f}`, encode(consigne(t, f)).length]))), depart_editions_tokens: { yaml: src(path.join(BASE, 'edition', 'yaml', 'run1')), document: src(path.join(BASE, 'edition', 'document', 'run1')) } }));
+  console.log(JSON.stringify({ prepare: path.relative(ROOT, BASE), essais: runs().length, manuels_tokens: sizes, consignes_tokens: Object.fromEntries(TASKS.flatMap(t => FORMATS.map(f => [`${t}/${f}`, encode(consigne(t, f)).length]))), depart_editions_tokens: Object.fromEntries(FORMATS.map(f => [f, src(path.join(BASE, 'edition', f, 'run1'))])) }));
   process.exit(0);
 }
 
@@ -181,9 +196,15 @@ for (const task of TASKS) for (const format of FORMATS) {
   cells[`${task}/${format}`] = Object.fromEntries(KEYS.map(k => [k, { moyenne: mean(r.map(x => x[k])), essais: r.map(x => x[k]) }]));
   cells[`${task}/${format}`].reussis = `${r.filter(x => x.check_ok && x.build_ok && x.format_tenu && (noBench || x.banc_ok)).length}/${r.length}`;
 }
-const gap = (task, k) => { const y = cells[`${task}/yaml`][k].moyenne, d = cells[`${task}/document`][k].moyenne; return y && d !== null ? `${d > y ? '+' : ''}${Math.round((d / y - 1) * 100)} %` : null; };
+// Les formats qui ne sont pas refaits dans cette passe viennent de la passe de référence, telle qu'elle a été mesurée.
+const ref = protocol.reference ? JSON.parse(fs.readFileSync(path.join(ROOT, protocol.reference, 'mesures.json'), 'utf8')).cases : null;
+const cell = (task, format) => cells[`${task}/${format}`] || ref?.[`${task}/${format}`] || null;
+const pct = (d, y) => (y && d !== null && d !== undefined ? `${d > y ? '+' : ''}${Math.round((d / y - 1) * 100)} %` : null);
+const gap = (task, k) => pct(cell(task, 'document')?.[k]?.moyenne, cell(task, 'yaml')?.[k]?.moyenne);
 const ecarts = Object.fromEntries(TASKS.map(t => [t, Object.fromEntries(KEYS.filter(k => k !== 'sections').map(k => [k, gap(t, k)]))]));
-if (!noBench) fs.writeFileSync(path.join(BASE, 'mesures.json'), JSON.stringify({ essais: rows, cases: cells, ecarts_document_contre_yaml: ecarts }, null, 1) + '\n');
+// Écart avec les mêmes essais de la passe de référence (documents avant et après les corrections).
+const avant = ref ? Object.fromEntries(TASKS.map(t => [t, Object.fromEntries(KEYS.filter(k => k !== 'sections').map(k => [k, pct(cells[`${t}/document`]?.[k]?.moyenne, ref[`${t}/document`]?.[k]?.moyenne)]))])) : null;
+if (!noBench) fs.writeFileSync(path.join(BASE, 'mesures.json'), JSON.stringify({ protocole: protocol, essais: rows, cases: cells, ...(ref ? { cases_de_reference: Object.fromEntries(Object.entries(ref).filter(([k]) => !(k in cells) || k.endsWith('/document'))) } : {}), ecarts_document_contre_yaml: ecarts, ...(avant ? { ecarts_document_contre_document_de_reference: avant } : {}) }, null, 1) + '\n');
 for (const [k, c] of Object.entries(cells)) console.log(`${k.padEnd(20)} ${KEYS.map(x => `${x} ${c[x].moyenne}`).join(' | ')}`);
 for (const r of rows) console.log(`${r.essai.padEnd(24)} check ${r.check_ok ? 'ok ' : 'KO '} build ${r.build_ok ? 'ok ' : 'KO '} banc ${String(r.banc ?? '—').padEnd(6)} ${String(r.sections ?? '?').padStart(2)} sections  source ${String(r.source_tokens).padStart(5)} tokens  produits ${String(r.tokens_produits ?? '?').padStart(6)}  traités ${String(r.tokens_traites ?? '?').padStart(8)}  tours ${String(r.tours ?? '?').padStart(2)}  outils ${String(r.appels_outils ?? '?').padStart(2)}`);
-console.log(JSON.stringify({ reussis: Object.fromEntries(Object.entries(cells).map(([k, v]) => [k, v.reussis])), ecarts_document_contre_yaml: ecarts }));
+console.log(JSON.stringify({ reussis: Object.fromEntries(Object.entries(cells).map(([k, v]) => [k, v.reussis])), ecarts_document_contre_yaml: ecarts, ...(avant ? { ecarts_document_contre_document_de_reference: avant } : {}) }));

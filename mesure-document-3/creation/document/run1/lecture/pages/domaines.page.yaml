@@ -1,0 +1,52 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+route: /domaines
+seo:
+  title: Nos domaines d'intervention
+  description: Droit du travail, droit des affaires et droit de la famille au cabinet Garnier & Associés.
+sections:
+  - hero:
+      title: Nos domaines d'intervention
+      subtitle: Trois associés, trois spécialités, un même engagement auprès de vous.
+      cta:
+        label: Prendre rendez-vous
+        to: /contact
+  - features:
+      title: Trois domaines, trois associés
+      columns: 3
+      items:
+        - icon: users
+          title: Droit du travail
+          text: Me Hélène Garnier vous conseille et vous défend en droit du travail. Elle accompagne salariés et employeurs.
+        - icon: scale
+          title: Droit des affaires
+          text: Me Thomas Ruiz intervient en droit des affaires. Il accompagne les entreprises dans leurs décisions et leurs litiges.
+        - icon: home
+          title: Droit de la famille
+          text: Me Inès Kaddour intervient en droit de la famille. Elle vous écoute et vous accompagne dans les moments délicats.
+  - steps:
+      title: Comment se déroule un dossier
+      items:
+        - title: Premier rendez-vous
+          text: Une consultation de 30 minutes offerte pour comprendre votre situation.
+        - title: Convention d'honoraires
+          text: Une convention d'honoraires est systématiquement établie avant toute démarche.
+        - title: Traitement du dossier
+          text: L'avocat en charge instruit votre dossier et mène les démarches nécessaires.
+        - title: Suivi
+          text: Vous restez informé de l'avancement de votre dossier jusqu'à son terme.
+  - faq:
+      title: Questions fréquentes
+      items:
+        - q: La première consultation est-elle payante ?
+          a: Non, la première consultation de 30 minutes est offerte.
+        - q: Comment sont calculés les honoraires ?
+          a: Au forfait ou au temps passé, selon votre dossier. Une convention d'honoraires est systématiquement signée.
+        - q: Où intervenez-vous ?
+          a: Nous intervenons à Bordeaux, Libourne et Arcachon.
+  - cta:
+      title: Un avocat pour votre dossier
+      text: Première consultation de 30 minutes offerte.
+      button:
+        label: Nous contacter
+        to: /contact

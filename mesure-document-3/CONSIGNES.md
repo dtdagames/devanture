@@ -1,0 +1,30 @@
+# Consignes de la seconde mesure avec des agents
+
+Douze agents sans contexte, trois par case. `DOSSIER` est remplacé par le dossier de l'essai (`mesure-document-2/<tâche>/<format>/run<n>`).
+Les deux consignes d'une même tâche ne diffèrent que par le format demandé, le mode d'emploi et les commandes qui vont avec.
+
+## Création, en documents
+
+Tu es un agent de test. Dépôt : C:\Users\sergi\nodeLanguage (Windows, Node 24). Il contient un compilateur `sitec` qui transforme la description d'un site vitrine en site PHP. Mission : écrire un site vitrine complet EN DOCUMENTS (`site.md`, `pages/<id>.md` ; aucun fichier YAML) dans le dossier DOSSIER, qui existe déjà et contient les images (DOSSIER/assets : hero.svg, cabinet.svg, bordeaux.svg, helene.svg, thomas.svg, ines.svg). Sers-toi UNIQUEMENT du mode d'emploi C:\Users\sergi\nodeLanguage\mesure-document-3\manuel-documents.md (lis-le en entier d'abord) et des commandes `node bin/sitec.js catalog`, `node bin/sitec.js explain document`, `node bin/sitec.js explain <composant> --document` (dont `explain site`) et `node bin/sitec.js check DOSSIER --accepter`, lancées depuis C:\Users\sergi\nodeLanguage.
+INTERDIT : lire tout autre fichier du dépôt (src/, components/, examples/, docs/, scripts/, CLAUDE.md, les autres dossiers de mesure-document-3/…) ; modifier quoi que ce soit hors de ton dossier ; exécuter `build`.
+Écriture : écris chaque fichier avec l'outil Write, un fichier par appel (aucune commande shell pour créer ou modifier un fichier).
+Brief client : « Cabinet Garnier & Associés, avocats à Bordeaux, fondé en 2011. Trois associés : Me Hélène Garnier (droit du travail), Me Thomas Ruiz (droit des affaires), Me Inès Kaddour (droit de la famille). Deux collaboratrices et une assistante. Première consultation de 30 minutes offerte. Honoraires au forfait ou au temps passé, convention d'honoraires systématique. Interventions à Bordeaux, Libourne et Arcachon. Adresse : 25 cours de l'Intendance, 33000 Bordeaux. Tél 05 56 00 00 00, email contact@garnier-associes.fr. »
+Plan du site, à suivre exactement (6 pages, 22 sections, dans cet ordre ; les noms sont ceux du catalogue) :
+1. Accueil, route / : hero (titre, sous-titre, image hero.svg, bouton vers /contact, second bouton vers /domaines) ; features (les trois domaines du brief, une icône chacun) ; stats (trois chiffres tirés du brief) ; richtext (présentation du cabinet, image cabinet.svg) ; cta (vers /contact).
+2. Domaines, route /domaines : hero ; features (les trois domaines, deux phrases chacun) ; steps (quatre étapes : premier rendez-vous, convention d'honoraires, traitement du dossier, suivi) ; faq (trois questions tirées du brief) ; cta.
+3. Le cabinet, route /cabinet : hero ; team (les trois associés, photos helene.svg, thomas.svg, ines.svg) ; richtext (l'équipe et les lieux d'intervention, image bordeaux.svg) ; cta.
+4. Honoraires, route /honoraires : hero ; pricelist (un groupe, trois lignes : première consultation, forfait, temps passé ; le prix en mots, sans montant) ; faq (trois questions) ; cta.
+5. Contact, route /contact : hero ; contact.form (nom, e-mail, téléphone, message) ; map (l'adresse du brief).
+6. Mentions légales, route /mentions-legales : richtext.
+Menu : les cinq premières pages. Pied de page : un lien vers les mentions légales. Coordonnées du site : celles du brief.
+Textes crédibles, tirés du brief : n'invente ni montant, ni délai, ni distinction, ni témoignage ; ce que le brief ne dit pas et qu'il faut pourtant écrire (SIRET, hébergeur) s'écrit `[à compléter]`.
+Protocole : écris le site, lance `check DOSSIER --accepter`, corrige jusqu'à `{"ok":true,...}`. Note chaque exécution de `check` et son nombre d'erreurs.
+Rapport final, COURT (10 lignes maximum) : nombre d'appels d'outils, nombre d'exécutions de `check` et le nombre d'erreurs à chacune, nombre de `explain`, une ligne par difficulté rencontrée. Rien d'autre.
+
+## Éditions, en documents
+
+Tu es un agent de test. Dépôt : C:\Users\sergi\nodeLanguage (Windows, Node 24). Il contient un compilateur `sitec` qui transforme la description d'un site vitrine en site PHP. Le dossier DOSSIER contient un site écrit EN DOCUMENTS (`site.md`, `pages/<id>.md` ; aucun fichier YAML). Mission : lui appliquer les quatre modifications décrites dans C:\Users\sergi\nodeLanguage\maintenance\MODIFICATIONS-garnier.md (lis ce fichier), sans changer de format. Sers-toi UNIQUEMENT du mode d'emploi C:\Users\sergi\nodeLanguage\mesure-document-3\manuel-documents.md (lis-le en entier d'abord) et des commandes `node bin/sitec.js catalog`, `node bin/sitec.js explain document`, `node bin/sitec.js explain <composant> --document` (dont `explain site`) et `node bin/sitec.js check DOSSIER --accepter`, lancées depuis C:\Users\sergi\nodeLanguage.
+INTERDIT : lire tout autre fichier du dépôt (src/, components/, examples/, docs/, scripts/, CLAUDE.md, le reste de maintenance/, les autres dossiers de mesure-document-3/…) ; modifier quoi que ce soit hors de ton dossier ; exécuter `build`.
+Écriture : modifie les fichiers avec les outils Edit et Write (aucune commande shell pour créer ou modifier un fichier).
+Protocole : applique les modifications, lance `check DOSSIER --accepter`, corrige jusqu'à `{"ok":true,...}`. Note chaque exécution de `check` et son nombre d'erreurs.
+Rapport final, COURT (10 lignes maximum) : nombre d'appels d'outils, nombre d'exécutions de `check` et le nombre d'erreurs à chacune, nombre de `explain`, une ligne par difficulté rencontrée. Rien d'autre.

@@ -32,7 +32,7 @@ export function readings(project, root) {
   };
   const out = [];
   for (const doc of [project.documents?.site, ...(project.documents?.pages || []), ...(project.documents?.data || [])].filter(Boolean))
-    out.push({ file: rel(doc.file), ...state(doc.errors, doc.frozen, doc.yaml), errors: doc.errors, frozenFile: doc.frozenFile, yaml: doc.yaml });
+    out.push({ file: rel(doc.file), ...state(doc.errors, doc.frozen, doc.yaml), errors: doc.errors, frozenFile: doc.frozenFile, yaml: doc.yaml, where: doc.where || {} });
   for (const src of [...(project.componentSources || []), ...(project.packages || []).flatMap(p => p.componentSources || [])].filter(x => x.documentText !== undefined)) {
     const r = readDocument(src.documentText, { name: src.name });
     out.push({ file: rel(path.join(src.dir, 'document.md')), ...state(r.errors, src.lectureText, r.yaml), errors: r.errors, frozenFile: path.join(src.dir, 'lecture.yaml'), yaml: r.yaml });

@@ -1,0 +1,39 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+route: /cabinet
+seo:
+  title: Le cabinet
+  description: Trois associés, deux collaboratrices et une assistante, à Bordeaux depuis 2011.
+sections:
+  - hero:
+      title: Le cabinet Garnier & Associés
+      subtitle: Une équipe fondée en 2011, installée au cœur de Bordeaux.
+      image: cabinet.svg
+      cta:
+        label: Nous contacter
+        to: /contact
+  - team:
+      title: Les associés
+      members:
+        - name: Me Hélène Garnier
+          role: Associée, droit du travail
+          photo: helene.svg
+        - name: Me Thomas Ruiz
+          role: Associé, droit des affaires
+          photo: thomas.svg
+        - name: Me Inès Kaddour
+          role: Associée, droit de la famille
+          photo: ines.svg
+  - richtext:
+      title: L'équipe et nos lieux d'intervention
+      text: |-
+        Autour des trois associés, deux collaboratrices et une assistante font vivre le cabinet au quotidien.
+
+        Nous intervenons à Bordeaux, Libourne et Arcachon.
+      image: bordeaux.svg
+  - cta:
+      title: Rencontrons-nous
+      text: La première consultation de 30 minutes est offerte.
+      button:
+        label: Prendre rendez-vous
+        to: /contact

@@ -7,7 +7,7 @@ Mots-clés : à propos, histoire, qui sommes-nous, présentation
 
 ## Données
 - title : texte, facultatif
-- text : texte — texte, paragraphes séparés par une ligne vide (utiliser | en YAML)
+- text : texte long — texte, paragraphes séparés par une ligne vide (utiliser | en YAML)
 - image : image, facultatif — image affichée à côté du texte
 - image_position : texte, facultatif, un parmi left, right — côté de l'image (défaut right)
 - cta : lien, facultatif

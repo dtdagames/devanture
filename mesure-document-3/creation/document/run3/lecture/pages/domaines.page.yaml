@@ -1,0 +1,53 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+route: /domaines
+seo:
+  title: Nos domaines d'intervention
+  description: Droit du travail, droit des affaires et droit de la famille au cabinet Garnier & Associés.
+sections:
+  - hero:
+      title: Nos domaines d'intervention
+      subtitle: Trois associés, trois spécialités, une même méthode.
+      image: hero.svg
+      cta:
+        label: Prendre rendez-vous
+        to: /contact
+  - features:
+      title: Trois spécialités
+      columns: 3
+      items:
+        - icon: scale
+          title: Droit du travail
+          text: Me Hélène Garnier conseille salariés et employeurs. Elle les défend en cas de conflit.
+        - icon: euro
+          title: Droit des affaires
+          text: Me Thomas Ruiz accompagne les entreprises dans leurs projets. Il les défend dans leurs litiges.
+        - icon: users
+          title: Droit de la famille
+          text: Me Inès Kaddour vous écoute et vous conseille. Elle vous défend avec humanité.
+  - steps:
+      title: Comment se déroule un dossier
+      items:
+        - title: Premier rendez-vous
+          text: Trente minutes offertes pour comprendre votre situation.
+        - title: Convention d'honoraires
+          text: Un écrit systématique, au forfait ou au temps passé.
+        - title: Traitement du dossier
+          text: L'avocat associé et son équipe prennent en charge votre dossier.
+        - title: Suivi
+          text: Vous restez informé à chaque étape jusqu'à la fin du dossier.
+  - faq:
+      title: Questions fréquentes
+      items:
+        - q: La première consultation est-elle payante ?
+          a: Non, la première consultation de 30 minutes est offerte.
+        - q: Comment sont calculés les honoraires ?
+          a: Au forfait ou au temps passé, et toujours avec une convention d'honoraires.
+        - q: Où intervenez-vous ?
+          a: À Bordeaux, Libourne et Arcachon.
+  - cta:
+      title: Un dossier à nous confier ?
+      text: Prenez rendez-vous pour votre première consultation offerte.
+      button:
+        label: Nous contacter
+        to: /contact

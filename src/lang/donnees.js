@@ -24,7 +24,8 @@ const TYPES = [
   ['liste de liens', () => ({ type: 'array', items: { $ref: '#/$defs/link' } })],
   ['liste d\'images', () => ({ type: 'array', items: { type: 'string', format: 'asset' } })],
   ['groupe libre', () => ({ type: 'object', _free: true })],
-  ['texte long', () => ({ type: 'string' })],
+  // Un texte en paragraphes (mentions légales, description d'un poste) : même donnée qu'un texte, marquée pour la lecture en document.
+  ['texte long', () => ({ type: 'string', $comment: 'texte long' })],
   ['texte', () => ({ type: 'string' })],
   ['nombre', () => ({ type: 'number' })],
   ['entier', () => ({ type: 'integer' })],

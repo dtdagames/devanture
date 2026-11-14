@@ -161,6 +161,7 @@ Dépannage 7j/7 à Lyon
 
 Langue : fr-FR
 Thème : clair
+color.primary : #123456
 Pied de page : SIRET 123 456 789
 E-mail : contact@exemple.fr
 Téléphone : 04 00 00 00 00
@@ -192,8 +193,9 @@ Appeler → tel:+33400000000
 - \`# Titre\` est le titre de la page, le paragraphe qui suit sa description, \`Adresse : /route\` sa route (obligatoire, unique ; \`/\` pour l'accueil).
 - Une section par \`## composant : Titre\` (nom du catalogue ou nom français : Bandeau, Points forts, Texte, Questions, Appel…) ; \`## composant #ancre : Titre\` pose une ancre.
 - Sous l'intitulé : un paragraphe est le texte libre du composant ; \`Nom : valeur\` une donnée ; \`Libellé → /cible\` seul sur sa ligne un lien ; \`- valeur | valeur\` un élément de liste, dont les valeurs suivent l'ordre des champs de la fiche (\`npx sitec explain <composant> --document\` montre l'exemple du composant écrit ainsi).
-- Rien à protéger : ni guillemets ni indentation. Une ligne qui ne trouve pas sa place est refusée, à sa ligne ; une ligne « nom : suite » d'un à trois mots avant les deux-points est toujours une donnée, et un texte dont une phrase commence ainsi s'annonce par \`Texte :\` seul sur sa ligne.
-- **Après toute modification d'un document** : \`npx sitec lire . --accepter\`. La commande dit ce qui est refusé et ce qui a changé, puis fige la lecture dans \`lecture/\` ; sans cela \`check\` s'arrête (\`E_READING\`). Relis ce qu'elle affiche avant de committer, et committe \`lecture/\` avec le document.
+- Dans \`site.md\`, un jeton de thème s'écrit sur sa ligne, « nom : valeur » (\`color.primary : #123456\` ; liste des jetons : \`npx sitec explain site\`).
+- Rien à protéger : ni guillemets ni indentation. Une ligne qui ne trouve pas sa place est refusée, à sa ligne. Une ligne « nom : suite » d'un à trois mots avant les deux-points est une donnée : si le nom n'en est pas une, elle est refusée. Exception : dans le texte d'un composant Texte, une phrase comme « Éditeur : Cabinet Martin, 12 rue… » se lit comme du texte quand sa suite fait plusieurs mots ; ailleurs (un slogan, un sous-titre), ou pour une suite d'un seul mot, annonce le texte par \`Texte :\` seul sur sa ligne.
+- **Après toute modification d'un document** : \`npx sitec check . --accepter\` relit, fige la lecture dans \`lecture/\` et vérifie, en une commande ; elle dit ce qui a changé dans chaque document (lignes \`I_READING\`) et ce qui est refusé. Sans relecture, \`check\` s'arrête (\`E_READING\`). Relis ce qu'elle affiche avant de committer, et committe \`lecture/\` avec le document. \`npx sitec lire .\` montre la même chose sans rien figer.
 - Le format en une page : \`npx sitec explain document\`.
 
 `;
@@ -241,7 +243,7 @@ node_modules/
     'package.json': JSON.stringify({
       name: id, private: true, type: 'module',
       description: `Site ${siteName} — source Devanture (${source}), compilée en PHP par sitec. Aucun PHP dans ce dépôt.`,
-      scripts: { ...(yaml ? { postinstall: 'sitec schema . || exit 0', schema: 'sitec schema .' } : { lire: 'sitec lire .', accepter: 'sitec lire . --accepter' }), test: 'sitec test .', check: 'sitec check .', build: 'sitec build .', review: 'sitec review .', keywords: 'sitec keywords .', deploy: 'sitec deploy .', 'no-php': "node -e \"const{execSync}=require('child_process');const f=execSync('git ls-files',{encoding:'utf8'}).split(/\\r?\\n/).filter(x=>/\\.php$/i.test(x));if(f.length){console.error('PHP interdit dans ce dépôt :',f.join(', '));process.exit(1)}console.log('aucun PHP versionné')\"" },
+      scripts: { ...(yaml ? { postinstall: 'sitec schema . || exit 0', schema: 'sitec schema .' } : { lire: 'sitec lire .', accepter: 'sitec check . --accepter' }), test: 'sitec test .', check: 'sitec check .', build: 'sitec build .', review: 'sitec review .', keywords: 'sitec keywords .', deploy: 'sitec deploy .', 'no-php': "node -e \"const{execSync}=require('child_process');const f=execSync('git ls-files',{encoding:'utf8'}).split(/\\r?\\n/).filter(x=>/\\.php$/i.test(x));if(f.length){console.error('PHP interdit dans ce dépôt :',f.join(', '));process.exit(1)}console.log('aucun PHP versionné')\"" },
       dependencies: { devanture: dep },
     }, null, 2) + '\n',
     '.github/workflows/site.yml': `name: Site
@@ -290,7 +292,7 @@ Dépôt de site **sans PHP** : la source est écrite ${yaml ? 'dans le DSL Devan
 
 \`\`\`
 npm install            # installe le compilateur (commitez ensuite package-lock.json : il fige sa version)
-${yaml ? '' : 'npx sitec lire . --accepter   # après toute modification d\'un document : dit ce qui a changé et fige la lecture dans lecture/\n'}npx sitec check .      # valide (erreurs en JSON, une par ligne)
+${yaml ? 'npx sitec check .      # valide (erreurs en JSON, une par ligne)' : 'npx sitec check . --accepter   # après toute modification : relit les documents, fige leur lecture dans lecture/, valide'}
 npx sitec build .      # compile dans dist/ (refusé tant qu'il reste des [à compléter], sauf --draft)
 npx sitec review .     # ce qui manque au brief, ce qui est à faire valider
 \`\`\`
@@ -319,7 +321,7 @@ Back-office du site compilé : \`/_admin\` (jeton \`ADMIN_TOKEN\`). Version text
   // Mode d'emploi pour l'agent : celui du compilateur, avec les commandes du dépôt de site.
   let manual = await fs.readFile(path.join(SITEC_ROOT, 'CLAUDE.md'), 'utf8');
   manual = manual.replace(/\r\n/g, '\n');
-  const commands = '```\nnpx sitec catalog              # liste des composants (1 ligne chacun)\nnpx sitec explain <composant>  # props détaillées + exemple\n' + (yaml ? '' : 'npx sitec lire . --accepter    # après toute modification d\'un document : ce qui a changé, lecture figée dans lecture/\n') + 'npx sitec check .              # valide, erreurs en JSON (1 par ligne), code 1 si erreurs\nnpx sitec build .              # valide puis génère dist/ (PHP + JS + CSS), jamais versionné\nnpx sitec review .             # relecture éditoriale contre brief.md\n```';
+  const commands = '```\nnpx sitec catalog              # liste des composants (1 ligne chacun)\nnpx sitec explain <composant>  # props détaillées + exemple\n' + (yaml ? 'npx sitec check .              # valide, erreurs en JSON (1 par ligne), code 1 si erreurs\n' : 'npx sitec check . --accepter   # après toute modification : relit les documents, fige leur lecture, valide (erreurs en JSON, 1 par ligne)\n') + 'npx sitec build .              # valide puis génère dist/ (PHP + JS + CSS), jamais versionné\nnpx sitec review .             # relecture éditoriale contre brief.md\n```';
   manual = manual.replace(/```\nnode bin\/sitec\.js catalog[\s\S]*?```/, () => commands)
     .replaceAll('node bin/sitec.js', 'npx sitec')
     .replace('# Devanture — mode d\'emploi pour l\'agent', () => `# ${siteName} — mode d'emploi pour l'agent\n\nCe dépôt ne contient que la source du site (${yaml ? 'YAML' : 'documents'}, brief, images). **Aucun fichier PHP, JS ou CSS n'y est accepté.** \`dist/\` est produit par \`npx sitec build .\` et n'est jamais versionné.`);

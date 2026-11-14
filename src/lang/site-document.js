@@ -50,6 +50,8 @@ const FILE = /^[\w./-]+\.(svg|png|jpe?g|webp|gif|avif)$/i;
 // Ce qu'une donnée attend, lu dans son schéma.
 
 /** Genre d'une donnée : text, number, bool, enum, image, link, list (avec item), group, free. */
+/** Marque d'un texte long (« texte long » dans les données d'un composant) : un texte en paragraphes. */
+const LONG_MARK = 'texte long';
 export function kindOf(s) {
   if (!s || typeof s !== 'object') return { k: 'text' };
   if (s.$comment === FIELD_MARK) return { k: 'field' };
@@ -62,7 +64,7 @@ export function kindOf(s) {
   if (t === 'boolean') return { k: 'bool' };
   if (t === 'string' && s.format === 'asset') return { k: 'image' };
   if (t === undefined && !s.format) return { k: 'free' };
-  return { k: 'text', plain: !s.format && !s.pattern };
+  return { k: 'text', plain: !s.format && !s.pattern, long: s.$comment === LONG_MARK };
 }
 
 /** Lien écrit « Libellé → /cible » (ou « -> », ou [Libellé](/cible)). */
@@ -143,8 +145,16 @@ function fitItem(text, schema) {
   const kinds = Object.fromEntries(keys.map(k => [k, kindOf(P[k])]));
   const later = (from, k) => keys.slice(from).some(x => !(x in out) && kinds[x].k === k);
   let p = 0, lastText = null;
-  for (const raw of split(text)) {
+  const parts = split(text);
+  for (const [n, raw] of parts.entries()) {
     if (raw === '') return { error: 'valeur vide entre deux « | » : écrivez « rien » pour sauter un champ' };
+    // Un mot seul en minuscules là où un choix est attendu (une icône), suivi d'autres valeurs : c'est un choix mal écrit,
+    // pas le champ suivant. Sans cela « briefcase | Droit des affaires » rangeait « briefcase » dans le titre.
+    const due = keys.slice(p).find(k => !(k in out));
+    if (due && kinds[due].k === 'enum' && n < parts.length - 1 && /^[a-z][a-z0-9_-]*$/.test(raw) && norm(raw) !== SKIP && !inEnum(kinds[due].values, raw)) {
+      const after = keys.slice(keys.indexOf(due) + 1).find(k => !(k in out) && kinds[k].k === 'text');
+      return { error: `« ${raw} » n'est pas une valeur de ${due} (valeurs : ${kinds[due].values.join(', ')})${after ? ` ; si c'est le champ ${after}, dites-le par son nom : « ${after} : ${raw} »` : ''}` };
+    }
     // Valeur nommée : « réponse : Oui » remplit le champ réponse, où qu'il soit.
     const m = /^([^:|]{1,40}?)\s*:\s+(.+)$/.exec(raw), named = m && labels.get(norm(m[1]));
     if (named && !(named in out)) { const v = parseValue(kinds[named], m[2]); if (!v.error) { out[named] = v.value; lastText = kinds[named].k === 'text' ? named : null; continue; } }
@@ -376,8 +386,14 @@ export function readBody(blocks, schema, opts = {}) {
       const close = [...labels.keys()].filter(l => l.length >= 5 && lev(l, said) === 1);
       const shared = [...labels.keys()].map(l => ({ l, n: wordsOf(l).filter(w => wordsOf(said).includes(w)).length })).filter(x => x.n).sort((x, y) => y.n - x.n || x.l.length - y.l.length);
       const cand = close[0] || shared[0]?.l, ps = proseShown();
+      // Dans un texte long (mentions légales, description d'un poste), « Éditeur : Cabinet Garnier, 25 cours… » est une phrase du
+      // texte : le mot ne ressemble à aucune donnée, et la suite n'a pas la forme d'un réglage (un seul mot, un nombre, un lien).
+      const into = target && kinds[target]?.k === 'text' ? target : proseProp, suite = (m[2] || '').trim();
+      const sentence = !cand && into && kinds[into]?.long && suite.split(/\s+/).length >= 2 && !parseLink(suite);
+      if (!sentence) {
       fail(b.line, `« ${m[1].trim()} » n'est pas une donnée de ${what}${cand ? ` : vouliez-vous dire « ${labels.shown.get(cand) || cand} » ?` : ''}`, `Données : ${[...new Set(labels.shown.values())].filter(x => x !== 'variants').join(', ')}.${ps ? ` Si c'est une phrase du texte, annoncez le texte : « ${ps[0].toUpperCase() + ps.slice(1)} : » seul sur sa ligne, puis le texte, lu tel quel.` : ''}`);
       continue;
+      }
     }
     const link = links.length ? parseLink(b.text) : null;
     if (link && !(target && kinds[target]?.k === 'text')) {

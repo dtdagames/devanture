@@ -1,0 +1,141 @@
+{
+ "creation/document/run1": {
+  "tours": 6,
+  "produits": 4816,
+  "lus_hors_cache": 12,
+  "ecrits_au_cache": 105092,
+  "relus_du_cache": 429555,
+  "outils": {
+   "Read": 2,
+   "Bash": 3,
+   "Write": 7,
+   "SubagentHandback": 1
+  },
+  "traites": 539475,
+  "appels_outils": 12,
+  "duree_s": 50.8,
+  "ecrits_dans_les_fichiers": 1491,
+  "ecritures": 7,
+  "retouches": 0,
+  "lancements_check": 1,
+  "lancements_lire": 0,
+  "lancements_explain": 3
+ },
+ "creation/document/run2": {
+  "tours": 7,
+  "produits": 4937,
+  "lus_hors_cache": 14,
+  "ecrits_au_cache": 63421,
+  "relus_du_cache": 563026,
+  "outils": {
+   "Read": 2,
+   "Bash": 2,
+   "Write": 7,
+   "Edit": 1,
+   "SubagentHandback": 1
+  },
+  "traites": 631398,
+  "appels_outils": 12,
+  "duree_s": 51.6,
+  "ecrits_dans_les_fichiers": 1395,
+  "ecritures": 7,
+  "retouches": 1,
+  "lancements_check": 1,
+  "lancements_lire": 0,
+  "lancements_explain": 3
+ },
+ "creation/document/run3": {
+  "tours": 8,
+  "produits": 5238,
+  "lus_hors_cache": 18,
+  "ecrits_au_cache": 63558,
+  "relus_du_cache": 667872,
+  "outils": {
+   "Read": 2,
+   "Bash": 3,
+   "Write": 7,
+   "SubagentHandback": 1
+  },
+  "traites": 736686,
+  "appels_outils": 12,
+  "duree_s": 55,
+  "ecrits_dans_les_fichiers": 1450,
+  "ecritures": 7,
+  "retouches": 0,
+  "lancements_check": 1,
+  "lancements_lire": 0,
+  "lancements_explain": 2
+ },
+ "edition/document/run1": {
+  "tours": 6,
+  "produits": 2751,
+  "lus_hors_cache": 12,
+  "ecrits_au_cache": 56882,
+  "relus_du_cache": 450883,
+  "outils": {
+   "Read": 6,
+   "Glob": 1,
+   "Bash": 2,
+   "Edit": 4,
+   "Write": 1,
+   "SubagentHandback": 1
+  },
+  "traites": 510528,
+  "appels_outils": 14,
+  "duree_s": 30,
+  "ecrits_dans_les_fichiers": 378,
+  "ecritures": 1,
+  "retouches": 4,
+  "lancements_check": 1,
+  "lancements_lire": 0,
+  "lancements_explain": 3
+ },
+ "edition/document/run2": {
+  "tours": 7,
+  "produits": 3251,
+  "lus_hors_cache": 14,
+  "ecrits_au_cache": 55695,
+  "relus_du_cache": 544523,
+  "outils": {
+   "Read": 7,
+   "Glob": 1,
+   "Bash": 2,
+   "Edit": 4,
+   "Write": 1,
+   "SubagentHandback": 1
+  },
+  "traites": 603483,
+  "appels_outils": 15,
+  "duree_s": 34.9,
+  "ecrits_dans_les_fichiers": 388,
+  "ecritures": 1,
+  "retouches": 4,
+  "lancements_check": 1,
+  "lancements_lire": 0,
+  "lancements_explain": 3
+ },
+ "edition/document/run3": {
+  "tours": 5,
+  "produits": 3567,
+  "lus_hors_cache": 10,
+  "ecrits_au_cache": 56195,
+  "relus_du_cache": 359400,
+  "outils": {
+   "Read": 6,
+   "Glob": 1,
+   "Bash": 2,
+   "Edit": 4,
+   "Write": 1,
+   "SubagentHandback": 1
+  },
+  "traites": 419172,
+  "appels_outils": 14,
+  "duree_s": 31.5,
+  "ecrits_dans_les_fichiers": 378,
+  "ecritures": 1,
+  "retouches": 4,
+  "lancements_check": 1,
+  "lancements_lire": 0,
+  "lancements_explain": 2
+ }
+}

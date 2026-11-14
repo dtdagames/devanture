@@ -26,7 +26,7 @@ import fs from 'node:fs/promises';
 const HELP = `sitec — compilateur Devanture (sites vitrines → PHP + JS)
 
 Usage :
-  sitec check   <dossier-projet>  [--json]   Valide sans générer
+  sitec check   <dossier-projet>  [--json]   Valide sans générer ; --accepter : relit d'abord les documents modifiés et fige leur lecture, en disant ce qui change
   sitec build   <dossier-projet>  [--out d] [--target php]
                                              Valide puis génère dist/ pour la cible (php, seule cible à ce jour)
   sitec catalog [dossier-projet]             Liste compacte des composants (natifs, puis ceux du projet : composés et gabarits)
@@ -595,7 +595,15 @@ intents: [mots, que, tapent, les, visiteurs]
       const dir = args[0];
       if (!dir) { console.error(`Usage : sitec ${cmd} <dossier-projet>`); return 2; }
       const root = path.resolve(dir);
-      const project = await loadProject(root);
+      let project = await loadProject(root);
+      // check --accepter : relit les documents modifiés, fige leur lecture et vérifie, en une commande. Chaque lecture acceptée est
+      // dite (ce qui change, ou ce que vaut un document nouveau) : rien n'est accepté sans être montré.
+      if (cmd === 'check' && flags.has('--accepter')) {
+        const { readings, acceptReadings } = await import('./reading.js');
+        const waiting = readings(project, root).filter(r => r.status === 'à accepter');
+        for (const r of waiting) console.log(JSON.stringify({ level: 'info', code: 'I_READING', file: r.file, message: r.absent ? 'Lecture acceptée : document nouveau.' : `Lecture acceptée : ${r.changes.length} ligne${r.changes.length > 1 ? 's' : ''} changée${r.changes.length > 1 ? 's' : ''}.`, ...(r.absent ? { vaut: summarize({ yaml: r.yaml, where: r.where }) } : { changes: r.changes }) }));
+        if (waiting.length) { await acceptReadings(project, root); project = await loadProject(root); }
+      }
       const errors = validateProject(project, catalog);
       const asJson = flags.has('--json') || cmd === 'check';
       if (errors.length) {
@@ -1091,8 +1099,11 @@ Dans une puce, un champ dont le type ne convient pas à la valeur est sauté : u
 un « Libellé → /cible » au champ lien. « rien » saute un champ ; « nom : valeur » vise un champ par son nom.
 Rien à protéger : « : », « , », « # », « {{ … }} » et les nombres s'écrivent tels quels, sans guillemets ni indentation.
 Une ligne qui ne trouve pas sa place est refusée (E_DOCUMENT, à sa ligne) ; un document modifié sans relecture arrête check et build (E_READING).
-Une ligne « nom : suite » d'un à trois mots avant les deux-points est toujours une donnée : un nom inconnu est refusé, jamais rangé dans le texte.
-Un texte dont une phrase commence ainsi (« Téléphone : 05 56… ») s'annonce : « Texte : » seul sur sa ligne, puis le texte.
+Une ligne « nom : suite » d'un à trois mots avant les deux-points est une donnée : un nom inconnu est refusé, jamais rangé dans le texte.
+Exception, dans un texte long (le texte d'un composant Texte) : « Éditeur : Cabinet Garnier, 25 cours… » est une phrase du texte quand le mot
+ne ressemble à aucune donnée et que la suite fait plusieurs mots. Ailleurs, ou pour une suite d'un seul mot, le texte s'annonce :
+« Texte : » seul sur sa ligne, puis le texte, lu tel quel.
+En une commande après une modification : sitec check <dossier> --accepter relit, fige la lecture (en disant ce qui change) et vérifie.
 
 Noms français des composants : ${fr}.
 Noms français des données : ${props}.
