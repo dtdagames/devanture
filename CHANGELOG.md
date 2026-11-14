@@ -1,6 +1,20 @@
 # Journal des versions
 
-Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.17.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.18.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+
+## v0.18.0 — 2026-11-14 — habillage du site : l'en-tête et le pied sont des composants qu'un site récrit, charte plus riche, banc d'écart visuel
+
+Premier pas vers la fidélité à une maquette. Jusqu'ici l'en-tête et le pied de page étaient du PHP écrit dans le compilateur, les mêmes pour tous les sites, et le thème ne réglait que des couleurs et deux familles de police.
+
+- **L'en-tête et le pied sont deux composants** du catalogue, `site.header` et `site.footer`, écrits en plan comme les autres ; la mise en page les rend autour de chaque page. Leur balisage est celui d'avant.
+- **Un site les récrit** dans le même format : un composant du site dont la forme s'ouvre par « en-tête de site » remplace l'en-tête, « pied de site » le pied. Rien à déclarer ailleurs. Sa forme lit les données du site (`name`, `home`, `tagline`, `phone`, `phone_link`, `email`, `email_link`, `address`, `nav`, `footer_text`, `footer_links`, `readable_link`) ; il n'a ni données ni fonctionnement à lui. Deux en-têtes dans un site, ou un habillage écrit comme section d'une page, sont refusés (`E_SHELL`).
+- **Sept mots natifs** pour l'habillage : `marque du site`, `menu du site`, `panier du site`, `recherche du site`, `téléphone du site`, `mentions du site`, `liens du pied`. Le gabarit d'un mot lit maintenant `shop` en plus de `site` et `page`, et `page.route` donne l'adresse de la page affichée.
+- **Jetons d'échelle** : `font.size`, `line.height`, `heading.weight`, `h1.size`, `h2.size`, `h3.size`, `section.space`, `header.bg`, `header.fg`. Valeurs par défaut : celles qui étaient écrites en dur dans la feuille.
+- **Polices du site** : `theme › fonts` déclare des fichiers de `assets/` (`@font-face`, servis par le site, aucune police externe). En document : « Polices : » puis « - Lato | lato.woff2 | 400 ».
+- **Fond de page** : `theme › background` pose une image en haut de la page et une autre en bas, ou une image fixe qui couvre l'écran, avec des images propres au téléphone. En document : « Fond de page : », « Fond de bas de page : », « Fond fixe : », « … sur téléphone : ».
+- `sitec explain habillage` ; `catalog` marque les composants d'habillage ; `explain site` liste `fonts` et `background`.
+- **Banc d'écart visuel** : `scripts/compare-visuel.mjs <origine> <recréation>` capture les deux sites aux mêmes largeurs avec Chrome sans fenêtre et mesure l'écart du premier écran, la palette commune et le rapport des hauteurs. Sur le site réel recréé à la v0.17.0 (hors dépôt), en lui écrivant un en-tête, un pied et une charte : à 1280 px, l'écart du premier écran de l'accueil passe de 24,7 % à 10,2 % et la palette commune de 17,6 % à 92,7 % ; à 390 px, de 22,6 % à 14,2 % et de 44,4 % à 83,4 %. Indices grossiers, deux pages mesurées avant et après.
+- Non fait : l'apparence libre d'une section dans une page (largeur de colonne, titre posé sur une photo), les polices du site d'essai (non téléchargées), un habillage fourni par un paquet. Banc du site en documents à 151 contrôles, dont dix pour l'habillage et la charte.
 
 ## v0.17.0 — 2026-11-14 — un site réel recréé : cinq défauts corrigés, redirections des anciennes adresses
 

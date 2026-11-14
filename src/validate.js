@@ -48,6 +48,13 @@ export const SITE_SCHEMA = {
           properties: {
             preset: { type: 'string', enum: Object.keys(THEME_PRESETS) },
             tokens: { type: 'object', additionalProperties: { type: 'string' } },
+            // Polices du site : fichiers de assets/ (woff2, woff, ttf, otf), nommées dans font.body et font.heading.
+            fonts: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['family', 'file'], properties: {
+              family: { type: 'string', pattern: '^[A-Za-z0-9][A-Za-z0-9 _-]*$' }, file: { type: 'string', format: 'asset', pattern: '\\.(woff2|woff|ttf|otf)$' },
+              weight: { type: ['string', 'integer'], pattern: '^[1-9]00( [1-9]00)?$' }, style: { type: 'string', enum: ['normal', 'italic'] } } } },
+            // Fond de page : une image de assets/ en haut de la page, une autre en bas, ou une image fixe qui couvre l'écran.
+            background: { type: 'object', additionalProperties: false, properties: { image: { type: 'string', format: 'asset' }, bottom: { type: 'string', format: 'asset' }, fixed: { type: 'boolean' },
+              phone: { type: 'object', additionalProperties: false, properties: { image: { type: 'string', format: 'asset' }, bottom: { type: 'string', format: 'asset' } } } } },
           },
         },
         nav: { type: 'array', items: { $ref: '#/$defs/link' } },
@@ -310,6 +317,12 @@ export function validateProject(project, catalog) {
   }
   const cat = entries.length ? catalog.extend(entries) : catalog;
   project.catalog = cat;
+  // Habillage : un site écrit au plus un en-tête et un pied ; celui qu'il écrit remplace celui du catalogue.
+  for (const kind of ['header', 'footer']) {
+    const own = entries.filter(c => c.manifest.shell === kind && !c.package);
+    const what = kind === 'header' ? 'en-tête de site' : 'pied de site';
+    for (const c of own.slice(1)) errors.push(err('E_SHELL', { file: path.join(c.dir, c.outline ? 'composant.md' : 'manifest.yaml'), path: 'forme', message: `Deux composants du site s'ouvrent par « ${what} » : ${own[0].name} et ${c.name}. Un site n'a qu'un ${kind === 'header' ? 'en-tête' : 'pied de page'}.`, hint: `Gardez-en un ; l'autre s'ouvre par « section » s'il sert dans une page.` }));
+  }
   // Registres : un registre appartient aux formulaires qui y écrivent ; ses règles ne se déclarent qu'une fois, et on ne lit que ce qui existe.
   {
     const writers = new Map();
@@ -396,7 +409,11 @@ export function validateProject(project, catalog) {
         const s = cat.suggest(name);
         if (project.brokenComponents?.has(name)) return;
         if (name === 'custom') { errors.push(err('E_UNKNOWN_COMPONENT', { file, path: base, message: 'Le bloc custom (un fichier PHP du projet) n\'existe plus.', hint: 'Écrivez un composant du site : components/<nom>/ au format langage (données, forme, apparence, fonctionnement), puis « - <nom>: { … } » dans la page. sitec component new <dossier> <nom> en pose le squelette.' })); return; }
-        errors.push(err('E_UNKNOWN_COMPONENT', { file, path: base, message: `Composant inconnu : ${name}.`, expected: cat.names(), hint: s ? `Vouliez-vous dire ${s} ?` : 'sitec catalog pour la liste.', fix: s ? { rename: { from: name, to: s } } : undefined }));
+        errors.push(err('E_UNKNOWN_COMPONENT', { file, path: base, message: `Composant inconnu : ${name}.`, expected: cat.names().filter(n => !cat.get(n).manifest.shell), hint: s ? `Vouliez-vous dire ${s} ?` : 'sitec catalog pour la liste.', fix: s ? { rename: { from: name, to: s } } : undefined }));
+        return;
+      }
+      if (comp.manifest.shell) {
+        errors.push(err('E_SHELL', { file, path: base, message: `${name} est un habillage (${comp.manifest.shell === 'header' ? 'en-tête' : 'pied de page'} du site) : il est rendu autour de chaque page, pas dans une page.`, hint: 'Retirez cette section. Un site récrit son en-tête ou son pied par un composant dont la forme s\'ouvre par « en-tête de site » ou « pied de site » : sitec explain habillage.' }));
         return;
       }
       const props = section[name] ?? {};

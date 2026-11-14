@@ -64,7 +64,7 @@ export function buildSchemas(project, catalog) {
   const defs = { link: relax(clone(SHARED_DEFS.link), ctx) };
 
   const branches = (composite) => [
-    ...cat.list().map(c => { const p = clone(c.manifest.props); delete p.$defs; return sectionBranch(c.name, relax(p, ctx, { composite }), c.manifest.description + (c.package ? ` (paquet ${c.package})` : c.project ? ' (composant du projet)' : ''), c.manifest.example); }),
+    ...cat.list().filter(c => !c.manifest.shell).map(c => { const p = clone(c.manifest.props); delete p.$defs; return sectionBranch(c.name, relax(p, ctx, { composite }), c.manifest.description + (c.package ? ` (paquet ${c.package})` : c.project ? ' (composant du projet)' : ''), c.manifest.example); }),
     ...Object.values(project.composites || {}).map(d => sectionBranch(d.name, compositeProps(d, ctx), d.description + ` (composé${d.package ? ' du paquet ' + d.package : ' du projet'} → ${d.sections.map(s => Object.keys(s)[0]).join(' + ')})`)),
   ];
   const sections = { type: 'array', items: { anyOf: branches(false) } };

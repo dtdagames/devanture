@@ -512,6 +512,8 @@ export function readPageDocument(text, { schemas, pageOf = null }) {
 function siteSchema(tokens) {
   const properties = {
     tagline: { type: 'string' }, locale: { type: 'string' }, preset: { type: 'string' },
+    fonts: { type: 'array', items: { type: 'object', properties: { family: { type: 'string' }, file: { type: 'string' }, weight: { type: 'string' }, style: { type: 'string' } } } },
+    background: { type: 'string' }, background_bottom: { type: 'string' }, background_fixed: { type: 'boolean' }, background_phone: { type: 'string' }, background_bottom_phone: { type: 'string' },
     ...Object.fromEntries(tokens.map(t => [t, { type: 'string' }])),
     nav: { type: 'array', items: { $ref: '#/$defs/link' } },
     footer_text: { type: 'string' }, footer_links: { type: 'array', items: { $ref: '#/$defs/link' } },
@@ -521,7 +523,7 @@ function siteSchema(tokens) {
   };
   return { open: true, properties };
 }
-const SITE_LABELS = [['langue', 'locale'], ['thème', 'preset'], ['menu', 'nav'], ['pied de page', 'footer_text'], ['liens du pied de page', 'footer_links'], ['liens du pied', 'footer_links'], ['e-mail', 'email'], ['courriel', 'email'], ['téléphone', 'phone'], ['adresse', 'address'], ['paquets', 'packages'], ['langage', 'language'], ['redirections', 'redirects']];
+const SITE_LABELS = [['langue', 'locale'], ['thème', 'preset'], ['menu', 'nav'], ['pied de page', 'footer_text'], ['liens du pied de page', 'footer_links'], ['liens du pied', 'footer_links'], ['e-mail', 'email'], ['courriel', 'email'], ['téléphone', 'phone'], ['adresse', 'address'], ['paquets', 'packages'], ['langage', 'language'], ['redirections', 'redirects'], ['polices', 'fonts'], ['fond de page', 'background'], ['fond de bas de page', 'background_bottom'], ['fond fixe', 'background_fixed'], ['fond de page sur téléphone', 'background_phone'], ['fond de bas de page sur téléphone', 'background_bottom_phone']];
 
 /** Noms français des réglages du site, chacun dans sa section : « ## Boutique », « ## Recherche »… */
 export const GROUP_NAMES = { intent: 'recherche', agents: 'agents', personalization: 'personnalisation', static: 'statique', studio: 'atelier', images: 'images', offline: 'hors ligne', shop: 'boutique' };
@@ -558,6 +560,11 @@ export function readSiteDocument(text, { tokens = [], groups = {} } = {}) {
   const theme = {}; put(theme, 'preset', p.preset, 'site.theme.preset', 'preset');
   const tk = {}; for (const t of tokens) put(tk, t, p[t], `site.theme.tokens.${t}`, t);
   if (Object.keys(tk).length) theme.tokens = tk;
+  put(theme, 'fonts', p.fonts, 'site.theme.fonts', 'fonts');
+  const bg = {}; put(bg, 'image', p.background, 'site.theme.background.image', 'background'); put(bg, 'bottom', p.background_bottom, 'site.theme.background.bottom', 'background_bottom'); put(bg, 'fixed', p.background_fixed, 'site.theme.background.fixed', 'background_fixed');
+  const bgp = {}; put(bgp, 'image', p.background_phone, 'site.theme.background.phone.image', 'background_phone'); put(bgp, 'bottom', p.background_bottom_phone, 'site.theme.background.phone.bottom', 'background_bottom_phone');
+  if (Object.keys(bgp).length) bg.phone = bgp;
+  if (Object.keys(bg).length) theme.background = bg;
   if (Object.keys(theme).length) site.theme = theme;
   put(site, 'nav', p.nav, 'site.nav', 'nav');
   const footer = {}; put(footer, 'text', p.footer_text, 'site.footer.text', 'footer_text'); put(footer, 'links', p.footer_links, 'site.footer.links', 'footer_links');
@@ -567,7 +574,7 @@ export function readSiteDocument(text, { tokens = [], groups = {} } = {}) {
   put(site, 'redirects', p.redirects, 'site.redirects', 'redirects');
   const data = { language: p.language ?? 1 };
   if (p.packages !== undefined) { data.packages = p.packages; where.packages = r.where.packages; }
-  const said = new Set(['tagline', 'locale', 'preset', ...tokens, 'nav', 'footer_text', 'footer_links', 'email', 'phone', 'address', 'packages', 'language', 'redirects']);
+  const said = new Set(['tagline', 'locale', 'preset', 'fonts', 'background', 'background_bottom', 'background_fixed', 'background_phone', 'background_bottom_phone', ...tokens, 'nav', 'footer_text', 'footer_links', 'email', 'phone', 'address', 'packages', 'language', 'redirects']);
   if (p.collections !== undefined) { if (!p.collections || typeof p.collections !== 'object' || Array.isArray(p.collections)) fail(r.where.collections, 'collections: attend des collections nommées'); else data.collections = { ...p.collections }; said.add('collections'); }
   const merge = (into, from, path, line) => { for (const [k, v] of Object.entries(from)) { if (v && typeof v === 'object' && !Array.isArray(v) && into[k] && typeof into[k] === 'object' && !Array.isArray(into[k])) merge(into[k], v, `${path}${k}.`, line); else if (k in into) fail(line, `« ${path}${k} » est dit deux fois : en ligne et dans le bloc yaml`); else { into[k] = v; where[`${path}${k}`] = line; } } };
   for (const [k, v] of Object.entries(p)) {
@@ -870,7 +877,12 @@ export function writeSiteDocument(data, { tokens = [], groups = {} } = {}) {
   const theme = site.theme && typeof site.theme === 'object' ? site.theme : {};
   take('preset', theme.preset);
   const tk = theme.tokens && typeof theme.tokens === 'object' ? theme.tokens : {};
-  const themeRest = {}; for (const [k, v] of Object.entries(theme)) if (!['preset', 'tokens'].includes(k)) themeRest[k] = v;
+  take('fonts', theme.fonts);
+  const bg = theme.background && typeof theme.background === 'object' && !Array.isArray(theme.background) ? theme.background : null;
+  const bgPhone = bg && bg.phone && typeof bg.phone === 'object' && !Array.isArray(bg.phone) && Object.keys(bg.phone).every(x => ['image', 'bottom'].includes(x)) ? bg.phone : null;
+  if (bg) { take('background', bg.image); take('background_bottom', bg.bottom); take('background_fixed', bg.fixed); }
+  if (bgPhone) { take('background_phone', bgPhone.image); take('background_bottom_phone', bgPhone.bottom); }
+  const themeRest = {}; for (const [k, v] of Object.entries(theme)) if (!['preset', 'tokens', 'fonts', ...(bg && Object.keys(bg).every(x => ['image', 'bottom', 'fixed'].includes(x) || (x === 'phone' && bgPhone)) ? ['background'] : [])].includes(k)) themeRest[k] = v;
   const tokensRest = {}; for (const [k, v] of Object.entries(tk)) { if (tokens.includes(k) && oneLine(v)) props[k] = v; else tokensRest[k] = v; }
   if (Object.keys(tokensRest).length) themeRest.tokens = tokensRest;
   if (theme.tokens && !Object.keys(tk).length) themeRest.tokens = theme.tokens;
@@ -909,7 +921,7 @@ export function writeSiteDocument(data, { tokens = [], groups = {} } = {}) {
   if (collections !== undefined && d.collections !== undefined) props.collections = collections;
   if (Object.keys(rest).length) props.site = rest;
   const schema = siteSchema(tokens);
-  const label = k => ({ locale: 'Langue', preset: 'Thème', nav: 'Menu', footer_text: 'Pied de page', footer_links: 'Liens du pied de page', email: 'E-mail', phone: 'Téléphone', address: 'Adresse', packages: 'Paquets', language: 'Langage', redirects: 'Redirections' }[k] || (tokens.includes(k) ? k : null));
+  const label = k => ({ locale: 'Langue', preset: 'Thème', nav: 'Menu', footer_text: 'Pied de page', footer_links: 'Liens du pied de page', email: 'E-mail', phone: 'Téléphone', address: 'Adresse', packages: 'Paquets', language: 'Langage', redirects: 'Redirections', fonts: 'Polices', background: 'Fond de page', background_bottom: 'Fond de bas de page', background_fixed: 'Fond fixe', background_phone: 'Fond de page sur téléphone', background_bottom_phone: 'Fond de bas de page sur téléphone' }[k] || (tokens.includes(k) ? k : null));
   const opts = { title: null, prose: 'tagline', what: 'ce site', label };
   const body = writeChecked(props, schema, opts, lines => readBody(splitBlocks(lines.join('\n')), schema, { ...opts, labels: SITE_LABELS }));
   if (!body) return { error: 'document du site qui ne se relit pas' };

@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { loadCatalog } from './catalog.js';
+import { loadCatalog, SHELL_DATA } from './catalog.js';
 import { loadProject } from './load.js';
 import { validateProject, collectWarnings, SITE_SCHEMA } from './validate.js';
 import { emit, TARGETS } from './emit/index.js';
@@ -87,6 +87,7 @@ export async function run(argv) {
       if (!name) { console.error('Usage : sitec explain <composant> [dossier-projet]'); return 2; }
       if (name === 'langage' || name === 'language' || name === 'expressions') { explainLanguage(); return 0; }
       if (name === 'document' || name === 'documents') { explainDocument(); return 0; }
+      if (name === 'habillage' || name === 'charte') { await explainShell(catalog); return 0; }
       const proj = args[1] ? await projectCatalog(args[1], catalog) : null;
       if (proj?.project.composites?.[name]) { printComposite(proj.project.composites[name]); return 0; }
       // Un mot du vocabulaire (natif, du site ou d'un paquet) s'explique comme un composant : « sitec explain "carte de visite" <dossier> ».
@@ -96,6 +97,9 @@ export async function run(argv) {
       // Une source (ce qu'un composant lit à la visite) s'explique de la même façon : « sitec explain "panier du visiteur" ».
       const srcName = SOURCE_NAMES.find(n => n === name.trim().toLowerCase().replace(/\s+/g, ' '));
       if (srcName) { printSource(srcName); return 0; }
+      // Un composant d'habillage (en-tête, pied) n'a pas de props : sa fiche est celle de l'habillage.
+      const shellC = (proj?.catalog || catalog).get(name);
+      if (shellC?.manifest.shell) { console.log(`# ${shellC.name}\n${shellC.manifest.description}\n\n${shellC.manifest.shell === 'header' ? 'En-tête' : 'Pied de page'} du site${shellC.project ? ', écrit par le site : il remplace celui du catalogue' : ''}. Il n'est pas écrit dans une page.\n`); await explainShell(catalog); return 0; }
       return explain(proj?.catalog || catalog, name, words, flags.has('--document') || !!(proj?.project.documents?.site || proj?.project.documents?.pages.length));
     }
 
@@ -819,6 +823,8 @@ Spécification complète : docs/LANGAGE.md.`);
 function printCatalog(catalog, proj = null) {
   console.log('Composants disponibles (sections). Props : * = obligatoire. Détail : sitec explain <nom>\n');
   for (const c of catalog.list()) {
+    // Habillage : rendu autour de chaque page, jamais écrit dans une page.
+    if (c.manifest.shell) { console.log(`${c.name.padEnd(14)} ${c.manifest.description}   [habillage : ${c.manifest.shell === 'header' ? 'en-tête' : 'pied de page'} du site${c.project ? ', écrit par le site' : ''} ; sitec explain habillage]`); continue; }
     const props = Object.entries(c.manifest.props.properties || {})
       .map(([k]) => (c.manifest.props.required || []).includes(k) ? `${k}*` : k)
       .join(', ');
@@ -835,6 +841,47 @@ function printCatalog(catalog, proj = null) {
   console.log(`\nFichiers attendus : site.yaml, pages/*.page.yaml, assets/ (images). Voir CLAUDE.md. En documents (site.md, pages/<id>.md) : sitec explain document.\nConfiguration du site (nav, thème, tokens, pied, coordonnées) : sitec explain site`);
 }
 
+/** L'habillage du site : ce qui entoure chaque page, et comment un site le récrit. */
+async function explainShell(catalog) {
+  const plan = async n => { try { return (await fs.readFile(path.join(catalog.get(n).dir, 'composant.md'), 'utf8')).split(/^## Forme\s*$/m)[1].trim(); } catch { return ''; } };
+  const data = Object.entries(SHELL_DATA).map(([k, v]) => typeof v === 'string' ? `  ${k.padEnd(14)} ${v}` : `  ${k.replace(/ \(.*$/, '').padEnd(14)} liste — ${Object.entries(v).map(([a, b]) => `${a} (${b})`).join(' ; ')}`).join('\n');
+  console.log(`# Habillage du site : en-tête, pied de page, charte
+
+L'en-tête et le pied de page sont deux composants, rendus autour de chaque page : site.header et site.footer dans le catalogue.
+Un site les remplace en écrivant les siens, au format langage (components/<nom>/composant.md) : un composant dont la forme
+s'ouvre par « en-tête de site » remplace l'en-tête, « pied de site » le pied. Un seul de chaque par site ; rien à déclarer ailleurs.
+
+L'en-tête du catalogue, modèle à suivre :
+
+${(await plan('site.header')).split('\n').map(l => '  ' + l).join('\n')}
+
+Le pied du catalogue :
+
+${(await plan('site.footer')).split('\n').map(l => '  ' + l).join('\n')}
+
+Ouverture : « en-tête de site : » ou « pied de site « classe », conteneur « classe » : ». La classe site-header (ou site-footer) est
+toujours posée ; un composant du site y ajoute la sienne (son nom, ou celle donnée entre « »).
+
+Un habillage n'a ni données ni fonctionnement à lui. Sa forme lit les données du site, comme un autre composant lit les siennes :
+
+${data}
+
+et emploie les mots natifs de l'habillage comme des primitives : marque du site (option : un logo), menu du site (ce qui est écrit
+dessous prend place après les entrées), panier du site, recherche du site, téléphone du site, mentions du site, liens du pied.
+Exemple : « - lien : phone_link », « - texte : tagline », « - liste de nav : » puis « - lien : link », « - liste de footer_links : »
+puis « - lien : valeur ». Apparence : le bloc « apparence » et, pour ce qu'il ne dit pas, styles.css à côté du composant (chaque
+sélecteur commence par la classe du composant, couleurs par les jetons).
+
+Charte (site › theme, sitec explain site) :
+  tokens           couleurs, polices, et l'échelle : font.size, line.height, heading.weight, h1.size, h2.size, h3.size, section.space,
+                   max-width, header.bg, header.fg
+  fonts            polices déposées dans assets/ : [ { family: Lato, file: lato.woff2, weight: 400, style: normal } ], puis
+                   font.body: "Lato, sans-serif". En document : « Polices : » puis « - Lato | lato.woff2 | 400 ».
+  background       fond de page : { image: haut.jpg, bottom: bas.jpg, fixed: false, phone: { image, bottom } }. En document :
+                   « Fond de page : haut.jpg », « Fond de bas de page : bas.jpg », « Fond fixe : oui »,
+                   « Fond de page sur téléphone : … », « Fond de bas de page sur téléphone : … ».`);
+}
+
 function explainSite() {
   const goalEvents = Object.entries(GOAL_EVENTS).map(([k, w]) => k + (w.length ? ' (' + w.join(', ') + ')' : '')).join(', ');
   console.log(`# site.yaml
@@ -847,6 +894,9 @@ Props de site :
       .preset: ${Object.keys(THEME_PRESETS).join(' | ')} — thème de base
       .tokens: objet { nom: valeur } — surcharges du preset. Noms acceptés :
 ${Object.entries(THEME_PRESETS.clair).map(([k, v]) => `          ${k.padEnd(18)} ex. ${v}`).join('\n')}
+      .fonts: liste de { family*, file*, weight, style } — polices du site, fichiers woff2, woff, ttf ou otf de assets/ ; se nomment ensuite dans font.body et font.heading
+      .background: objet { image, bottom, fixed, phone: { image, bottom } } — fond de page : une image de assets/ en haut, une autre en bas, ou une image fixe qui couvre l'écran ; phone pour un écran étroit
+  (en-tête et pied de page : deux composants que le site peut récrire, sitec explain habillage)
   nav: liste de liens { label*, to* } — menu principal, dans l'ordre
   redirects: liste de { from*, to* } — anciennes adresses renvoyées vers une page (redirection permanente) : { from: /contact.html, to: /contact }
   footer: objet

@@ -30,7 +30,7 @@ export const PRIMITIVES = {
 };
 const NAMES = Object.keys(PRIMITIVES).sort((a, b) => b.length - a.length);
 /** Mots réservés par la forme : ni primitive ni mot de vocabulaire ne peut les porter. */
-export const RESERVED_WORDS = ['section', 'bandeau', 'contenu', 'valeur', 'rien', 'oui', 'non'];
+export const RESERVED_WORDS = ['section', 'bandeau', 'en-tête de site', 'pied de site', 'contenu', 'valeur', 'rien', 'oui', 'non'];
 export const COLLECTION_PRIMITIVES = Object.keys(PRIMITIVES).filter(k => PRIMITIVES[k] === 'collection');
 export const PRIMITIVE_HELP = {
   'en-tête': 'titre (h2) et intro de la section : « en-tête: titre, intro »', titre: 'titre (h2 dans la section, h3 dans un élément de liste)', 'titre principal': 'titre h1, un seul par page (bandeau d\'ouverture)', 'grand titre': 'titre h2', 'sous-titre': 'titre h3',
@@ -92,6 +92,13 @@ export function parseHeader(text, words = null) {
  * Compile un bloc forme. opts : { name, props (schéma JSON), want (Set de primitives ou classes que l'apparence vise), effects }.
  * Renvoie { template, behaviors, parts (Map nom → sélecteur), errors: [{ path, message, ref }], sectionClass, css }.
  */
+/** Habillage : la forme s'ouvre par « en-tête de site » ou « pied de site ». Renvoie 'header', 'footer' ou null. */
+export function shellKind(forme) {
+  const key = typeof forme === 'string' ? forme : forme && typeof forme === 'object' && !Array.isArray(forme) && Object.keys(forme).length === 1 ? Object.keys(forme)[0] : null;
+  const m = key ? /^(en-tête de site|pied de site)(?![a-zà-ÿ-])/i.exec(key.trim()) : null;
+  return m ? (/^en/i.test(m[1]) ? 'header' : 'footer') : null;
+}
+
 export function compileForme(forme, { name, props, want: want0 = new Set(), effects = null, words: words0 = null, computed = null }) {
   const errors = [], behaviors = new Set(), baseCss = new Set(), wordsCss = new Map(), usedWords = new Set();
   let incomplete = false; // un mot employé est en erreur dans son vocabulaire : la forme n'est pas entière
@@ -413,7 +420,7 @@ export function compileForme(forme, { name, props, want: want0 = new Set(), effe
     wordStack.push(top);
     return html;
   };
-  const WORD_GLOBALS = new Set(['site', 'page', 'loop', 'true', 'false', 'null', 'and', 'or', 'not', 'in']);
+  const WORD_GLOBALS = new Set(['site', 'page', 'shop', 'loop', 'true', 'false', 'null', 'and', 'or', 'not', 'in']);
   /** Mot défini par un fragment de gabarit neutre : ses données y sont remplacées par ce que l'appelant passe, ses variables renommées. */
   const expandGabarit = (w, bindings, inner, p) => {
     const n = ++wordSeq;
@@ -603,21 +610,26 @@ export function compileForme(forme, { name, props, want: want0 = new Set(), effe
 
   // Racine : liste d'éléments, ou « section [« classe »][, variante X par défaut V][, conteneur « classe »] » puis la liste.
   // « bandeau » : une section sans les marges d'une section ordinaire (ouverture de page) ; mêmes options.
-  let variant = '', inner = '', body = '', bandeau = false, bgClass = '', bgStyle = '', onlyIf = null, anchor = '';
+  // « en-tête de site », « pied de site » : l'habillage, rendu autour de chaque page ; options « classe » et conteneur seulement.
+  let variant = '', inner = '', body = '', bandeau = false, bgClass = '', bgStyle = '', onlyIf = null, anchor = '', shell = null;
   const rootKey = forme && typeof forme === 'object' && !Array.isArray(forme) && Object.keys(forme).length === 1 ? Object.keys(forme)[0] : null;
-  const rootM = rootKey ? /^(section|bandeau)(?![a-zà-ÿ-])\s*/i.exec(rootKey) : null;
+  const rootM = rootKey ? /^(section|bandeau|en-tête de site|pied de site)(?![a-zà-ÿ-])\s*/i.exec(rootKey) : null;
   if (Array.isArray(forme)) body = nodes(forme, 'forme');
   else if (rootM) {
     const key = rootKey;
     curRef = { in: forme, at: key };
     bandeau = /^bandeau/i.test(rootM[1]);
+    shell = shellKind(rootKey);
+    // L'habillage natif garde la classe du site (site-header, site-footer) ; celui d'un site y ajoute la sienne.
+    if (shell && name === 'site.' + shell) secCls = 'site-' + shell;
     const rest = key.slice(rootM[0].length);
     const m = /^«\s*([^»]+?)\s*»/.exec(rest);
     if (m) secCls = m[1];
     if (m && !/^[a-z][a-z0-9-]*$/.test(secCls)) fail('forme', `nom de classe « ${secCls} » : minuscules, chiffres et tirets`);
     for (const o of splitOutside(rest.replace(/^«[^»]*»/, ''))) {
       let mm;
-      if ((mm = /^variante\s+([a-z_][a-z0-9_]*)\s+par défaut\s+([a-z0-9-]+)$/i.exec(o))) { const r = resolve(mm[1], 'forme'); if (r) variant = r.absent ? ` ${secCls}-${mm[2]}` : ` ${secCls}-{{ ${r.expr} | default('${mm[2]}') }}`; }
+      if (shell && !/^conteneur\s/i.test(o)) fail('forme', `option d'habillage inconnue « ${o} » (« classe », conteneur « classe »)`);
+      else if ((mm = /^variante\s+([a-z_][a-z0-9_]*)\s+par défaut\s+([a-z0-9-]+)$/i.exec(o))) { const r = resolve(mm[1], 'forme'); if (r) variant = r.absent ? ` ${secCls}-${mm[2]}` : ` ${secCls}-{{ ${r.expr} | default('${mm[2]}') }}`; }
       else if ((mm = /^image de fond\s+([a-z_][a-z0-9_]*)$/i.exec(o))) {
         // L'image passe par une variable CSS de la section : la feuille décide du voile et du cadrage.
         const r = resolve(mm[1], 'forme');
@@ -638,7 +650,10 @@ export function compileForme(forme, { name, props, want: want0 = new Set(), effe
     body = nodes(forme[key], 'forme');
   } else fail('forme', 'attendu : une liste d\'éléments, ou « section, options: » (ou « bandeau « classe », options: ») puis la liste');
   parts.set('section', '.' + secCls);
-  const sectionHtml = `<section class="${bandeau ? '' : 'section '}${secCls}${bgClass}${variant}"${anchor}${bgStyle}>\n  <div class="container${inner}">\n${body}\n  </div>\n</section>\n`;
+  const shellTag = shell === 'header' ? 'header' : 'footer', shellCls = shell ? [...new Set(['site-' + shellTag, secCls])].join(' ') : '';
+  if (shell) parts.set('conteneur', '.container');
+  const sectionHtml = shell ? `<${shellTag} class="${shellCls}">\n  <div class="container${inner}">\n${body}\n  </div>\n</${shellTag}>\n`
+    : `<section class="${bandeau ? '' : 'section '}${secCls}${bgClass}${variant}"${anchor}${bgStyle}>\n  <div class="container${inner}">\n${body}\n  </div>\n</section>\n`;
   const template = onlyIf ? `{% if ${onlyIf} %}${sectionHtml}{% endif %}\n` : sectionHtml;
-  return { template, behaviors, parts, errors, sectionClass: secCls, css: [...baseCss].join('\n') + (baseCss.size ? '\n' : ''), wordsCss, usedWords, incomplete };
+  return { template, behaviors, parts, errors, shell, sectionClass: secCls, css: [...baseCss].join('\n') + (baseCss.size ? '\n' : ''), wordsCss, usedWords, incomplete };
 }

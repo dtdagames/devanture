@@ -212,7 +212,7 @@ async function cites(name, text, { commands = true } = {}) {
     for (const s of L[i].matchAll(/scripts\/([\w-]+\.(?:mjs|sh))/g)) if (await exists(path.join(ROOT, 'scripts', s[1]))) known += await fs.readFile(path.join(ROOT, 'scripts', s[1]), 'utf8');
     for (const m of L[i].matchAll(/(?<![\w(-])--([a-z][\w-]*)/g)) if (!(FLAGS.includes(m[1]) || known.includes('--' + m[1]))) bad.options.push(`l.${i + 1} --${m[1]}`);
   }
-  for (const m of text.matchAll(/\bexplain[ \t]+([a-z][\w.-]*[\w])(?![\w.-])([ \t]+<dossier>)?/g)) if (!m[2] && !['site', 'langage', 'document', ...catalogNames].includes(m[1])) bad.fiches.push(`${where(m.index)} explain ${m[1]}`);
+  for (const m of text.matchAll(/\bexplain[ \t]+([a-z][\w.-]*[\w])(?![\w.-])([ \t]+<dossier>)?/g)) if (!m[2] && !['site', 'langage', 'document', 'habillage', ...catalogNames].includes(m[1])) bad.fiches.push(`${where(m.index)} explain ${m[1]}`);
   for (const m of text.matchAll(/(?<![\w/.<>:@#-])((?:src|scripts|docs|bin|examples|studio|\.github)\/[\w./-]*)/g)) {
     const p = m[1].replace(/[.]+$/, ''); const next = text[m.index + m[1].length] || '';
     if ('<*…'.includes(next) && next || /\/dist(\/|$)/.test(p) || p === 'studio/sitec-browser.js') continue;
@@ -226,7 +226,7 @@ async function cites(name, text, { commands = true } = {}) {
   for (const m of text.matchAll(/\bdata-sl-[a-z]+(?:-[a-z]+)*/g)) if (!srcText.includes(m[0]) && !compText.includes(m[0])) bad.attributs.push(`${where(m.index)} ${m[0]}`);
   for (const m of text.matchAll(/var\((--[a-z][\w-]*)\)/g)) if (!CSS_VARS.has(m[1]) && !srcText.includes(m[1])) bad.jetons.push(`${where(m.index)} ${m[1]}`);
   for (const m of text.matchAll(/`((?:color|font|radius|space)\.[\w-]+)`/g)) if (!THEME_KEYS.includes(m[1])) bad.jetons.push(`${where(m.index)} ${m[1]}`);
-  for (const m of text.matchAll(/(?<![\w.{/-])site\.([a-z_]+)\b/g)) if (!['yaml', 'json', 'js', 'css', 'php', 'md'].includes(m[1]) && !SITE_PROPS.includes(m[1])) bad.reglages.push(`${where(m.index)} site.${m[1]}`);
+  for (const m of text.matchAll(/(?<![\w.{/-])site\.([a-z_]+)\b/g)) if (!['yaml', 'json', 'js', 'css', 'php', 'md'].includes(m[1]) && !SITE_PROPS.includes(m[1]) && !catalogNames.includes('site.' + m[1])) bad.reglages.push(`${where(m.index)} site.${m[1]}`);
   for (const m of text.matchAll(/`([a-z]+)\.([a-z]+)`/g)) if (FAMILIES.includes(m[1]) && !['yaml', 'json', 'js', 'css', 'php', 'html', 'md'].includes(m[2]) && !catalogNames.includes(m[1] + '.' + m[2])) bad.composants.push(`${where(m.index)} ${m[0]}`);
   const say = { commandes: 'commandes citées connues de sitec help', options: 'options citées connues (sitec help, ou le script de la même ligne)', fiches: 'fiches « explain » citées existantes', chemins: 'chemins du dépôt cités existants', liens: 'liens relatifs valides', scripts: 'scripts npm cités déclarés', codes: 'codes d\'erreur et d\'avertissement cités émis par le compilateur', variables: 'variables d\'environnement citées lues quelque part', routes: 'routes d\'exploitation citées servies par la cible', attributs: 'attributs de comportement cités connus', jetons: 'jetons de thème cités existants', reglages: 'réglages site.* cités acceptés par le schéma', composants: 'composants natifs cités présents au catalogue' };
   for (const k of Object.keys(bad)) ok(`${name} : ${say[k]}`, !bad[k].length, uniq(bad[k]));
@@ -398,9 +398,11 @@ async function explainComponents() {
   await put(dir, 'data/realisations.yaml', 'realisations:\n  - { id: salle-de-bain-1, title: Salle de bain, category: salle-de-bain, text: Exemple., date: "2026-09" }\n  - { id: cuisine-1, title: Cuisine, category: cuisine, text: Exemple., date: "2026-08" }\n');
   await put(dir, 'data/products.yaml', 'products:\n  - { id: savon-lavande, name: Savon lavande, price: 6.5, category: savons, description: Exemple., stock: 10, featured: true }\n  - { id: savon-miel, name: Savon miel, price: 7, category: savons, description: Exemple., stock: 4 }\n');
   const where = {}; const dynamic = { 'product.hero': 'produit', 'products.related': 'produit', 'order.confirmation': 'commande' };
-  const dyn = { produit: [], commande: [] }; const missing = [];
+  const dyn = { produit: [], commande: [] }; const missing = [], shells = [];
   for (const name of catalogNames) {
     const out = run('explain', name).out.replace(/\r\n/g, '\n'); const i = out.indexOf('\nExemple :\n');
+    // Un composant d'habillage (en-tête, pied) ne s'écrit pas dans une page : sa fiche donne sa forme en modèle, pas un exemple de section.
+    if (/Il n'est pas écrit dans une page\./.test(out)) { shells.push({ name, ok: /\n  (en-tête|pied) de site :\n  - /.test(out) && /phone_link/.test(out) }); continue; }
     if (i < 0) { missing.push(name); continue; }
     const body = dedent(out.slice(i + '\nExemple :\n'.length));
     if (dynamic[name]) { dyn[dynamic[name]].push(body); where[name] = `pages/${dynamic[name]}.page.yaml`; continue; }
@@ -408,6 +410,7 @@ async function explainComponents() {
     await put(dir, where[name], `page: ${id}\nroute: /${id}\nseo: { title: Exemple de ${name} }\nsections:\n${indent(body, 2)}`);
   }
   ok('explain <composant> : chaque fiche du catalogue donne un exemple', !missing.length, 'sans exemple : ' + missing.join(', '));
+  ok('explain <habillage> : la fiche de l\'en-tête et celle du pied donnent leur forme en modèle et les données du site', shells.length === 2 && shells.every(x => x.ok), JSON.stringify(shells));
   await put(dir, 'pages/produit.page.yaml', `page: produit\nroute: /produit/[id]\nsource: products\nseo: { title: "{{ product.name }}" }\nsections:\n${indent(dyn.produit.join(''), 2)}`);
   await put(dir, 'pages/commande.page.yaml', `page: commande\nroute: /commande/[id]\nsource: orders\nseo: { title: Votre commande }\nsections:\n${indent(dyn.commande.join(''), 2)}`);
   const added = await complete(dir); const { errors, warnings, build } = compile(dir, 'explain-composants');

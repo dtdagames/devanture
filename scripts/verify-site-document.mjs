@@ -11,6 +11,7 @@
 // Usage : node scripts/verify-site-document.mjs [port]     (PHP : PHP_BIN, sinon php ; sans PHP, la comparaison du rendu échoue)
 import { execFileSync, spawnSync, spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -450,6 +451,69 @@ try {
     await fs.writeFile(sm, site0.replace('\n## Agents', 'Redirections :\n- ancien.html | /contact\n- /vieux.html | /nulle-part\n\n## Agents'));
     const c2 = run('check', reel, '--accepter');
     ok('redirection refusée : origine sans « / », cible qui n\'est pas une page', c2.code !== 0 && /redirects\[0\]\.from/.test(c2.out) && /redirects\[1\]\.to/.test(c2.out) && /nulle-part/.test(c2.out), c2.out.slice(0, 600));
+  }
+
+  // --- habillage : l'en-tête et le pied sont des composants, que le site récrit ; charte : polices, fond de page, échelle
+  {
+    const hab = path.join(tmp, 'habillage'); run('init', hab, '--name', 'Site habillé', '--no-git', '--local');
+    const sm = path.join(hab, 'site.md'), site0 = await fs.readFile(sm, 'utf8');
+    const php = process.env.PHP_BIN || 'php', p3 = port + 12;
+    const serve = async (dir, fn) => {
+      const srv = spawn(php, ['-S', `127.0.0.1:${p3}`, '-t', dir, path.join(dir, 'index.php')], { stdio: 'ignore' });
+      const get = async u => { const r = await fetch(`http://127.0.0.1:${p3}${u}`, { redirect: 'manual' }); return { status: r.status, text: await r.text() }; };
+      let up = false; for (let i = 0; i < 40 && !up; i++) { try { await get('/'); up = true; } catch { await new Promise(r => setTimeout(r, 150)); } }
+      try { return await fn(up, get); } finally { srv.kill(); await new Promise(r => setTimeout(r, 200)); }
+    };
+    // 1. Sans rien écrire : l'habillage du catalogue, écrit dans le langage, rend l'en-tête et le pied de toujours.
+    const b0 = run('build', hab, '--draft');
+    const h0 = await serve(path.join(hab, 'dist'), async (up, get) => (up ? (await get('/')).text : ''));
+    ok('habillage du catalogue : en-tête (nom, menu, page marquée, recherche) et pied (mentions, liens, version texte) rendus par deux composants', b0.code === 0
+      && /<header class="site-header">\s*<div class="container">\s*<a class="brand" href="\/">Site habillé<\/a>/.test(h0) && /<nav class="site-nav"[^>]*>\s*<ul>[\s\S]*?<a href="\/" aria-current="page">/.test(h0) && /<form class="intent"/.test(h0)
+      && /<footer class="site-footer">\s*<div class="container">\s*<div>\s*<strong>Site habillé<\/strong>/.test(h0) && /rel="alternate">Version texte<\/a>/.test(h0)
+      && existsSync(path.join(hab, 'dist', 'components', 'site.header.php')) && existsSync(path.join(hab, 'dist', 'components', 'site.footer.php')), b0.out.slice(0, 300) + h0.slice(h0.indexOf('<body'), h0.indexOf('<body') + 500));
+    // 2. Le site récrit son en-tête et son pied, dans le format des autres composants ; charte : police du site, fond de page, échelle.
+    await fs.mkdir(path.join(hab, 'components', 'entete'), { recursive: true }); await fs.mkdir(path.join(hab, 'components', 'pied'), { recursive: true });
+    await fs.writeFile(path.join(hab, 'components', 'entete', 'composant.md'), '# entete\n\nEn-tête du site : le nom, le menu en liste, le téléphone.\n\n## Forme\nen-tête de site :\n- lien « entete-nom » : home\n- liste de nav :\n  - si current :\n    - lien « entete-ici » : link\n  - sinon :\n    - lien : link\n- lien « entete-tel » : phone_link\n- texte : tagline\n\n## Apparence\n- entete-tel : gras\n');
+    await fs.writeFile(path.join(hab, 'components', 'pied', 'composant.md'), '# pied\n\nPied de page : la mention, puis les liens.\n\n## Forme\npied de site « pied » :\n- texte : footer_text\n- liste de footer_links :\n  - lien : valeur\n- lien : readable_link\n');
+    await fs.writeFile(path.join(hab, 'assets', 'essai.woff2'), 'police de test');
+    await fs.writeFile(path.join(hab, 'assets', 'fond.png'), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64'));
+    const charte = 'Téléphone : 05 56 00 00 00\nPied de page : Mention du pied\nfont.body : Essai, sans-serif\nh1.size : 2.2rem\nsection.space : 40px\nheader.bg : #123456\nPolices :\n- Essai | essai.woff2 | 400\n- Essai | essai.woff2 | 700 | italic\nFond de page : fond.png\nFond de bas de page : fond.png\nFond de page sur téléphone : fond.png\n';
+    await fs.writeFile(sm, site0.replace(/^Téléphone : .*\n/m, '').replace(/^Pied de page : .*\n/m, '').replace('\n## Agents', charte + '\n## Agents'));
+    const c1 = run('check', hab, '--accepter'), b1 = run('build', hab, '--draft');
+    const lsite = await fs.readFile(path.join(hab, 'lecture', 'site.yaml'), 'utf8').catch(() => '');
+    ok('charte en document : polices, fond de page (haut, bas, téléphone) et jetons d\'échelle se lisent', c1.code === 0 && b1.code === 0 && /fonts:\n\s+- family: Essai\n\s+file: essai\.woff2\n\s+weight: "400"/.test(lsite) && /style: italic/.test(lsite) && /background:\n\s+image: fond\.png\n\s+bottom: fond\.png\n\s+phone:\n\s+image: fond\.png/.test(lsite) && /h1\.size: 2\.2rem/.test(lsite), c1.out.slice(0, 500) + b1.out.slice(0, 200) + lsite.slice(0, 600));
+    const read1 = readSiteDocument(await fs.readFile(sm, 'utf8'), { tokens, groups }), back = writeSiteDocument(read1.data, { tokens, groups });
+    ok('charte : le document du site se récrit et se relit à l\'identique', !read1.errors.length && back.text && same(readSiteDocument(back.text, { tokens, groups }).data, read1.data) && /^Polices :$/m.test(back.text) && /^Fond de page sur téléphone : fond\.png$/m.test(back.text), back.error || (back.text || '').slice(0, 600));
+    const css = await fs.readFile(path.join(hab, 'dist', 'assets', 'site.css'), 'utf8').catch(() => '');
+    ok('charte compilée : @font-face servi par le site, jetons d\'échelle, fond de page en deux images et sa règle de téléphone', /@font-face\{font-family:"Essai";src:url\("\/assets\/essai\.woff2"\) format\("woff2"\);font-weight:400;font-style:normal;font-display:swap\}/.test(css) && /font-weight:700;font-style:italic/.test(css)
+      && /--h1-size: 2\.2rem;/.test(css) && /--section-space: 40px;/.test(css) && /--header-bg: #123456;/.test(css) && /h1\{font-size:var\(--h1-size\)\}/.test(css) && /\.section\{padding:var\(--section-space\) 0\}/.test(css)
+      && /body\{background-image:url\("\/assets\/fond\.(png|1\.webp)"\),url\("\/assets\/fond\.(png|1\.webp)"\);background-position:top center,bottom center;/.test(css) && /@media \(max-width:760px\)\{body\{background-image:url\("\/assets\/fond\.(png|1\.webp)"\);background-position:top center/.test(css), css.slice(0, 300) + (css.match(/\/\* fond de page \*\/[\s\S]{0,400}/) || [''])[0]);
+    const cat1 = run('catalog', hab);
+    const [h1, h1m] = await serve(path.join(hab, 'dist'), async (up, get) => (up ? [(await get('/')).text, (await get('/mentions-legales')).text] : ['', '']));
+    ok('habillage du site : son en-tête et son pied remplacent ceux du catalogue (classe, données du site, page marquée, lien d\'appel)', /<header class="site-header entete">/.test(h1) && /<a class="entete-nom" href="\/">Site habillé<\/a>/.test(h1)
+      && /<a class="entete-ici" href="\/">/.test(h1) && !/<a class="entete-ici" href="\/">/.test(h1m) && /<a class="entete-tel" href="tel:0556000000">05 56 00 00 00<\/a>/.test(h1) && !/class="intent"/.test(h1) && !/class="brand"/.test(h1)
+      && /<footer class="site-footer pied">/.test(h1) && /<p>Mention du pied<\/p>/.test(h1) && /href="\/lisible\/">Version texte<\/a>/.test(h1) && (h1.match(/<header/g) || []).length === 1
+      && /\.entete \.entete-tel\{font-weight:700\}/.test(css) && !existsSync(path.join(hab, 'dist', 'components', 'site.header.php')) && /entete\s+En-tête du site[^\n]*\[habillage : en-tête du site, écrit par le site/.test(cat1.out), h1.slice(h1.indexOf('<body'), h1.indexOf('<body') + 900) + cat1.out.slice(0, 200));
+    // 3. Refus.
+    const acc = path.join(hab, 'pages', 'accueil.md'), acc0 = await fs.readFile(acc, 'utf8');
+    await fs.writeFile(acc, acc0.trimEnd() + '\n\n## entete\n');
+    const r1 = run('check', hab, '--accepter');
+    ok('refus : un habillage ne s\'écrit pas comme section d\'une page', r1.code !== 0 && /E_SHELL/.test(r1.out) && /rendu autour de chaque page/.test(r1.out), r1.out.slice(0, 500));
+    await fs.writeFile(acc, acc0); run('check', hab, '--accepter');
+    await fs.mkdir(path.join(hab, 'components', 'bandeau-haut'), { recursive: true });
+    await fs.writeFile(path.join(hab, 'components', 'bandeau-haut', 'composant.md'), '# bandeau-haut\n\nUn second en-tête.\n\n## Forme\nen-tête de site :\n- marque du site\n');
+    const r2 = run('check', hab);
+    ok('refus : deux en-têtes écrits par le même site', r2.code !== 0 && /E_SHELL/.test(r2.out) && /Un site n'a qu'un en-tête/.test(r2.out), r2.out.slice(0, 500));
+    await fs.writeFile(path.join(hab, 'components', 'bandeau-haut', 'composant.md'), '# bandeau-haut\n\nUn habillage avec des données.\n\n## Données\n- title : texte\n\n## Forme\npied de site, variante x par défaut y :\n- texte : title\n');
+    const r3 = run('check', hab);
+    ok('refus : un habillage n\'a pas de données à lui, et son ouverture n\'accepte que classe et conteneur', r3.code !== 0 && /n'a ni données ni fonctionnement/.test(r3.out) && /option d'habillage inconnue/.test(r3.out), r3.out.slice(0, 700));
+    await fs.rm(path.join(hab, 'components', 'bandeau-haut'), { recursive: true, force: true });
+    await fs.writeFile(sm, (await fs.readFile(sm, 'utf8')).replace('- Essai | essai.woff2 | 400\n', '- Essai | absente.woff2 | 400\n').replace('Fond de page : fond.png', 'Fond de page : absent.png'));
+    const r4 = run('check', hab, '--accepter');
+    ok('refus : police ou fond absents de assets/', r4.code !== 0 && /fonts\[0\]\.file/.test(r4.out) && /background\.image/.test(r4.out), r4.out.slice(0, 700));
+    await fs.writeFile(sm, (await fs.readFile(sm, 'utf8')).replace('h1.size : 2.2rem', 'h9.size : 2.2rem'));
+    const r5 = run('check', hab, '--accepter');
+    ok('refus : un jeton d\'échelle inconnu est refusé à sa ligne, avec le nom voisin', r5.code !== 0 && /« h9\.size » n'est pas une donnée de ce site : vouliez-vous dire « h1\.size »/.test(r5.out), r5.out.slice(0, 400));
   }
 
   // --- mesure : la source en documents est plus courte que la source en YAML, sur chaque exemple

@@ -1,36 +1,42 @@
 import { behaviorsAssets } from '../../lang/behaviors.js';
+// Échelle et habillage : mêmes valeurs dans tous les thèmes ; un site les surcharge comme les couleurs (theme › tokens).
+const SCALE = {
+  'font.size': '16px', 'line.height': '1.6', 'heading.weight': '700',
+  'h1.size': 'clamp(2rem,4vw,3rem)', 'h2.size': 'clamp(1.5rem,3vw,2.1rem)', 'h3.size': '1.2rem',
+  'section.space': '64px', 'header.bg': 'var(--color-bg)', 'header.fg': 'var(--color-fg)',
+};
 export const THEME_PRESETS = {
   clair: {
     'color.bg': '#ffffff', 'color.surface': '#f5f6f8', 'color.fg': '#1b1f24', 'color.muted': '#5b6470',
     'color.primary': '#1f3a5f', 'color.primary-fg': '#ffffff', 'color.accent': '#c8a24a', 'color.border': '#e1e5ea', 'color.success': '#2e7d4f', 'color.warning': '#b36b00', 'color.danger': 'var(--color-danger)',
     'font.body': 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif', 'font.heading': 'Georgia, "Times New Roman", serif',
-    'radius': '10px', 'max-width': '1100px',
+    'radius': '10px', 'max-width': '1100px', ...SCALE,
   },
   sombre: {
     'color.bg': '#0f1216', 'color.surface': '#171c22', 'color.fg': '#e8ebef', 'color.muted': '#9aa4b1',
     'color.primary': '#8fb4e3', 'color.primary-fg': '#0f1216', 'color.accent': '#e0b85a', 'color.border': '#2a323d', 'color.success': '#5cc28a', 'color.warning': '#f0b45a', 'color.danger': '#ff7a6b',
     'font.body': 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif', 'font.heading': 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-    'radius': '8px', 'max-width': '1100px',
+    'radius': '8px', 'max-width': '1100px', ...SCALE,
   },
   chaleureux: {
     'color.bg': '#fdfaf5', 'color.surface': '#f3ebdd', 'color.fg': '#2b2118', 'color.muted': '#6f6256',
     'color.primary': '#8a4b2a', 'color.primary-fg': '#ffffff', 'color.accent': '#5d7a4a', 'color.border': '#e3d6c2', 'color.success': '#4f7a3a', 'color.warning': '#a8650f', 'color.danger': '#b23a2a',
     'font.body': 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif', 'font.heading': '"Palatino Linotype", Palatino, Georgia, serif',
-    'radius': '14px', 'max-width': '1100px',
+    'radius': '14px', 'max-width': '1100px', ...SCALE,
   },
 };
 
 const BASE_CSS = `
 *,*::before,*::after{box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{margin:0;background:var(--color-bg);color:var(--color-fg);font:16px/1.6 var(--font-body)}
+body{margin:0;background:var(--color-bg);color:var(--color-fg);font:var(--font-size)/var(--line-height) var(--font-body)}
 img{max-width:100%;height:auto;display:block}
 a{color:var(--color-primary)}
-h1,h2,h3{font-family:var(--font-heading);line-height:1.2;margin:0 0 .5em}
-h1{font-size:clamp(2rem,4vw,3rem)}h2{font-size:clamp(1.5rem,3vw,2.1rem)}h3{font-size:1.2rem}
+h1,h2,h3{font-family:var(--font-heading);font-weight:var(--heading-weight);line-height:1.2;margin:0 0 .5em}
+h1{font-size:var(--h1-size)}h2{font-size:var(--h2-size)}h3{font-size:var(--h3-size)}
 p{margin:0 0 1em}
 .container{max-width:var(--max-width);margin:0 auto;padding:0 20px}
-.section{padding:64px 0}
+.section{padding:var(--section-space) 0}
 main > .section ~ .section{padding-top:0}
 .anchor{display:block;height:0;scroll-margin-top:80px}
 .section-head{max-width:720px;margin:0 auto 36px;text-align:center}
@@ -44,12 +50,12 @@ main > .section ~ .section{padding-top:0}
 .grid-4{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
 .card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius);padding:24px}
 .muted{color:var(--color-muted)}
-.site-header{position:sticky;top:0;z-index:10;background:var(--color-bg);border-bottom:1px solid var(--color-border)}
+.site-header{position:sticky;top:0;z-index:10;background:var(--header-bg);color:var(--header-fg);border-bottom:1px solid var(--color-border)}
 .site-header .container{display:flex;align-items:center;justify-content:space-between;min-height:64px;gap:16px}
-.brand{font-family:var(--font-heading);font-weight:700;font-size:1.25rem;color:var(--color-fg);text-decoration:none}
-.nav-toggle{display:none;background:none;border:1px solid var(--color-border);border-radius:6px;padding:6px 10px;color:var(--color-fg);font-size:1.2rem}
+.brand{font-family:var(--font-heading);font-weight:700;font-size:1.25rem;color:var(--header-fg);text-decoration:none}
+.nav-toggle{display:none;background:none;border:1px solid var(--color-border);border-radius:6px;padding:6px 10px;color:var(--header-fg);font-size:1.2rem}
 .site-nav > ul{display:flex;gap:4px;list-style:none;margin:0;padding:0;flex-wrap:wrap}
-.site-nav > ul a{display:block;padding:8px 12px;border-radius:6px;color:var(--color-fg);text-decoration:none;white-space:nowrap}
+.site-nav > ul a{display:block;padding:8px 12px;border-radius:6px;color:var(--header-fg);text-decoration:none;white-space:nowrap}
 .site-nav > ul a:hover,.site-nav > ul a[aria-current=page]{background:var(--color-surface);color:var(--color-primary)}
 .brand{white-space:nowrap}
 .site-nav{display:flex;align-items:center;gap:12px}
@@ -89,17 +95,37 @@ main > .section ~ .section{padding-top:0}
 .page-404{padding:120px 0;text-align:center}
 @media (max-width:760px){
   .nav-toggle{display:block}
-  .site-nav{display:none;position:absolute;left:0;right:0;top:64px;background:var(--color-bg);border-bottom:1px solid var(--color-border);padding:12px 20px}
+  .site-nav{display:none;position:absolute;left:0;right:0;top:64px;background:var(--header-bg);border-bottom:1px solid var(--color-border);padding:12px 20px}
   .site-nav.open{display:block}
   .site-nav > ul{flex-direction:column}
   .intent{margin-top:10px}
   .intent input,.intent input:focus{width:100%}
   .intent-results{left:0;right:0;min-width:0}
-  .section{padding:48px 0}
+  .section{padding:calc(var(--section-space) * .75) 0}
 }
 `;
 
-export function buildCss(site, usedComponents) {
+const FONT_FORMATS = { woff2: 'woff2', woff: 'woff', ttf: 'truetype', otf: 'opentype' };
+/** Polices du site (theme › fonts) : des fichiers de assets/, déclarés une fois, servis par le site lui-même. */
+function fontFaces(fonts) {
+  return (Array.isArray(fonts) ? fonts : []).filter(f => f && f.family && f.file).map(f => {
+    const ext = String(f.file).split('.').pop().toLowerCase();
+    return `@font-face{font-family:"${String(f.family).replace(/["\\;{}]/g, '')}";src:url("/assets/${encodeURI(String(f.file))}") format("${FONT_FORMATS[ext] || ext}");font-weight:${String(f.weight ?? 400).replace(/[^0-9 a-z]/gi, '')};font-style:${f.style === 'italic' ? 'italic' : 'normal'};font-display:swap}`;
+  }).join('\n');
+}
+/** Fond de page (theme › background) : une image en haut de la page, une autre en bas, ou une image fixe qui couvre l'écran ; « phone » : les images d'un écran étroit. */
+function pageBackground(bg, images) {
+  if (!bg || typeof bg !== 'object') return '';
+  if (bg.phone && typeof bg.phone === 'object') { const { phone, ...wide } = bg; const p = pageBackground({ ...phone, fixed: wide.fixed }, images); return [pageBackground(wide, images), p ? `@media (max-width:760px){${p}}` : ''].filter(Boolean).join('\n'); }
+  // La plus grande variante produite par le compilateur, sinon le fichier d'origine.
+  const src = f => { const v = images?.[f]?.v || []; const best = v.length ? v.reduce((a, b) => (b[0] > a[0] ? b : a))[1] : f; return `url("/assets/${encodeURI(best)}")`; };
+  const layers = [bg.image ? [src(bg.image), 'top center'] : null, bg.bottom ? [src(bg.bottom), 'bottom center'] : null].filter(Boolean);
+  if (!layers.length) return '';
+  if (bg.fixed && layers.length === 1) return `body{background-image:${layers[0][0]};background-position:center;background-repeat:no-repeat;background-size:cover;background-attachment:fixed}`;
+  return `body{background-image:${layers.map(l => l[0]).join(',')};background-position:${layers.map(l => l[1]).join(',')};background-repeat:no-repeat;background-size:100% auto}`;
+}
+
+export function buildCss(site, usedComponents, { images = null } = {}) {
   const preset = THEME_PRESETS[site.theme?.preset || 'clair'];
   const tokens = { ...preset, ...(site.theme?.tokens || {}) };
   const vars = Object.entries(tokens).map(([k, v]) => `  --${k.replace(/\./g, '-')}: ${v};`).join('\n');
@@ -109,5 +135,6 @@ export function buildCss(site, usedComponents) {
   const seen = new Map();
   for (const c of usedComponents) for (const w of c.wordsCss || []) if (!seen.has(w.id)) seen.set(w.id, `/* mot : ${w.name} */\n${w.css}`);
   const words = [...seen.values()].join('\n\n');
-  return `:root {\n${vars}\n}\n${BASE_CSS}\n${beh ? '/* comportements déclarés */\n' + beh + '\n' : ''}${words ? words + '\n\n' : ''}${comps}\n`;
+  const fonts = fontFaces(site.theme?.fonts), page = pageBackground(site.theme?.background, images);
+  return `${fonts ? fonts + '\n' : ''}:root {\n${vars}\n}\n${BASE_CSS}\n${page ? '/* fond de page */\n' + page + '\n' : ''}${beh ? '/* comportements déclarés */\n' + beh + '\n' : ''}${words ? words + '\n\n' : ''}${comps}\n`;
 }

@@ -211,7 +211,7 @@ export async function initProject(dir, { name, repo, local = false, git = true, 
 
   // Dépendance vers le compilateur : dépôt git public quand il existe, sinon le chemin local (fonctionne ici, pas en intégration continue).
   const rel = path.relative(root, SITEC_ROOT).replaceAll('\\', '/');
-  const dep = repo || (local ? 'file:' + (rel.startsWith('.') ? rel : './' + rel) : 'github:dtdagames/devanture#v0.17.0');
+  const dep = repo || (local ? 'file:' + (rel.startsWith('.') ? rel : './' + rel) : 'github:dtdagames/devanture#v0.18.0');
   const source = yaml ? 'YAML' : 'documents';
 
   const files = {

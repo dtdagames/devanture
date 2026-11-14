@@ -284,6 +284,19 @@ function sl_src_recent(array $a): array {
     return $out;
 }
 /** Jeton des formulaires d'action (panier, commande) et marqueur d'un événement de mesure : HTML sûr, échappé ici. */
+/** Nombre d'articles du panier du visiteur ; zéro sur un site sans boutique. */
+function sl_fn_cart_count(): int { return function_exists('shop_count') ? shop_count() : 0; }
+/** Données du site lues par l'habillage (en-tête, pied de page) : les noms que la forme d'un composant d'habillage emploie. */
+function sl_shell_data(): array {
+    global $site, $page;
+    $c = $site['contact'] ?? []; $route = (string)($page['route'] ?? ''); $tel = trim((string)($c['phone'] ?? '')); $mail = trim((string)($c['email'] ?? ''));
+    $nav = []; foreach (($site['nav'] ?? []) as $n) $nav[] = ['link' => $n, 'label' => $n['label'], 'current' => $n['to'] === $route];
+    return ['_name' => $site['name'], '_home' => ['label' => $site['name'], 'to' => '/'], '_tagline' => $site['tagline'] ?? null,
+        '_phone' => $tel !== '' ? $tel : null, '_phone_link' => $tel !== '' ? ['label' => $tel, 'to' => 'tel:' . preg_replace('/[^0-9+]/', '', $tel)] : null,
+        '_email' => $mail !== '' ? $mail : null, '_email_link' => $mail !== '' ? ['label' => $mail, 'to' => 'mailto:' . $mail] : null,
+        '_address' => $c['address'] ?? null, '_nav' => $nav, '_footer_text' => $site['footer']['text'] ?? null, '_footer_links' => $site['footer']['links'] ?? [],
+        '_readable_link' => !empty($page['readable_url']) ? ['label' => 'Version texte', 'to' => $page['readable_url']] : null];
+}
 function sl_fn_csrf(): string { return '<input type="hidden" name="_csrf" value="' . e(csrf_token()) . '">'; }
 function sl_fn_event(mixed $name, mixed ...$kv): string {
     $d = []; for ($i = 0; $i + 1 < count($kv); $i += 2) $d[sl_str($kv[$i])] = $kv[$i + 1];
@@ -655,26 +668,7 @@ export const LAYOUT_PHP = `<!doctype html>
 <?php endif; ?>
 </head>
 <body>
-<header class="site-header">
-  <div class="container">
-    <a class="brand" href="/"><?= e($site['name']) ?></a>
-    <button class="nav-toggle" aria-label="Menu" aria-expanded="false">☰</button>
-    <nav class="site-nav" aria-label="Navigation principale">
-      <ul>
-      <?php foreach (($site['nav'] ?? []) as $item): ?>
-        <li><a href="<?= e(url($item['to'])) ?>"<?= $item['to'] === $current ? ' aria-current="page"' : '' ?>><?= e($item['label']) ?></a></li>
-      <?php endforeach; ?>
-      </ul>
-      <?php if (!empty($SHOP['cart_route'])): ?><a class="cart-link" href="<?= e($SHOP['cart_route']) ?>"<?= $SHOP['cart_route'] === $current ? ' aria-current="page"' : '' ?>>Panier<span class="cart-count"><?= shop_count() ?></span></a><?php endif; ?>
-      <?php if ($site['intent']['enabled'] ?? true): ?>
-      <form class="intent" role="search" autocomplete="off" data-index="/assets/intent-index.json">
-        <input type="search" name="q" placeholder="<?= e($site['intent']['placeholder'] ?? 'Que cherchez-vous ?') ?>" aria-label="<?= e($site['intent']['placeholder'] ?? 'Que cherchez-vous ?') ?>" aria-expanded="false" aria-controls="intent-results">
-        <ul class="intent-results" id="intent-results" role="listbox" hidden></ul>
-      </form>
-      <?php endif; ?>
-    </nav>
-  </div>
-</header>
+<?php $page['route'] = (string)($current ?? ''); render_component({{SHELL_HEADER}}, sl_shell_data()); ?>
 <main>
 <?php if (!empty($_SESSION['flash'])): ?><div class="cart-flash"><div class="container"><?= e($_SESSION['flash']) ?><?php if (!empty($SHOP['cart_route'])): ?> · <a href="<?= e($SHOP['cart_route']) ?>">Voir le panier</a><?php endif; ?></div></div><?php unset($_SESSION['flash']); endif; ?>
 <?php if ($page['file']): ob_start(); include __DIR__ . '/pages/' . $page['file']; $sl_body = ob_get_clean();
@@ -684,16 +678,7 @@ echo $sl_body; else: ?>
   <section class="section page-404"><div class="container"><h1>Page introuvable</h1><p class="muted">Cette adresse ne correspond à aucune page.</p><a class="btn" href="/">Retour à l'accueil</a></div></section>
 <?php endif; ?>
 </main>
-<footer class="site-footer">
-  <div class="container">
-    <div>
-      <strong><?= e($site['name']) ?></strong>
-      <?php if (!empty($site['footer']['text'])): ?> · <?= e($site['footer']['text']) ?><?php endif; ?>
-      <?php if (!empty($site['contact'])): ?><div><?= implode(' · ', array_filter([e($site['contact']['address'] ?? ''), e($site['contact']['phone'] ?? ''), !empty($site['contact']['email']) ? '<a href="mailto:' . e($site['contact']['email']) . '">' . e($site['contact']['email']) . '</a>' : ''])) ?></div><?php endif; ?>
-    </div>
-    <ul><?php foreach (($site['footer']['links'] ?? []) as $l): ?><li><?= render_link($l) ?></li><?php endforeach; ?><?php if (!empty($page['readable_url'])): ?><li><a href="<?= e($page['readable_url']) ?>" rel="alternate">Version texte</a></li><?php endif; ?></ul>
-  </div>
-</footer>
+<?php render_component({{SHELL_FOOTER}}, sl_shell_data()); ?>
 <?php if (($site['personalization']['enabled'] ?? true) !== false): ?>
 <div class="consent" hidden role="dialog" aria-label="Personnalisation">
   <p><?= e($site['personalization']['consent_text'] ?? 'Ce site adapte certains contenus à votre navigation (pages vues, demandes en cours). Aucune donnée n\\'est transmise à des tiers.') ?></p>

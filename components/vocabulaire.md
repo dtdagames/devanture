@@ -690,3 +690,88 @@ Adresse, téléphone et e-mail du site (site.contact), en colonne ; rien si le s
 ```css
 .contact-info p{margin-bottom:16px}
 ```
+
+## marque du site
+Le nom du site, en lien vers l'accueil ; avec une image, le logo à la place du nom.
+
+### Données
+- logo : image, facultatif — logo affiché à la place du nom
+
+### Gabarit
+```html
+<a class="brand" href="/">{% if logo %}<img class="brand-logo" src="{{ asset(logo) }}" alt="{{ site.name }}">{% else %}{{ site.name }}{% endif %}</a>
+```
+
+### Feuille
+```css
+.brand-logo{max-height:48px;width:auto}
+```
+
+## menu du site
+Le menu du site (site.nav) : la page affichée y est marquée, et il se replie derrière un bouton sur téléphone. Ce qui est écrit en dessous (panier, recherche) prend place à la suite des entrées.
+
+### Gabarit
+```html
+<button class="nav-toggle" aria-label="Menu" aria-expanded="false">☰</button>
+<nav class="site-nav" aria-label="Navigation principale">
+  <ul>
+  {% for entree in site.nav %}
+    <li><a href="{{ url(entree.to) }}"{% if entree.to == page.route %} aria-current="page"{% endif %}>{{ entree.label }}</a></li>
+  {% endfor %}
+  </ul>
+  {{ contenu }}
+</nav>
+```
+
+## panier du site
+Lien vers le panier, avec le nombre d'articles ; rien sur un site sans boutique.
+
+### Gabarit
+```html
+{% if shop.cart_route %}<a class="cart-link" href="{{ shop.cart_route }}"{% if shop.cart_route == page.route %} aria-current="page"{% endif %}>Panier<span class="cart-count">{{ cart_count() }}</span></a>{% endif %}
+```
+
+## recherche du site
+Le champ « Que cherchez-vous ? » de la navigation par intention ; rien quand le site la coupe (site.intent.enabled).
+
+### Gabarit
+```html
+{% if site.intent.enabled %}
+<form class="intent" role="search" autocomplete="off" data-index="/assets/intent-index.json">
+  <input type="search" name="q" placeholder="{{ site.intent.placeholder | default('Que cherchez-vous ?') }}" aria-label="{{ site.intent.placeholder | default('Que cherchez-vous ?') }}" aria-expanded="false" aria-controls="intent-results">
+  <ul class="intent-results" id="intent-results" role="listbox" hidden></ul>
+</form>
+{% endif %}
+```
+
+## téléphone du site
+Le téléphone du site (site.contact.phone), en lien d'appel ; rien si le site n'en déclare pas.
+
+### Gabarit
+```html
+{% if site.contact.phone %}<a class="site-phone" href="tel:{{ site.contact.phone | replace(' ', '') }}">{{ site.contact.phone }}</a>{% endif %}
+```
+
+### Feuille
+```css
+.site-phone{font-weight:600;white-space:nowrap;text-decoration:none}
+```
+
+## mentions du site
+Le nom du site, le texte du pied de page, puis l'adresse, le téléphone et l'e-mail sur une ligne.
+
+### Gabarit
+```html
+<div>
+  <strong>{{ site.name }}</strong>{% if site.footer.text %} · {{ site.footer.text }}{% endif %}
+  {% if site.contact %}<div>{% set sep = '' %}{% if site.contact.address %}{{ site.contact.address }}{% set sep = ' · ' %}{% endif %}{% if site.contact.phone %}{{ sep }}{{ site.contact.phone }}{% set sep = ' · ' %}{% endif %}{% if site.contact.email %}{{ sep }}<a href="mailto:{{ site.contact.email }}">{{ site.contact.email }}</a>{% endif %}</div>{% endif %}
+</div>
+```
+
+## liens du pied
+Les liens du pied de page (site.footer.links), puis le lien « Version texte » de la page affichée.
+
+### Gabarit
+```html
+<ul>{% for l in site.footer.links %}<li>{{ link(l) }}</li>{% endfor %}{% if page.readable_url %}<li><a href="{{ page.readable_url }}" rel="alternate">Version texte</a></li>{% endif %}</ul>
+```

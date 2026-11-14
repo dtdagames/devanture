@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { nearest } from './errors.js';
 import { compileDonnees } from './lang/donnees.js';
-import { compileForme } from './lang/forme.js';
+import { compileForme, shellKind } from './lang/forme.js';
 import { compileApparence, wantedParts } from './lang/apparence.js';
 import { compileFonctionnement } from './lang/fonctionnement.js';
 import { parseWithLines } from './lang/lines.js';
@@ -29,6 +29,26 @@ export const SHARED_DEFS = {
     },
   },
 };
+
+/**
+ * Habillage (en-tête, pied de page) : un composant dont la forme s'ouvre par « en-tête de site » ou « pied de site ». Il n'a pas de
+ * données à lui : il lit celles du site, sous ces noms, comme un autre composant lit les siennes.
+ */
+export const SHELL_DATA = {
+  name: 'texte — nom du site',
+  home: 'lien — le nom du site, en lien vers l\'accueil',
+  tagline: 'texte, facultatif — slogan du site',
+  phone: 'texte, facultatif — téléphone du site',
+  phone_link: 'lien, facultatif — le téléphone, en lien d\'appel',
+  email: 'texte, facultatif — e-mail du site',
+  email_link: 'lien, facultatif — l\'e-mail, en lien',
+  address: 'texte, facultatif — adresse du site',
+  'nav (liste, facultatif)': { link: 'lien — entrée du menu', label: 'texte — son libellé', current: 'oui ou non, facultatif — c\'est la page affichée' },
+  footer_text: 'texte, facultatif — texte du pied de page',
+  footer_links: 'liste de liens, facultatif — liens du pied de page',
+  readable_link: 'lien, facultatif — la version texte de la page affichée',
+};
+export const SHELL_NAMES = { header: 'en-tête de site', footer: 'pied de site' };
 
 const SCHEMA_KEYS = new Set(['type', 'description', 'enum', 'items', 'properties', 'required', 'additionalProperties', 'minItems', 'maxItems', 'minimum', 'maximum', 'minLength', 'format', 'pattern', '$ref', '$defs', 'default', '$comment']);
 const MANIFEST_KEYS = new Set(['name', 'order', 'description', 'props', 'données', 'forme', 'apparence', 'fonctionnement', 'example', 'intents', 'effects', 'behaviors', 'readable', 'calculé']);
@@ -86,6 +106,11 @@ export function buildComponent({ name, shortName = null, pkg = null, dir, manife
   for (const k of Object.keys(manifest)) if (!MANIFEST_KEYS.has(k)) { const s = nearest(k, [...MANIFEST_KEYS]); errors.push(`clé inconnue « ${k} » dans manifest.yaml${s ? ` (vouliez-vous dire ${s} ?)` : ''}`, at(k)); }
   if (manifest.name !== undefined && manifest.name !== name && manifest.name !== shortName) errors.push(`name: ${manifest.name} ne correspond pas au dossier ${shortName || name}`, at('name'));
   manifest.name = name;
+  const shell = shellKind(manifest.forme);
+  if (shell) {
+    manifest.shell = shell;
+    for (const k of ['données', 'props', 'fonctionnement', 'effects', 'calculé']) if (manifest[k] !== undefined) { errors.push(`${k} dans un habillage : un « ${SHELL_NAMES[shell]} » n'a ni données ni fonctionnement à lui, il lit celles du site (${Object.keys(SHELL_DATA).map(x => x.replace(/ \(.*$/, '')).join(', ')})`, at(k)); delete manifest[k]; }
+  }
   // Bloc données (français contrôlé) : compilé vers le schéma JSON des props ; les deux ensemble sont refusés.
   if (manifest['données'] !== undefined) {
     if (manifest.props !== undefined) errors.push('props et données à la fois : gardez données (ou props, en schéma JSON), pas les deux', at('props'));
@@ -152,6 +177,11 @@ export function buildComponent({ name, shortName = null, pkg = null, dir, manife
     if (manifest.sources?.length) { computed ||= new Map(); for (const src of manifest.sources) computed.set(src.key, { expr: `p._${src.key}`, required: false, schema: sourceSchema(src.source), simple: true }); }
     // Lecture en erreur (dite à sa ligne) : son nom existe pour la forme, sans valeur ; ce qui en dépend n'est pas jugé.
     if (failedReads.length) { computed ||= new Map(); for (const k of failedReads) computed.set(k, { expr: 'null', required: false, schema: null, absent: true }); }
+    // Habillage : les données du site, fournies par la mise en page à chaque rendu.
+    if (shell) {
+      const r = compileDonnees(SHELL_DATA, 'site');
+      computed = new Map(Object.entries(r.schema.properties).map(([k, schema]) => [k, { expr: `p._${k}`, required: (r.schema.required || []).includes(k), schema, simple: true }]));
+    }
     const r = compileForme(manifest.forme, { name, props: manifest.props, want: wantedParts(manifest.apparence), effects: manifest.effects || null, words, computed });
     if (failedReads.length) r.incomplete = true;
     for (const e of r.errors) errors.push(`${e.path} : ${e.message}`, e.ref, at('forme'));
