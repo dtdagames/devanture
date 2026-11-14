@@ -194,7 +194,7 @@ function readMap(nodes, map0, fail, where, base) {
     if (!key || key in out) { fail(n.line, key ? `« ${key} » est dit deux fois` : 'nom manquant avant « | »'); continue; }
     where[`${base}.${key}`] = n.line;
     if (map.parse) { const v = map.parse(parts.slice(1).join(' | '), n.children, fail, n.line); if (v !== undefined) out[key] = v; continue; }
-    if (n.children.length || n.more?.length) { fail((n.children[0] || n).line, 'rien ne se met en retrait sous une donnée nommée'); continue; }
+    if (n.children.length) { fail(n.children[0].line, 'pas de puce en retrait sous une donnée nommée'); continue; }
     if (map.group) {
       const GP = map.group.properties || {}, k = labelsOf(GP).get(norm(key));
       if (!k) { const s = near(key, Object.keys(GP)); fail(n.line, `donnée inconnue : ${key}${s ? ` (vouliez-vous dire ${s} ?)` : ''}`, `Données : ${Object.keys(GP).join(', ')}.`); continue; }
@@ -208,6 +208,8 @@ function readMap(nodes, map0, fail, where, base) {
     if (parts.length < 2) { fail(n.line, `« ${key} » : ses données manquent après « | »`, `Données : ${Object.keys(map.schema.properties).join(', ')}.`); continue; }
     const r = fitItem(parts.slice(1).join(' | '), map.schema);
     if (r.error) { fail(n.line, `${key} : ${r.error}`, `Données : ${Object.keys(map.schema.properties).join(', ')}.`); continue; }
+    // Lignes en retrait sous la puce : la suite de son dernier texte (une ligne vide fait un paragraphe).
+    if (n.more?.length) { if (!r.lastText) { fail(n.line + 1, 'des lignes en retrait, mais la puce ne finit pas par un texte'); continue; } r.value[r.lastText] += n.more.map(x => (x.gap ? '\n\n' : '\n') + x.text).join(''); }
     out[key] = map.short && Object.keys(r.value).length === 1 && map.short in r.value ? r.value[map.short] : r.value;
   }
   return out;
@@ -514,11 +516,12 @@ function siteSchema(tokens) {
     nav: { type: 'array', items: { $ref: '#/$defs/link' } },
     footer_text: { type: 'string' }, footer_links: { type: 'array', items: { $ref: '#/$defs/link' } },
     email: { type: 'string' }, phone: { type: 'string' }, address: { type: 'string' },
+    redirects: { type: 'array', items: { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' } } } },
     packages: { type: 'array', items: { type: 'string' } }, language: { type: 'integer' }, constants: { type: 'object' },
   };
   return { open: true, properties };
 }
-const SITE_LABELS = [['langue', 'locale'], ['thème', 'preset'], ['menu', 'nav'], ['pied de page', 'footer_text'], ['liens du pied de page', 'footer_links'], ['liens du pied', 'footer_links'], ['e-mail', 'email'], ['courriel', 'email'], ['téléphone', 'phone'], ['adresse', 'address'], ['paquets', 'packages'], ['langage', 'language']];
+const SITE_LABELS = [['langue', 'locale'], ['thème', 'preset'], ['menu', 'nav'], ['pied de page', 'footer_text'], ['liens du pied de page', 'footer_links'], ['liens du pied', 'footer_links'], ['e-mail', 'email'], ['courriel', 'email'], ['téléphone', 'phone'], ['adresse', 'address'], ['paquets', 'packages'], ['langage', 'language'], ['redirections', 'redirects']];
 
 /** Noms français des réglages du site, chacun dans sa section : « ## Boutique », « ## Recherche »… */
 export const GROUP_NAMES = { intent: 'recherche', agents: 'agents', personalization: 'personnalisation', static: 'statique', studio: 'atelier', images: 'images', offline: 'hors ligne', shop: 'boutique' };
@@ -561,9 +564,10 @@ export function readSiteDocument(text, { tokens = [], groups = {} } = {}) {
   if (Object.keys(footer).length) site.footer = footer;
   const contact = {}; put(contact, 'email', p.email, 'site.contact.email', 'email'); put(contact, 'phone', p.phone, 'site.contact.phone', 'phone'); put(contact, 'address', p.address, 'site.contact.address', 'address');
   if (Object.keys(contact).length) site.contact = contact;
+  put(site, 'redirects', p.redirects, 'site.redirects', 'redirects');
   const data = { language: p.language ?? 1 };
   if (p.packages !== undefined) { data.packages = p.packages; where.packages = r.where.packages; }
-  const said = new Set(['tagline', 'locale', 'preset', ...tokens, 'nav', 'footer_text', 'footer_links', 'email', 'phone', 'address', 'packages', 'language']);
+  const said = new Set(['tagline', 'locale', 'preset', ...tokens, 'nav', 'footer_text', 'footer_links', 'email', 'phone', 'address', 'packages', 'language', 'redirects']);
   if (p.collections !== undefined) { if (!p.collections || typeof p.collections !== 'object' || Array.isArray(p.collections)) fail(r.where.collections, 'collections: attend des collections nommées'); else data.collections = { ...p.collections }; said.add('collections'); }
   const merge = (into, from, path, line) => { for (const [k, v] of Object.entries(from)) { if (v && typeof v === 'object' && !Array.isArray(v) && into[k] && typeof into[k] === 'object' && !Array.isArray(into[k])) merge(into[k], v, `${path}${k}.`, line); else if (k in into) fail(line, `« ${path}${k} » est dit deux fois : en ligne et dans le bloc yaml`); else { into[k] = v; where[`${path}${k}`] = line; } } };
   for (const [k, v] of Object.entries(p)) {
@@ -862,7 +866,7 @@ export function writeSiteDocument(data, { tokens = [], groups = {} } = {}) {
   if (!oneLine(site.name)) return { error: 'site.name manquant ou sur plusieurs lignes' };
   const props = {}, rest = {};
   const take = (k, v) => { if (v !== undefined) props[k] = v; };
-  take('tagline', site.tagline); take('locale', site.locale);
+  take('tagline', site.tagline); take('locale', site.locale); take('redirects', site.redirects);
   const theme = site.theme && typeof site.theme === 'object' ? site.theme : {};
   take('preset', theme.preset);
   const tk = theme.tokens && typeof theme.tokens === 'object' ? theme.tokens : {};
@@ -881,7 +885,7 @@ export function writeSiteDocument(data, { tokens = [], groups = {} } = {}) {
   // Réglages et collections : chacun dans sa section, s'il s'y écrit sans bloc yaml ; sinon il reste dans le bloc.
   const sections = [];
   for (const [k, v] of Object.entries(site)) {
-    if (['name', 'tagline', 'locale', 'theme', 'nav', 'footer', 'contact'].includes(k)) continue;
+    if (['name', 'tagline', 'locale', 'theme', 'nav', 'footer', 'contact', 'redirects'].includes(k)) continue;
     const g = GROUP_NAMES[k] && groups[k] && groups[k].type === 'object' && v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length ? flatSchema(groups[k]) : null;
     const gopts = { title: null, prose: null, what: `la section ${GROUP_NAMES[k]}`, label: groupLabel };
     const lines = g ? writeChecked(flatData(v, groups[k]), g, gopts, ls => readBody(splitBlocks(ls.join('\n')), g, gopts)) : null;
@@ -905,7 +909,7 @@ export function writeSiteDocument(data, { tokens = [], groups = {} } = {}) {
   if (collections !== undefined && d.collections !== undefined) props.collections = collections;
   if (Object.keys(rest).length) props.site = rest;
   const schema = siteSchema(tokens);
-  const label = k => ({ locale: 'Langue', preset: 'Thème', nav: 'Menu', footer_text: 'Pied de page', footer_links: 'Liens du pied de page', email: 'E-mail', phone: 'Téléphone', address: 'Adresse', packages: 'Paquets', language: 'Langage' }[k] || (tokens.includes(k) ? k : null));
+  const label = k => ({ locale: 'Langue', preset: 'Thème', nav: 'Menu', footer_text: 'Pied de page', footer_links: 'Liens du pied de page', email: 'E-mail', phone: 'Téléphone', address: 'Adresse', packages: 'Paquets', language: 'Langage', redirects: 'Redirections' }[k] || (tokens.includes(k) ? k : null));
   const opts = { title: null, prose: 'tagline', what: 'ce site', label };
   const body = writeChecked(props, schema, opts, lines => readBody(splitBlocks(lines.join('\n')), schema, { ...opts, labels: SITE_LABELS }));
   if (!body) return { error: 'document du site qui ne se relit pas' };

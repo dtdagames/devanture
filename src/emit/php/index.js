@@ -112,7 +112,10 @@ export async function emit(project, catalogBase, out) {
   if (shopCfg) await fs.writeFile(path.join(out, 'lib', 'shop.php'), SHOP_PHP);
 
   // Jumeau : index d'intention, données structurées, instructions agents, JSON-LD.
-  const site = project.site.site;
+  // Rien à personnaliser (ni segments, ni mémoire du visiteur, ni boutique) et rien de dit dans le site : la personnalisation est
+  // coupée, donc ni bandeau de consentement ni cookie de profil. « personalization: { enabled: true } » la garde pour les mesures.
+  const profileUsed = !!project.segments || used.has('recent') || !!shopCfg;
+  const site = !profileUsed && project.site.site.personalization?.enabled === undefined ? { ...project.site.site, personalization: { ...(project.site.site.personalization || {}), enabled: false } } : project.site.site;
   project.pages.__products = project.products; project.pages.__shop = shopCfg;
   const twin = buildTwin(site, project.pages, catalog);
   const agentsOn = site.agents?.enabled !== false;

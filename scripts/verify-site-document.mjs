@@ -9,7 +9,7 @@
 //     changement arrête la compilation jusqu'à « sitec lire --accepter » ;
 //   - commandes : rediger, lire, explain ; mesure : les documents sont plus courts que le YAML sur chaque exemple.
 // Usage : node scripts/verify-site-document.mjs [port]     (PHP : PHP_BIN, sinon php ; sans PHP, la comparaison du rendu échoue)
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync, spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -415,6 +415,41 @@ try {
     ok('migrate : un site en documents est en version 1, rien à récrire', r.code === 0 && /Déjà en version 1/.test(r.out) && /"from":1/.test(r.out), r.out.slice(0, 300));
     const g = run('migrate', path.join(ROOT, 'examples', 'garnier-associes'), '--dry-run');
     ok('migrate : les suggestions lisent les pages en documents et parlent leur écriture', g.code === 0 && /recopié dans pages\/contact\.md/.test(g.out) && /« Constantes : » puis « - nom \| 30 minutes »/.test(g.out), g.out.slice(0, 400));
+  }
+
+  // --- corrections après la recréation d'un site réel : liste sans élément, consentement, page dérivée, titre principal, redirections
+  {
+    const reel = path.join(tmp, 'reel'); run('init', reel, '--name', 'Site réel', '--no-git', '--local');
+    await fs.mkdir(path.join(reel, 'components', 'puces'), { recursive: true });
+    await fs.writeFile(path.join(reel, 'components', 'puces', 'composant.md'), '# puces\n\nDes points en liste.\n\n## Données\n- items (liste, au moins 1) :\n  - text : texte\n\n## Forme\n- liste de items :\n  - texte : text\n\n## Exemple\n```\n## puces\n- Un\n- Deux\n```\n');
+    const acc = path.join(reel, 'pages', 'accueil.md'); await fs.writeFile(acc, (await fs.readFile(acc, 'utf8')).trimEnd() + '\n\n## puces\n- Rapide\n- Garanti\n');
+    const men = path.join(reel, 'pages', 'mentions-legales.md'); await fs.writeFile(men, (await fs.readFile(men, 'utf8')).replace('## Texte : Mentions légales', '## Texte #mentions : Mentions légales'));
+    await fs.writeFile(path.join(reel, 'pages', 'derivee.md'), '# Dérivée\n\nUne page dérivée des mentions\n\nAdresse : /derivee\nDérive de : mentions-legales\nRemplace :\n- mentions | texte : Premier paragraphe.\n\n  Second paragraphe.\n');
+    const sm = path.join(reel, 'site.md'), site0 = await fs.readFile(sm, 'utf8');
+    await fs.writeFile(sm, site0.replace('\n## Agents', 'Redirections :\n- /ancien.html | /contact\n\n## Agents'));
+    const c1 = run('check', reel, '--accepter'), b1 = run('build', reel, '--draft');
+    const lecture = await fs.readFile(path.join(reel, 'lecture', 'pages', 'derivee.page.yaml'), 'utf8').catch(() => ''), lsite = await fs.readFile(path.join(reel, 'lecture', 'site.yaml'), 'utf8').catch(() => '');
+    ok('site réel : redirections, liste sans élément et page dérivée à deux paragraphes se lisent et le site compile', site0.includes('\n## Agents') && c1.code === 0 && b1.code === 0 && /from: \/ancien\.html\n\s+to: \/contact/.test(lsite) && /Premier paragraphe\.\n\s*\n\s+Second paragraphe\./.test(lecture), c1.out.slice(0, 500) + b1.out.slice(0, 200) + lecture.slice(0, 300));
+    const puces = await fs.readFile(path.join(reel, 'dist', 'components', 'puces.php'), 'utf8').catch(() => ''), indexPhp = await fs.readFile(path.join(reel, 'dist', 'index.php'), 'utf8').catch(() => '');
+    ok('liste écrite sans « élément » : chaque tour est un élément de liste (<ul>…<li>), plus de <p> posé dans <ul>', /<ul[^>]*>(<\?php[\s\S]*?\?>)?<li><p>/.test(puces) && /<\/p><\/li>/.test(puces) && !/<ul[^>]*>(<\?php[\s\S]*?\?>)?<p>/.test(puces), puces.slice(0, 500));
+    ok('consentement : un site sans segments, sans composant recent et sans boutique a la personnalisation coupée', /'personalization' => \[\s*'enabled' => false/.test(indexPhp), (indexPhp.match(/'personalization'[^\]]{0,80}/) || [''])[0]);
+    const pm = run('build', path.join(ROOT, 'examples', 'plomberie-martin'), '--out', path.join(tmp, 'plomberie-reel'));
+    ok('consentement : un site qui déclare des segments garde la personnalisation et son bandeau', pm.code === 0 && !/'personalization' => \[\s*'enabled' => false/.test(await fs.readFile(path.join(tmp, 'plomberie-reel', 'index.php'), 'utf8')), pm.out.slice(0, 200));
+    // Servi par PHP : titre principal promu, redirection permanente, page dérivée, pas de bandeau.
+    const php = process.env.PHP_BIN || 'php', p2 = port + 11;
+    const srv = spawn(php, ['-S', `127.0.0.1:${p2}`, '-t', path.join(reel, 'dist'), path.join(reel, 'dist', 'index.php')], { stdio: 'ignore' });
+    const get = async u => { const r = await fetch(`http://127.0.0.1:${p2}${u}`, { redirect: 'manual' }); return { status: r.status, location: r.headers.get('location'), cookie: r.headers.get('set-cookie'), text: await r.text() }; };
+    let up = false; for (let i = 0; i < 40 && !up; i++) { try { await get('/'); up = true; } catch { await new Promise(r => setTimeout(r, 150)); } }
+    try {
+      const home = up ? await get('/') : { text: '' }, mentions = up ? await get('/mentions-legales') : { text: '' }, old = up ? await get('/ancien.html') : {}, lost = up ? await get('/perdue.html') : {}, der = up ? await get('/derivee') : { text: '' };
+      ok('titre principal : une page sans bandeau reçoit un h1, son premier titre ; une page à bandeau garde le sien, seul', up && (mentions.text.match(/<h1/g) || []).length === 1 && /<h1[^>]*>Mentions légales<\/h1>/.test(mentions.text) && (home.text.match(/<h1/g) || []).length === 1, up ? mentions.text.slice(mentions.text.indexOf('<main'), mentions.text.indexOf('<main') + 300) : 'serveur PHP non démarré');
+      ok('redirection : l\'ancienne adresse répond 301 vers la page, une adresse inconnue 404', old.status === 301 && old.location === '/contact' && lost.status === 404, `${old.status} ${old.location} / ${lost.status}`);
+      ok('servi : la page dérivée porte ses deux paragraphes, l\'accueil n\'a ni bandeau de consentement ni cookie', /<p>Premier paragraphe\.<\/p>/.test(der.text) && /<p>Second paragraphe\.<\/p>/.test(der.text) && !/class="consent"/.test(home.text) && !home.cookie && /<ul><li>/.test(home.text), der.text.slice(der.text.indexOf('<main'), der.text.indexOf('<main') + 400));
+    } finally { srv.kill(); }
+    // Refus : une redirection mal écrite.
+    await fs.writeFile(sm, site0.replace('\n## Agents', 'Redirections :\n- ancien.html | /contact\n- /vieux.html | /nulle-part\n\n## Agents'));
+    const c2 = run('check', reel, '--accepter');
+    ok('redirection refusée : origine sans « / », cible qui n\'est pas une page', c2.code !== 0 && /redirects\[0\]\.from/.test(c2.out) && /redirects\[1\]\.to/.test(c2.out) && /nulle-part/.test(c2.out), c2.out.slice(0, 600));
   }
 
   // --- mesure : la source en documents est plus courte que la source en YAML, sur chaque exemple

@@ -628,6 +628,8 @@ if ($page !== null) {
         if (@file_put_contents($tmp, $html) !== false) @rename($tmp, __DIR__ . '/' . $page['static']);
     }
 } else {
+    // Anciennes adresses déclarées par le site (site › redirects) : redirection permanente vers la nouvelle.
+    foreach (($site['redirects'] ?? []) as $sl_r) if (($sl_r['from'] ?? null) === $path) { header('Location: ' . $sl_r['to'], true, 301); exit; }
     http_response_code(404);
     $page = ['file' => null, 'seo' => ['title' => 'Page introuvable']];
     $current = $path;
@@ -675,7 +677,10 @@ export const LAYOUT_PHP = `<!doctype html>
 </header>
 <main>
 <?php if (!empty($_SESSION['flash'])): ?><div class="cart-flash"><div class="container"><?= e($_SESSION['flash']) ?><?php if (!empty($SHOP['cart_route'])): ?> · <a href="<?= e($SHOP['cart_route']) ?>">Voir le panier</a><?php endif; ?></div></div><?php unset($_SESSION['flash']); endif; ?>
-<?php if ($page['file']): include __DIR__ . '/pages/' . $page['file']; else: ?>
+<?php if ($page['file']): ob_start(); include __DIR__ . '/pages/' . $page['file']; $sl_body = ob_get_clean();
+// Une page sans titre principal (pas de bandeau) : son premier titre de section devient le h1 de la page.
+if (stripos($sl_body, '<h1') === false) $sl_body = preg_replace('~<h2((?:\\s[^>]*)?)>(.*?)</h2>~s', '<h1$1>$2</h1>', $sl_body, 1);
+echo $sl_body; else: ?>
   <section class="section page-404"><div class="container"><h1>Page introuvable</h1><p class="muted">Cette adresse ne correspond à aucune page.</p><a class="btn" href="/">Retour à l'accueil</a></div></section>
 <?php endif; ?>
 </main>

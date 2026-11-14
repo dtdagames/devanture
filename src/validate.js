@@ -51,6 +51,10 @@ export const SITE_SCHEMA = {
           },
         },
         nav: { type: 'array', items: { $ref: '#/$defs/link' } },
+        redirects: {
+          type: 'array',
+          items: { type: 'object', additionalProperties: false, required: ['from', 'to'], properties: { from: { type: 'string', pattern: '^/[^\\s?#]*$' }, to: { type: 'string', format: 'route' } } },
+        },
         footer: {
           type: 'object', additionalProperties: false,
           properties: { text: { type: 'string' }, links: { type: 'array', items: { $ref: '#/$defs/link' } } },

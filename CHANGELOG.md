@@ -1,6 +1,17 @@
 # Journal des versions
 
-Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.16.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.17.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+
+## v0.17.0 — 2026-11-14 — un site réel recréé : cinq défauts corrigés, redirections des anciennes adresses
+
+Un site en ligne (une école de permis bateau, sept pages) a été recréé en documents, hors du dépôt, pour éprouver le compilateur. Il a compilé au deuxième passage, et montré ce qui suit.
+
+- **Liste sans « élément »** : `- liste de points :` suivi d'un `- texte : text` sortait `<ul><p>…</p></ul>`, un HTML invalide, sans aucun refus. Chaque tour d'une liste écrite sans `élément` est maintenant enveloppé dans `<li>`.
+- **Bandeau de consentement** : il s'affichait sur un site qui ne personnalise rien. Sans segments, sans composant `recent` et sans boutique, la personnalisation est coupée à la compilation : ni bandeau, ni cookie de profil, ni événements. `personalization: { enabled: true }` la garde pour les mesures du back-office.
+- **Page dérivée** : sous une puce de `Remplace :` (ou de `Variantes :`), des lignes en retrait prolongent son dernier texte ; un texte de plusieurs paragraphes se remplace donc.
+- **Titre principal** : une page sans bandeau n'avait pas de `h1`. Le premier titre de section de la page le devient au rendu.
+- **Redirections** : `site › redirects: [ { from: /contact.html, to: /contact } ]`, ou dans `site.md` « Redirections : » puis une puce « /contact.html | /contact ». Une ancienne adresse déclarée répond par une redirection permanente (301) vers une page du site ; `to` est vérifié comme tout lien.
+- Laissé tel quel, par choix : une introduction courte qui finit par deux-points (« Allez au : ») reste refusée tant qu'elle n'est pas annoncée par son nom (« Introduction : Allez au : »), parce qu'une annonce de liste mal nommée aurait la même forme. Non fait : un numéro de téléphone dans l'en-tête.
 
 ## v0.16.0 — 2026-11-14 — composants, composés, vocabulaire, exemples, dépôt de site et générateur en documents : plus aucun YAML d'auteur au dépôt
 

@@ -508,6 +508,8 @@ export function compileForme(forme, { name, props, want: want0 = new Set(), effe
       const inGrid = (g, fn) => { gridStack.push(g); const res = fn(); gridStack.pop(); return res; };
       const loop = body => `{% for ${v} in ${r.expr} %}${body}{% endfor %}`;
       const c0 = classOf(h), c = c0 ? withVariant(c0) : c0;
+      const headOf = k => (typeof k === 'string' ? k : k && typeof k === 'object' ? Object.keys(k)[0] || '' : '');
+      const listItems = (value, p) => { const kids = Array.isArray(value) ? value : []; const body = nodes(kids, p); return kids.length && !kids.some(k => /^\s*(élément|si|sinon)(\s|,|:|«|$)/.test(headOf(k))) ? `<li>${body}</li>` : body; };
       switch (h.prim) {
         case 'grille': {
           let cols = '3', g = { n: 3 }; for (const o of h.options) { let m; if ((m = /^(\d)\s+colonnes?$/i.exec(o))) { cols = m[1]; g = { n: Number(m[1]) || 3 }; } else if ((m = /^colonnes\s+([a-z_][a-z0-9_]*)\s+par défaut\s+(\d)$/i.exec(o))) { const cr = resolve(m[1], p); if (cr && !cr.absent) { cols = `{{ ${cr.expr} | default(${m[2]}) }}`; g = { expr: `${cr.expr} | default(${m[2]})` }; } else if (cr) { cols = m[2]; g = { n: Number(m[2]) }; } } else fail(p, `option de grille inconnue « ${o} » (« 3 colonnes » ou « colonnes columns par défaut 3 »)`); }
@@ -528,8 +530,9 @@ export function compileForme(forme, { name, props, want: want0 = new Set(), effe
           const buttons = `<div class="${bar}" data-sl-filters><button type="button" class="${btn}" data-sl-filter="*">${all}</button>{% for ${v} in ${r.expr} | map('${by}') | unique %}<button type="button" class="${btn}" data-sl-filter="${out(`${v} | slug`)}">${out(v)}</button>{% endfor %}</div>`;
           return `${buttons}\n<div${attr('grid', `grid-${cols}`, grid, c)}>${loop(`<div class="${cell}" data-sl-filter-item="${out(`${v}.${by} | slug`)}">${enter(() => inGrid(g, () => nodes(value || [], p)))}</div>`)}</div>`;
         }
-        case 'liste numérotée': return `<ol${attr(c)}>${loop(enter(() => nodes(value || [], p)))}</ol>`;
-        case 'liste': return `<ul${attr(c)}>${loop(enter(() => nodes(value || [], p)))}</ul>`;
+        // Une liste écrite sans « élément » (« - liste de points : » puis « - texte : text ») : chaque tour devient un élément de liste.
+        case 'liste numérotée': return `<ol${attr(c)}>${loop(enter(() => listItems(value, p)))}</ol>`;
+        case 'liste': return `<ul${attr(c)}>${loop(enter(() => listItems(value, p)))}</ul>`;
         case 'rangée': return `<div${attr(c)}>${loop(enter(() => nodes(value || [], p)))}</div>`;
         case 'accordéon': {
           let q = null, a = null; for (const o of h.options) { let m; if ((m = /^question\s+(\S+)$/i.exec(o))) q = m[1]; else if ((m = /^réponse\s+(\S+)$/i.exec(o))) a = m[1]; else fail(p, `option d'accordéon inconnue « ${o} »`); }

@@ -848,6 +848,7 @@ Props de site :
       .tokens: objet { nom: valeur } — surcharges du preset. Noms acceptés :
 ${Object.entries(THEME_PRESETS.clair).map(([k, v]) => `          ${k.padEnd(18)} ex. ${v}`).join('\n')}
   nav: liste de liens { label*, to* } — menu principal, dans l'ordre
+  redirects: liste de { from*, to* } — anciennes adresses renvoyées vers une page (redirection permanente) : { from: /contact.html, to: /contact }
   footer: objet
       .text: string — mention courte (SIRET, slogan…)
       .links: liste de liens { label*, to* }
@@ -858,7 +859,8 @@ ${Object.entries(THEME_PRESETS.clair).map(([k, v]) => `          ${k.padEnd(18)}
   agents: objet — jumeau pour agents (/site.json, /llms.txt, JSON-LD)
       .enabled: boolean (défaut true)   .summary: string (une phrase)   .business_type: string (type schema.org, défaut LocalBusiness)
   personalization: objet — segments, variantes et expériences (voir segments.yaml plus bas)
-      .enabled: boolean (défaut true)   .requires_consent: boolean (défaut true)   .consent_text: string
+      .enabled: boolean (défaut true ; sans segments, sans composant recent et sans boutique, rien n'est à personnaliser : ni bandeau ni cookie, sauf enabled: true dit expressément)
+      .requires_consent: boolean (défaut true)   .consent_text: string
   images: objet — { enabled: true, widths: [${IMAGE_DEFAULTS.widths.join(', ')}], quality: ${IMAGE_DEFAULTS.quality} } variantes WebP redimensionnées à la compilation pour les JPEG, PNG et WebP de assets/ (srcset, width/height, chargement différé) ; défaut : activé si sharp est installé
   static: objet — { enabled: true } cache statique des pages sans état pour les visiteurs sans cookie (servi par Apache sans PHP) ; défaut : activé
   offline: objet — { enabled: false, short_name, theme_color } service worker : assets et versions texte consultables hors ligne ; défaut : désactivé
