@@ -1,0 +1,35 @@
+page: honoraires
+route: /honoraires
+seo:
+  title: Honoraires | Garnier & Associés
+  description: "Honoraires au forfait ou au temps passé, convention d'honoraires systématique, première consultation de 30 minutes offerte."
+sections:
+  - hero:
+      title: Nos honoraires
+      subtitle: "Transparents, annoncés dès le départ et formalisés par écrit."
+      align: left
+  - features:
+      title: Comment sont fixés nos honoraires
+      columns: 3
+      items:
+        - { icon: gift, title: Première consultation offerte, text: "Trente minutes pour exposer votre situation et connaître vos options, sans engagement." }
+        - { icon: check, title: Forfait, text: "Pour les missions dont le périmètre est connu à l'avance, un prix global fixé d'avance." }
+        - { icon: clock, title: Temps passé, text: "Pour les dossiers évolutifs, facturation selon un taux horaire annoncé dans la convention." }
+  - richtext:
+      title: Une convention d'honoraires systématique
+      text: |
+        Quel que soit le mode de facturation, nous établissons une convention d'honoraires avant de commencer. Elle précise la mission, le mode de calcul, les provisions éventuelles et les frais annexes.
+
+        Vous savez ainsi dès le début ce que votre dossier va coûter, et vous pouvez être informé à tout moment de l'évolution des frais.
+  - faq:
+      title: Questions sur les honoraires
+      items:
+        - q: La première consultation est-elle vraiment gratuite ?
+          a: Oui, les trente premières minutes sont offertes et sans engagement.
+        - q: Quelle différence entre forfait et temps passé ?
+          a: "Le forfait fixe un prix global pour une mission définie. Le temps passé repose sur un taux horaire et s'adapte à la durée réelle du dossier."
+        - q: Puis-je bénéficier de l'aide juridictionnelle ?
+          a: "Selon vos ressources, l'aide juridictionnelle peut prendre en charge tout ou partie des frais. Nous vous renseignons lors du rendez-vous."
+  - cta:
+      title: Parlons de votre situation
+      button: { label: Réserver ma consultation offerte, to: /contact }

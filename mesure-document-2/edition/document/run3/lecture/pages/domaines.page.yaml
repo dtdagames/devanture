@@ -1,0 +1,52 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+route: /domaines
+seo:
+  title: Domaines d'intervention | Garnier & Associés
+  description: "Droit du travail, droit des affaires et droit de la famille : les domaines d'intervention du cabinet à Bordeaux, Libourne et Arcachon."
+sections:
+  - hero:
+      title: Domaines d'intervention
+      subtitle: Trois matières, chacune portée par un associé dédié.
+      align: left
+  - richtext:
+      title: Droit du travail, avec Me Hélène Garnier
+      text: |-
+        Nous défendons les salariés et conseillons les employeurs : licenciement pour motif personnel ou économique, rupture conventionnelle, heures supplémentaires, harcèlement moral, discrimination.
+
+        Nous intervenons en négociation comme devant le conseil de prud'hommes, avec l'objectif d'obtenir une solution rapide lorsque c'est possible.
+      image: helene.svg
+  - richtext:
+      title: Droit des affaires, avec Me Thomas Ruiz
+      text: |-
+        Choix de la structure, rédaction des statuts et pactes d'associés, baux commerciaux, contrats de distribution, litiges entre associés, recouvrement de créances et procédures collectives.
+
+        Nous accompagnons les dirigeants de TPE et de PME à chaque étape de la vie de leur entreprise.
+      image: thomas.svg
+      image_position: left
+  - richtext:
+      title: Droit de la famille, avec Me Inès Kaddour
+      text: |-
+        Divorce par consentement mutuel ou contentieux, résidence des enfants, pension alimentaire, prestation compensatoire, liquidation du régime matrimonial, successions.
+
+        Nous cherchons toujours, quand cela est possible, une issue apaisée qui préserve les intérêts de chacun.
+      image: ines.svg
+  - features:
+      title: Où nous intervenons
+      columns: 3
+      items:
+        - icon: home
+          title: Bordeaux
+          text: Au cabinet, 25 cours de l'Intendance.
+        - icon: home
+          title: Libourne
+          text: Rendez-vous et audiences dans le Libournais.
+        - icon: home
+          title: Arcachon
+          text: Rendez-vous et audiences sur le Bassin.
+  - cta:
+      title: Parlons de votre dossier
+      button:
+        label: Prendre rendez-vous
+        to: /contact
+      style: surface

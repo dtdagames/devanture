@@ -1,0 +1,883 @@
+{
+ "essais": [
+  {
+   "essai": "creation/yaml/run1",
+   "check_ok": true,
+   "build_ok": true,
+   "format_tenu": true,
+   "pages": 6,
+   "sections": 22,
+   "source_tokens": 2040,
+   "source_lignes": 201,
+   "blocs_yaml": null,
+   "banc": "50/50",
+   "banc_ok": true,
+   "tours": 7,
+   "tokens_produits": 5605,
+   "tokens_traites": 628459,
+   "appels_outils": 13,
+   "outils": {
+    "Read": 2,
+    "Bash": 4,
+    "Write": 7,
+    "SubagentHandback": 1
+   },
+   "ecrits_dans_les_fichiers": 2040,
+   "ecritures": 7,
+   "retouches": 0,
+   "lancements_check": 2,
+   "lancements_lire": 0,
+   "lancements_explain": 1,
+   "contexte_par_tour": 89780,
+   "duree_s": 322.1
+  },
+  {
+   "essai": "creation/yaml/run2",
+   "check_ok": true,
+   "build_ok": true,
+   "format_tenu": true,
+   "pages": 6,
+   "sections": 22,
+   "source_tokens": 1876,
+   "source_lignes": 196,
+   "blocs_yaml": null,
+   "banc": "50/50",
+   "banc_ok": true,
+   "tours": 7,
+   "tokens_produits": 4828,
+   "tokens_traites": 626028,
+   "appels_outils": 13,
+   "outils": {
+    "Read": 2,
+    "Bash": 4,
+    "Write": 7,
+    "SubagentHandback": 1
+   },
+   "ecrits_dans_les_fichiers": 1876,
+   "ecritures": 7,
+   "retouches": 0,
+   "lancements_check": 1,
+   "lancements_lire": 0,
+   "lancements_explain": 2,
+   "contexte_par_tour": 89433,
+   "duree_s": 208.1
+  },
+  {
+   "essai": "creation/yaml/run3",
+   "check_ok": true,
+   "build_ok": true,
+   "format_tenu": true,
+   "pages": 6,
+   "sections": 22,
+   "source_tokens": 1960,
+   "source_lignes": 196,
+   "blocs_yaml": null,
+   "banc": "50/50",
+   "banc_ok": true,
+   "tours": 6,
+   "tokens_produits": 5126,
+   "tokens_traites": 536612,
+   "appels_outils": 12,
+   "outils": {
+    "Read": 3,
+    "Bash": 2,
+    "Write": 7,
+    "SubagentHandback": 1
+   },
+   "ecrits_dans_les_fichiers": 1960,
+   "ecritures": 7,
+   "retouches": 0,
+   "lancements_check": 1,
+   "lancements_lire": 0,
+   "lancements_explain": 1,
+   "contexte_par_tour": 89435,
+   "duree_s": 233.3
+  },
+  {
+   "essai": "creation/document/run1",
+   "check_ok": true,
+   "build_ok": true,
+   "format_tenu": true,
+   "pages": 6,
+   "sections": 22,
+   "source_tokens": 1518,
+   "source_lignes": 121,
+   "blocs_yaml": 0,
+   "banc": "50/50",
+   "banc_ok": true,
+   "tours": 8,
+   "tokens_produits": 5311,
+   "tokens_traites": 773356,
+   "appels_outils": 15,
+   "outils": {
+    "Read": 2,
+    "Bash": 4,
+    "Write": 7,
+    "Edit": 2,
+    "SubagentHandback": 1
+   },
+   "ecrits_dans_les_fichiers": 1541,
+   "ecritures": 7,
+   "retouches": 2,
+   "lancements_check": 2,
+   "lancements_lire": 2,
+   "lancements_explain": 3,
+   "contexte_par_tour": 96670,
+   "duree_s": 266.6
+  },
+  {
+   "essai": "creation/document/run2",
+   "check_ok": true,
+   "build_ok": true,
+   "format_tenu": true,
+   "pages": 6,
+   "sections": 22,
+   "source_tokens": 1534,
+   "source_lignes": 123,
+   "blocs_yaml": 0,
+   "banc": "50/50",
+   "banc_ok": true,
+   "tours": 7,
+   "tokens_produits": 6873,
+   "tokens_traites": 664628,
+   "appels_outils": 16,
+   "outils": {
+    "Read": 2,
+    "Bash": 4,
+    "Write": 10,
+    "SubagentHandback": 1
+   },
+   "ecrits_dans_les_fichiers": 2323,
+   "ecritures": 10,
+   "retouches": 0,
+   "lancements_check": 2,
+   "lancements_lire": 2,
+   "lancements_explain": 3,
+   "contexte_par_tour": 94947,
+   "duree_s": 191.1
+  },
+  {
+   "essai": "creation/document/run3",
+   "check_ok": true,
+   "build_ok": true,
+   "format_tenu": true,
+   "pages": 6,
+   "sections": 22,
+   "source_tokens": 1511,
+   "source_lignes": 120,
+   "blocs_yaml": 0,
+   "banc": "50/50",
+   "banc_ok": true,
+   "tours": 8,
+   "tokens_produits": 4791,
+   "tokens_traites": 742135,
+   "appels_outils": 13,
+   "outils": {
+    "Read": 2,
+    "Bash": 3,
+    "Write": 8,
+    "SubagentHandback": 1
+   },
+   "ecrits_dans_les_fichiers": 1616,
+   "ecritures": 8,
+   "retouches": 0,
+   "lancements_check": 2,
+   "lancements_lire": 2,
+   "lancements_explain": 3,
+   "contexte_par_tour": 92767,
+   "duree_s": 267.8
+  },
+  {
+   "essai": "edition/yaml/run1",
+   "check_ok": true,
+   "build_ok": true,
+   "format_tenu": true,
+   "pages": 7,
+   "sections": 29,
+   "source_tokens": 3133,
+   "source_lignes": 254,
+   "blocs_yaml": null,
+   "banc": "28/28",
+   "banc_ok": true,
+   "tours": 7,
+   "tokens_produits": 3367,
+   "tokens_traites": 609302,
+   "appels_outils": 16,
+   "outils": {
+    "Read": 6,
+    "Glob": 1,
+    "Bash": 3,
+    "Edit": 5,
+    "Write": 1,
+    "SubagentHandback": 1
+   },
+   "ecrits_dans_les_fichiers": 508,
+   "ecritures": 1,
+   "retouches": 5,
+   "lancements_check": 2,
+   "lancements_lire": 0,
+   "lancements_explain": 6,
+   "contexte_par_tour": 87043,
+   "duree_s": 190.7
+  },
+  {
+   "essai": "edition/yaml/run2",
+   "check_ok": true,
+   "build_ok": true,
+   "format_tenu": true,
+   "pages": 7,
+   "sections": 29,
+   "source_tokens": 3131,
+   "source_lignes": 254,
+   "blocs_yaml": null,
+   "banc": "28/28",
+   "banc_ok": true,
+   "tours": 7,
+   "tokens_produits": 3443,
+   "tokens_traites": 602071,
+   "appels_outils": 16,
+   "outils": {
+    "Read": 6,
+    "Glob": 1,
+    "Bash": 3,
+    "Edit": 5,
+    "Write": 1,
+    "SubagentHandback": 1
+   },
+   "ecrits_dans_les_fichiers": 501,
+   "ecritures": 1,
+   "retouches": 5,
+   "lancements_check": 1,
+   "lancements_lire": 0,
+   "lancements_explain": 6,
+   "contexte_par_tour": 86010,
+   "duree_s": 130.6
+  },
+  {
+   "essai": "edition/yaml/run3",
+   "check_ok": true,
+   "build_ok": true,
+   "format_tenu": true,
+   "pages": 7,
+   "sections": 29,
+   "source_tokens": 3132,
+   "source_lignes": 254,
+   "blocs_yaml": null,
+   "banc": "28/28",
+   "banc_ok": true,
+   "tours": 6,
+   "tokens_produits": 2885,
+   "tokens_traites": 509605,
+   "appels_outils": 14,
+   "outils": {
+    "Read": 6,
+    "Glob": 1,
+    "Bash": 2,
+    "Edit": 4,
+    "Write": 1,
+    "SubagentHandback": 1
+   },
+   "ecrits_dans_les_fichiers": 546,
+   "ecritures": 1,
+   "retouches": 4,
+   "lancements_check": 1,
+   "lancements_lire": 0,
+   "lancements_explain": 3,
+   "contexte_par_tour": 84934,
+   "duree_s": 195.4
+  },
+  {
+   "essai": "edition/document/run1",
+   "check_ok": true,
+   "build_ok": true,
+   "format_tenu": true,
+   "pages": 7,
+   "sections": 29,
+   "source_tokens": 2425,
+   "source_lignes": 161,
+   "blocs_yaml": 0,
+   "banc": "28/28",
+   "banc_ok": true,
+   "tours": 9,
+   "tokens_produits": 3266,
+   "tokens_traites": 810456,
+   "appels_outils": 17,
+   "outils": {
+    "Read": 6,
+    "Glob": 1,
+    "Bash": 4,
+    "Edit": 5,
+    "Write": 1,
+    "SubagentHandback": 1
+   },
+   "ecrits_dans_les_fichiers": 398,
+   "ecritures": 1,
+   "retouches": 5,
+   "lancements_check": 1,
+   "lancements_lire": 2,
+   "lancements_explain": 6,
+   "contexte_par_tour": 90051,
+   "duree_s": 191.6
+  },
+  {
+   "essai": "edition/document/run2",
+   "check_ok": true,
+   "build_ok": true,
+   "format_tenu": true,
+   "pages": 7,
+   "sections": 29,
+   "source_tokens": 2425,
+   "source_lignes": 161,
+   "blocs_yaml": 0,
+   "banc": "28/28",
+   "banc_ok": true,
+   "tours": 8,
+   "tokens_produits": 3553,
+   "tokens_traites": 721518,
+   "appels_outils": 17,
+   "outils": {
+    "Read": 7,
+    "Glob": 1,
+    "Bash": 3,
+    "Edit": 5,
+    "Write": 1,
+    "SubagentHandback": 1
+   },
+   "ecrits_dans_les_fichiers": 390,
+   "ecritures": 1,
+   "retouches": 5,
+   "lancements_check": 1,
+   "lancements_lire": 1,
+   "lancements_explain": 5,
+   "contexte_par_tour": 90190,
+   "duree_s": 210.8
+  },
+  {
+   "essai": "edition/document/run3",
+   "check_ok": true,
+   "build_ok": true,
+   "format_tenu": true,
+   "pages": 7,
+   "sections": 29,
+   "source_tokens": 2425,
+   "source_lignes": 161,
+   "blocs_yaml": 0,
+   "banc": "28/28",
+   "banc_ok": true,
+   "tours": 10,
+   "tokens_produits": 4016,
+   "tokens_traites": 919160,
+   "appels_outils": 17,
+   "outils": {
+    "Read": 6,
+    "Glob": 1,
+    "Bash": 4,
+    "Edit": 5,
+    "Write": 1,
+    "SubagentHandback": 1
+   },
+   "ecrits_dans_les_fichiers": 398,
+   "ecritures": 1,
+   "retouches": 5,
+   "lancements_check": 2,
+   "lancements_lire": 2,
+   "lancements_explain": 7,
+   "contexte_par_tour": 91916,
+   "duree_s": 279.8
+  }
+ ],
+ "cases": {
+  "creation/yaml": {
+   "source_tokens": {
+    "moyenne": 1959,
+    "essais": [
+     2040,
+     1876,
+     1960
+    ]
+   },
+   "sections": {
+    "moyenne": 22,
+    "essais": [
+     22,
+     22,
+     22
+    ]
+   },
+   "tours": {
+    "moyenne": 7,
+    "essais": [
+     7,
+     7,
+     6
+    ]
+   },
+   "tokens_produits": {
+    "moyenne": 5186,
+    "essais": [
+     5605,
+     4828,
+     5126
+    ]
+   },
+   "ecrits_dans_les_fichiers": {
+    "moyenne": 1959,
+    "essais": [
+     2040,
+     1876,
+     1960
+    ]
+   },
+   "tokens_traites": {
+    "moyenne": 597033,
+    "essais": [
+     628459,
+     626028,
+     536612
+    ]
+   },
+   "contexte_par_tour": {
+    "moyenne": 89549,
+    "essais": [
+     89780,
+     89433,
+     89435
+    ]
+   },
+   "appels_outils": {
+    "moyenne": 13,
+    "essais": [
+     13,
+     13,
+     12
+    ]
+   },
+   "ecritures": {
+    "moyenne": 7,
+    "essais": [
+     7,
+     7,
+     7
+    ]
+   },
+   "retouches": {
+    "moyenne": 0,
+    "essais": [
+     0,
+     0,
+     0
+    ]
+   },
+   "lancements_check": {
+    "moyenne": 1,
+    "essais": [
+     2,
+     1,
+     1
+    ]
+   },
+   "lancements_lire": {
+    "moyenne": 0,
+    "essais": [
+     0,
+     0,
+     0
+    ]
+   },
+   "lancements_explain": {
+    "moyenne": 1,
+    "essais": [
+     1,
+     2,
+     1
+    ]
+   },
+   "duree_s": {
+    "moyenne": 255,
+    "essais": [
+     322.1,
+     208.1,
+     233.3
+    ]
+   },
+   "reussis": "3/3"
+  },
+  "creation/document": {
+   "source_tokens": {
+    "moyenne": 1521,
+    "essais": [
+     1518,
+     1534,
+     1511
+    ]
+   },
+   "sections": {
+    "moyenne": 22,
+    "essais": [
+     22,
+     22,
+     22
+    ]
+   },
+   "tours": {
+    "moyenne": 8,
+    "essais": [
+     8,
+     7,
+     8
+    ]
+   },
+   "tokens_produits": {
+    "moyenne": 5658,
+    "essais": [
+     5311,
+     6873,
+     4791
+    ]
+   },
+   "ecrits_dans_les_fichiers": {
+    "moyenne": 1827,
+    "essais": [
+     1541,
+     2323,
+     1616
+    ]
+   },
+   "tokens_traites": {
+    "moyenne": 726706,
+    "essais": [
+     773356,
+     664628,
+     742135
+    ]
+   },
+   "contexte_par_tour": {
+    "moyenne": 94795,
+    "essais": [
+     96670,
+     94947,
+     92767
+    ]
+   },
+   "appels_outils": {
+    "moyenne": 15,
+    "essais": [
+     15,
+     16,
+     13
+    ]
+   },
+   "ecritures": {
+    "moyenne": 8,
+    "essais": [
+     7,
+     10,
+     8
+    ]
+   },
+   "retouches": {
+    "moyenne": 1,
+    "essais": [
+     2,
+     0,
+     0
+    ]
+   },
+   "lancements_check": {
+    "moyenne": 2,
+    "essais": [
+     2,
+     2,
+     2
+    ]
+   },
+   "lancements_lire": {
+    "moyenne": 2,
+    "essais": [
+     2,
+     2,
+     2
+    ]
+   },
+   "lancements_explain": {
+    "moyenne": 3,
+    "essais": [
+     3,
+     3,
+     3
+    ]
+   },
+   "duree_s": {
+    "moyenne": 242,
+    "essais": [
+     266.6,
+     191.1,
+     267.8
+    ]
+   },
+   "reussis": "3/3"
+  },
+  "edition/yaml": {
+   "source_tokens": {
+    "moyenne": 3132,
+    "essais": [
+     3133,
+     3131,
+     3132
+    ]
+   },
+   "sections": {
+    "moyenne": 29,
+    "essais": [
+     29,
+     29,
+     29
+    ]
+   },
+   "tours": {
+    "moyenne": 7,
+    "essais": [
+     7,
+     7,
+     6
+    ]
+   },
+   "tokens_produits": {
+    "moyenne": 3232,
+    "essais": [
+     3367,
+     3443,
+     2885
+    ]
+   },
+   "ecrits_dans_les_fichiers": {
+    "moyenne": 518,
+    "essais": [
+     508,
+     501,
+     546
+    ]
+   },
+   "tokens_traites": {
+    "moyenne": 573659,
+    "essais": [
+     609302,
+     602071,
+     509605
+    ]
+   },
+   "contexte_par_tour": {
+    "moyenne": 85996,
+    "essais": [
+     87043,
+     86010,
+     84934
+    ]
+   },
+   "appels_outils": {
+    "moyenne": 15,
+    "essais": [
+     16,
+     16,
+     14
+    ]
+   },
+   "ecritures": {
+    "moyenne": 1,
+    "essais": [
+     1,
+     1,
+     1
+    ]
+   },
+   "retouches": {
+    "moyenne": 5,
+    "essais": [
+     5,
+     5,
+     4
+    ]
+   },
+   "lancements_check": {
+    "moyenne": 1,
+    "essais": [
+     2,
+     1,
+     1
+    ]
+   },
+   "lancements_lire": {
+    "moyenne": 0,
+    "essais": [
+     0,
+     0,
+     0
+    ]
+   },
+   "lancements_explain": {
+    "moyenne": 5,
+    "essais": [
+     6,
+     6,
+     3
+    ]
+   },
+   "duree_s": {
+    "moyenne": 172,
+    "essais": [
+     190.7,
+     130.6,
+     195.4
+    ]
+   },
+   "reussis": "3/3"
+  },
+  "edition/document": {
+   "source_tokens": {
+    "moyenne": 2425,
+    "essais": [
+     2425,
+     2425,
+     2425
+    ]
+   },
+   "sections": {
+    "moyenne": 29,
+    "essais": [
+     29,
+     29,
+     29
+    ]
+   },
+   "tours": {
+    "moyenne": 9,
+    "essais": [
+     9,
+     8,
+     10
+    ]
+   },
+   "tokens_produits": {
+    "moyenne": 3612,
+    "essais": [
+     3266,
+     3553,
+     4016
+    ]
+   },
+   "ecrits_dans_les_fichiers": {
+    "moyenne": 395,
+    "essais": [
+     398,
+     390,
+     398
+    ]
+   },
+   "tokens_traites": {
+    "moyenne": 817045,
+    "essais": [
+     810456,
+     721518,
+     919160
+    ]
+   },
+   "contexte_par_tour": {
+    "moyenne": 90719,
+    "essais": [
+     90051,
+     90190,
+     91916
+    ]
+   },
+   "appels_outils": {
+    "moyenne": 17,
+    "essais": [
+     17,
+     17,
+     17
+    ]
+   },
+   "ecritures": {
+    "moyenne": 1,
+    "essais": [
+     1,
+     1,
+     1
+    ]
+   },
+   "retouches": {
+    "moyenne": 5,
+    "essais": [
+     5,
+     5,
+     5
+    ]
+   },
+   "lancements_check": {
+    "moyenne": 1,
+    "essais": [
+     1,
+     1,
+     2
+    ]
+   },
+   "lancements_lire": {
+    "moyenne": 2,
+    "essais": [
+     2,
+     1,
+     2
+    ]
+   },
+   "lancements_explain": {
+    "moyenne": 6,
+    "essais": [
+     6,
+     5,
+     7
+    ]
+   },
+   "duree_s": {
+    "moyenne": 227,
+    "essais": [
+     191.6,
+     210.8,
+     279.8
+    ]
+   },
+   "reussis": "3/3"
+  }
+ },
+ "ecarts_document_contre_yaml": {
+  "creation": {
+   "source_tokens": "-22 %",
+   "tours": "+14 %",
+   "tokens_produits": "+9 %",
+   "ecrits_dans_les_fichiers": "-7 %",
+   "tokens_traites": "+22 %",
+   "contexte_par_tour": "+6 %",
+   "appels_outils": "+15 %",
+   "ecritures": "+14 %",
+   "retouches": null,
+   "lancements_check": "+100 %",
+   "lancements_lire": null,
+   "lancements_explain": "+200 %",
+   "duree_s": "-5 %"
+  },
+  "edition": {
+   "source_tokens": "-23 %",
+   "tours": "+29 %",
+   "tokens_produits": "+12 %",
+   "ecrits_dans_les_fichiers": "-24 %",
+   "tokens_traites": "+42 %",
+   "contexte_par_tour": "+5 %",
+   "appels_outils": "+13 %",
+   "ecritures": "0 %",
+   "retouches": "0 %",
+   "lancements_check": "0 %",
+   "lancements_lire": null,
+   "lancements_explain": "+20 %",
+   "duree_s": "+32 %"
+  }
+ }
+}

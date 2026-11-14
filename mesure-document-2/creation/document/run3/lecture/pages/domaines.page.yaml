@@ -1,0 +1,51 @@
+# Lecture de ce document par sitec : le YAML que ce document vaut.
+# Ne modifiez pas ce fichier : corrigez le document, relisez « sitec lire <dossier> », puis acceptez (« --accepter »).
+route: /domaines
+seo:
+  title: Nos domaines d'intervention
+  description: Droit du travail, droit des affaires et droit de la famille au cabinet Garnier & Associés.
+sections:
+  - hero:
+      title: Nos domaines d'intervention
+      subtitle: "Trois associés, trois spécialités, un même engagement : vous défendre avec rigueur."
+      cta:
+        label: Nous contacter
+        to: /contact
+  - features:
+      title: Trois spécialités
+      items:
+        - icon: scale
+          title: Droit du travail
+          text: Me Hélène Garnier conseille salariés et employeurs. Elle les accompagne dans leurs litiges et leurs négociations.
+        - icon: euro
+          title: Droit des affaires
+          text: Me Thomas Ruiz accompagne les entreprises dans leurs contrats et leurs différends. Il les conseille au quotidien.
+        - icon: users
+          title: Droit de la famille
+          text: Me Inès Kaddour intervient dans les séparations, les successions et les questions familiales. Elle vous écoute et vous guide.
+  - steps:
+      title: Comment se déroule un dossier
+      items:
+        - title: Premier rendez-vous
+          text: Une consultation de 30 minutes offerte pour comprendre votre situation.
+        - title: Convention d'honoraires
+          text: "Elle est systématique : vous savez à l'avance comment nous sommes rémunérés."
+        - title: Traitement du dossier
+          text: Votre avocat prépare et conduit votre affaire.
+        - title: Suivi
+          text: Vous restez informé de l'avancement de votre dossier.
+  - faq:
+      title: Questions fréquentes
+      items:
+        - q: La première consultation est-elle payante ?
+          a: Non, la première consultation de 30 minutes est offerte.
+        - q: Comment sont calculés les honoraires ?
+          a: Au forfait ou au temps passé, selon votre dossier. Une convention d'honoraires est toujours signée.
+        - q: Où intervenez-vous ?
+          a: À Bordeaux, Libourne et Arcachon.
+  - cta:
+      title: Parlons de votre dossier
+      text: Première consultation de 30 minutes offerte.
+      button:
+        label: Prendre rendez-vous
+        to: /contact

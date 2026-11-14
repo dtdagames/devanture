@@ -1,0 +1,33 @@
+page: honoraires
+route: /honoraires
+seo:
+  title: Honoraires
+  description: "Honoraires au forfait ou au temps passé, convention d'honoraires systématique, première consultation offerte."
+sections:
+  - hero:
+      title: Nos honoraires
+      subtitle: Des conditions claires, fixées par écrit dès le départ.
+  - pricelist:
+      title: Modalités de facturation
+      note: Une convention d'honoraires est systématiquement établie.
+      groups:
+        - title: Nos formules
+          items:
+            - name: Première consultation de 30 minutes
+              price: Offerte
+            - name: Honoraires au forfait
+              price: Forfait convenu à l'avance
+            - name: Honoraires au temps passé
+              price: Selon le temps consacré au dossier
+  - faq:
+      title: Questions sur les honoraires
+      items:
+        - q: La première consultation est-elle gratuite ?
+          a: Oui, la première consultation de 30 minutes est offerte.
+        - q: Comment sont facturés vos services ?
+          a: Au forfait ou au temps passé, selon la nature du dossier.
+        - q: Y a-t-il une convention d'honoraires ?
+          a: Oui, une convention d'honoraires est systématiquement établie.
+  - cta:
+      title: Discutons de votre dossier
+      button: { label: Prendre rendez-vous, to: /contact }

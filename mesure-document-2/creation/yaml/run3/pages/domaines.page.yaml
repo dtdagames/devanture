@@ -1,0 +1,43 @@
+page: domaines
+route: /domaines
+seo:
+  title: Domaines d'intervention
+  description: "Droit du travail, droit des affaires et droit de la famille à Bordeaux, Libourne et Arcachon."
+sections:
+  - hero:
+      title: Nos domaines d'intervention
+      subtitle: "Trois spécialités, trois associés, un même souci de clarté."
+  - features:
+      items:
+        - icon: users
+          title: Droit du travail
+          text: "Me Hélène Garnier intervient auprès des salariés comme des employeurs. Elle vous conseille et vous défend à chaque étape du dossier."
+        - icon: scale
+          title: Droit des affaires
+          text: "Me Thomas Ruiz accompagne les entreprises dans leurs décisions et leurs litiges. Il veille à sécuriser leurs engagements."
+        - icon: heart
+          title: Droit de la famille
+          text: "Me Inès Kaddour vous écoute et vous guide dans des situations souvent délicates. Elle défend vos intérêts avec tact et rigueur."
+  - steps:
+      title: Comment se déroule un dossier
+      items:
+        - title: Premier rendez-vous
+          text: "Une première consultation de 30 minutes, offerte, pour comprendre votre situation."
+        - title: Convention d'honoraires
+          text: "Une convention d'honoraires est systématiquement établie avant toute démarche."
+        - title: Traitement du dossier
+          text: "L'avocat en charge instruit votre dossier et vous tient informé."
+        - title: Suivi
+          text: "Nous restons à vos côtés jusqu'à la conclusion de l'affaire."
+  - faq:
+      title: Questions fréquentes
+      items:
+        - q: "La première consultation est-elle payante ?"
+          a: "Non, la première consultation de 30 minutes est offerte."
+        - q: "Où intervenez-vous ?"
+          a: "Nous intervenons à Bordeaux, Libourne et Arcachon."
+        - q: "Quels sont vos domaines de compétence ?"
+          a: "Le droit du travail, le droit des affaires et le droit de la famille."
+  - cta:
+      title: Une question sur votre dossier ?
+      button: { label: Nous contacter, to: /contact }

@@ -89,7 +89,7 @@ examples/       sites de démonstration (plomberie, boutique savonnerie, cabinet
 scripts/        bancs de vérification (sites produits, outillage, expériences, documentation) et scripts de mesure ; reference/exemples-yaml/ : les mêmes exemples dans leur écriture YAML d'origine, pour les bancs
 docs/LANGAGE.md spécification du langage (version 1 : expressions, collections, segments et expériences, composants composés et de projet, effets)
 docs/CIBLES.md  contrat que tout émetteur doit respecter (routes, formulaires, boutique, exploitation)
-docs/rapports/  proposition initiale et rapports de test (création, baseline, maintenance, Haiku, variance, exploitation)
+docs/rapports/  proposition initiale et rapports de test (création, baseline, maintenance, Haiku, variance, exploitation, site en documents, mesures avec des agents)
 baseline/ maintenance/ variance/ haiku/   corpus des mesures : mêmes sites écrits à la main en PHP, pour comparaison
 ```
 

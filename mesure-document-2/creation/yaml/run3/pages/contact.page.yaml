@@ -1,0 +1,15 @@
+page: contact
+route: /contact
+seo:
+  title: Contact
+  description: "Contactez le cabinet Garnier & Associés, 25 cours de l'Intendance à Bordeaux."
+sections:
+  - hero:
+      title: Nous contacter
+      subtitle: "Première consultation de 30 minutes offerte."
+  - contact.form:
+      title: Écrivez-nous
+      to: contact@garnier-associes.fr
+      fields: [ name, email, phone, message ]
+  - map:
+      address: "25 cours de l'Intendance, 33000 Bordeaux"

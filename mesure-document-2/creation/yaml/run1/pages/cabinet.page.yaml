@@ -1,0 +1,35 @@
+page: cabinet
+route: /cabinet
+seo:
+  title: Le cabinet
+  description: "Trois avocats associés, deux collaboratrices et une assistante, à Bordeaux depuis 2011."
+sections:
+  - hero:
+      title: Le cabinet
+      subtitle: Fondé en 2011 à Bordeaux, un cabinet à taille humaine.
+  - team:
+      title: Les associés
+      members:
+        - name: Me Hélène Garnier
+          role: Avocate associée
+          photo: helene.svg
+          bio: Droit du travail.
+        - name: Me Thomas Ruiz
+          role: Avocat associé
+          photo: thomas.svg
+          bio: Droit des affaires.
+        - name: Me Inès Kaddour
+          role: Avocate associée
+          photo: ines.svg
+          bio: Droit de la famille.
+  - richtext:
+      title: Une équipe, trois villes
+      text: |-
+        Aux côtés des trois associés, deux collaboratrices et une assistante font vivre le cabinet au quotidien.
+
+        Nous recevons à Bordeaux, cours de l'Intendance, et intervenons également à Libourne et à Arcachon.
+      image: bordeaux.svg
+  - cta:
+      title: Rencontrons-nous
+      text: La première consultation de 30 minutes est offerte.
+      button: { label: Nous contacter, to: /contact }

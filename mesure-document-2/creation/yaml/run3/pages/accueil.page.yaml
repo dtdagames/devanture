@@ -1,0 +1,40 @@
+page: accueil
+route: /
+seo:
+  title: Cabinet Garnier & Associés, avocats à Bordeaux
+  description: "Avocats à Bordeaux depuis 2011 : droit du travail, droit des affaires, droit de la famille. Première consultation de 30 minutes offerte."
+sections:
+  - hero:
+      title: Cabinet Garnier & Associés, avocats à Bordeaux
+      subtitle: "Droit du travail, droit des affaires, droit de la famille : trois associés à votre écoute depuis 2011."
+      image: hero.svg
+      cta: { label: Prendre rendez-vous, to: /contact }
+      secondary: { label: Nos domaines, to: /domaines }
+  - features:
+      title: Nos domaines d'intervention
+      items:
+        - icon: users
+          title: Droit du travail
+          text: "Me Hélène Garnier vous accompagne, salarié ou employeur."
+        - icon: scale
+          title: Droit des affaires
+          text: "Me Thomas Ruiz conseille et défend les entreprises."
+        - icon: heart
+          title: Droit de la famille
+          text: "Me Inès Kaddour vous soutient dans les moments délicats."
+  - stats:
+      items:
+        - { value: "2011", label: année de fondation }
+        - { value: "3", label: avocats associés }
+        - { value: "3", label: villes d'intervention }
+  - richtext:
+      title: Un cabinet à taille humaine
+      text: |-
+        Fondé en 2011 à Bordeaux, le cabinet Garnier & Associés réunit trois associés, deux collaboratrices et une assistante.
+
+        Nous intervenons à Bordeaux, Libourne et Arcachon. La première consultation de 30 minutes est offerte, et une convention d'honoraires est systématiquement établie.
+      image: cabinet.svg
+  - cta:
+      title: Parlons de votre situation
+      text: La première consultation de 30 minutes est offerte.
+      button: { label: Nous contacter, to: /contact }

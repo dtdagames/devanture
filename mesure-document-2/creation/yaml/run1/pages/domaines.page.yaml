@@ -1,0 +1,43 @@
+page: domaines
+route: /domaines
+seo:
+  title: Nos domaines d'intervention
+  description: "Droit du travail, droit des affaires et droit de la famille à Bordeaux, Libourne et Arcachon."
+sections:
+  - hero:
+      title: Nos domaines d'intervention
+      subtitle: Trois spécialités, trois associés, un même engagement auprès de nos clients.
+  - features:
+      items:
+        - icon: users
+          title: Droit du travail
+          text: Me Hélène Garnier intervient en conseil et en contentieux. Elle défend les intérêts des salariés comme ceux des employeurs.
+        - icon: scale
+          title: Droit des affaires
+          text: Me Thomas Ruiz conseille les entreprises et leurs dirigeants. Il les accompagne dans leurs décisions et leurs litiges.
+        - icon: home
+          title: Droit de la famille
+          text: Me Inès Kaddour vous accompagne dans les situations familiales délicates. Elle vous écoute et vous défend avec rigueur.
+  - steps:
+      title: Comment se déroule un dossier
+      items:
+        - title: Premier rendez-vous
+          text: Une consultation de 30 minutes, offerte, pour comprendre votre situation.
+        - title: Convention d'honoraires
+          text: Elle est systématique et fixe par écrit les conditions de notre intervention.
+        - title: Traitement du dossier
+          text: L'avocat en charge mène les démarches nécessaires pour défendre vos intérêts.
+        - title: Suivi
+          text: Nous vous tenons informé de l'avancement de votre dossier.
+  - faq:
+      title: Questions fréquentes
+      items:
+        - q: La première consultation est-elle payante ?
+          a: Non, la première consultation de 30 minutes est offerte.
+        - q: Dans quelles villes intervenez-vous ?
+          a: "Nous intervenons à Bordeaux, Libourne et Arcachon."
+        - q: Quel avocat s'occupera de mon dossier ?
+          a: "Selon votre besoin : Me Hélène Garnier pour le droit du travail, Me Thomas Ruiz pour le droit des affaires, Me Inès Kaddour pour le droit de la famille."
+  - cta:
+      title: Vous avez une question juridique ?
+      button: { label: Prendre rendez-vous, to: /contact }
