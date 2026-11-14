@@ -163,7 +163,7 @@ function valueExpr(text, props) {
     const path = t.split('.'); let sch = props;
     for (const [i, k] of path.entries()) {
       const next = sch?.properties?.[k];
-      if (!next) { if (i === 0 || sch?.properties) return { error: `« ${t} » : « ${k} » n'est pas une donnée du composant${sch?.properties ? ` (connues : ${Object.keys(sch.properties).filter(x => !['id', 'keywords', 'variants'].includes(x)).join(', ')})` : ''}` }; break; }
+      if (!next) { if (i === 0 || sch?.properties) return { error: `« ${t} » : « ${k} » n'est pas une donnée du composant${sch?.properties ? ` (connues : ${Object.keys(sch.properties).filter(x => !['id', 'keywords', 'variants', 'appearance'].includes(x)).join(', ')})` : ''}` }; break; }
       sch = next;
     }
     return { expr: 'p.' + t };

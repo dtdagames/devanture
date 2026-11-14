@@ -15,7 +15,7 @@ const COMMITMENTS = [
 ];
 const FACT = /(?:\b\d{1,3}(?:[   ]\d{3})+(?:[.,]\d+)?|\b\d+(?:[.,]\d+)?)\s*(?:€|euros?|%|h\b|heures?\b|min\b|minutes?\b|jours?\b|ans?\b|années?\b|km\b|m²|kg\b|g\b|cl\b|ml\b|avis\b|clients?\b|interventions?\b|références?\b|salariés?\b|artisans?\b)|\b(?:19|20)\d{2}\b|\b0\d(?:[ .]?\d{2}){4}\b|\bSIRET\b\s*[\d ]{14,20}/gi;
 const TEXT_KEYS = new Set(['title', 'subtitle', 'intro', 'text', 'note', 'name', 'description', 'quote', 'author', 'role', 'bio', 'caption', 'label', 'q', 'a', 'badge', 'unit', 'success', 'tagline', 'value', 'price']);
-const SKIP_KEYS = new Set(['id', 'keywords', 'image', 'src', 'photo', 'to', 'php', 'css', 'js', 'slots', 'day', 'icon', 'type', 'options', 'when', 'fields', 'required', 'variants']);
+const SKIP_KEYS = new Set(['id', 'keywords', 'appearance', 'image', 'src', 'photo', 'to', 'php', 'css', 'js', 'slots', 'day', 'icon', 'type', 'options', 'when', 'fields', 'required', 'variants']);
 
 /** Parcourt les textes d'une page : callback(texte, chemin). */
 function walkTexts(v, path, cb, depth = 0) {

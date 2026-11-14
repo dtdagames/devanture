@@ -247,8 +247,8 @@ export function writeComponentOutline(manifest, { example = null, notes = {} } =
 // Le vocabulaire en document : vocabulaire.md à la place de vocabulaire.yaml. Une section « ## mot » par mot, sa description,
 // puis « ### Données », « ### Forme », « ### Apparence » en puces, « ### Gabarit » et « ### Feuille » en blocs ```.
 
-const WORD_SECTIONS = { donnees: 'données', forme: 'forme', apparence: 'apparence', gabarit: 'gabarit', feuille: 'feuille' };
-const WORD_TITLES = { 'données': 'Données', forme: 'Forme', apparence: 'Apparence', gabarit: 'Gabarit', feuille: 'Feuille' };
+const WORD_SECTIONS = { donnees: 'données', forme: 'forme', apparence: 'apparence', gabarit: 'gabarit', feuille: 'feuille', parties: 'parties' };
+const WORD_TITLES = { 'données': 'Données', forme: 'Forme', apparence: 'Apparence', gabarit: 'Gabarit', feuille: 'Feuille', parties: 'Parties' };
 
 /** Lit un vocabulaire écrit en document. Renvoie { value: { mots: { nom: définition } }, lineOf, errors }. */
 export function parseVocabularyOutline(text) {
@@ -280,7 +280,7 @@ export function parseVocabularyOutline(text) {
       for (const b of part) if (b.kind !== 'item' && !(key === 'forme' && b.kind === 'text')) fail(b.line, `ligne sans rôle sous « ### ${sh.text} » : chaque ligne est une puce « - nom : valeur »`);
       def[key] = key === 'forme' ? readForme(part, sh.line, toList, fail, own, members) : toMap(tree(part.filter(b => b.kind === 'item')), sh.line);
     });
-    const ordered = {}; for (const k of ['description', 'données', 'forme', 'apparence', 'gabarit', 'feuille']) if (k in def) ordered[k] = def[k];
+    const ordered = {}; for (const k of ['description', 'données', 'forme', 'apparence', 'gabarit', 'feuille', 'parties']) if (k in def) ordered[k] = def[k];
     own.set(ordered, h.line); members.set(ordered, m);
     mots[h.text] = ordered;
   });
@@ -307,7 +307,7 @@ export function writeVocabularyOutline(doc, { notes = [], wordNotes = {}, title 
     if (extra.length) return { error: `mot « ${name} » : clé qui ne s'écrit pas en document (${extra.join(', ')})` };
     out.push('', ...(wordNotes[name] || []).map(n => `> ${n}`), `## ${name}`);
     if (def.description !== undefined) { if (!line1(def.description)) return { error: `mot « ${name} » : description sur plusieurs lignes` }; out.push(def.description); }
-    for (const key of ['données', 'forme', 'apparence', 'gabarit', 'feuille']) {
+    for (const key of ['données', 'forme', 'apparence', 'gabarit', 'feuille', 'parties']) {
       if (def[key] === undefined) continue;
       out.push('', `### ${WORD_TITLES[key]}`);
       if (key === 'gabarit' || key === 'feuille') { const s = def[key]; if (typeof s !== 'string' || !s.endsWith('\n') || /^\s*```/m.test(s)) return { error: `mot « ${name} » : ${key} qui ne s'écrit pas dans un bloc` }; out.push('```' + (key === 'gabarit' ? 'html' : 'css'), ...s.slice(0, -1).split('\n'), '```'); continue; }

@@ -12,8 +12,15 @@ import { buildReadablePage } from './readable.js';
 import { ADMIN_PHP, INTEGRITY_CLI_PHP } from './admin.js';
 import { STORE_PHP } from './store.js';
 import crypto from 'node:crypto';
+import { compileApparence, siteIntents } from '../../lang/apparence.js';
 import { COMPONENTS_DIR } from '../../catalog.js';
 const SITEC_ROOT = path.resolve(COMPONENTS_DIR, '..'); // racine du dépôt (Node) ou /sitec (navigateur)
+
+/** Composants d'habillage du site : ceux qu'il écrit lui-même, sinon ceux du catalogue. */
+export function shellComponents(catalog) {
+  const own = kind => catalog.list().find(c => c.manifest.shell === kind && c.project && !c.package)?.name;
+  return { header: own('header') || 'site.header', footer: own('footer') || 'site.footer' };
+}
 
 export async function emit(project, catalogBase, out) {
   const catalog = project.catalog || catalogBase;
@@ -34,6 +41,8 @@ export async function emit(project, catalogBase, out) {
   const staticRoutes = [];
 
   const used = new Map();
+  // Apparence dite dans les pages : une classe par apparence distincte (ap-…), posée sur la section, visée par la feuille du site.
+  const looks = new Map(), custom = siteIntents(project.site.site.intentions).custom;
   const routes = {};
   const dynamic = [];
   for (const page of project.pages) {
@@ -49,6 +58,14 @@ export async function emit(project, catalogBase, out) {
       const name = Object.keys(s)[0];
       used.set(name, catalog.get(name));
       const props = s[name] ?? {};
+      if (props.appearance !== undefined) {
+        const c = catalog.get(name), l = c?.look;
+        if (l && props.appearance && typeof props.appearance === 'object') {
+          const css = compileApparence(props.appearance, { parts: l.parts, sectionClass: l.sectionClass, scope: '\u0000', custom, outside: true }).css;
+          if (css) { const cls = 'ap-' + crypto.createHash('sha256').update(name + '\n' + css).digest('hex').slice(0, 7); looks.set(cls, css.replaceAll('\u0000', `.${l.sectionClass}.${cls}`)); props._ap = cls; }
+        }
+        delete props.appearance;
+      }
       if (name === 'contact.form') {
         // Champs normalisés une fois : le template et le serveur partagent la même définition.
         const { fields } = normalizeContactFields(props, { file: page.file, path: '' });
@@ -104,6 +121,10 @@ export async function emit(project, catalogBase, out) {
     }
     await fs.writeFile(path.join(out, 'pages', page.id + '.php'), pagePhp(page));
   }
+  // Habillage : l'en-tête et le pied sont des composants. Celui que le site écrit (forme « en-tête de site », « pied de site »)
+  // remplace celui du catalogue ; ils sont émis comme les autres (gabarit, feuille).
+  const shells = shellComponents(catalog);
+  for (const n of Object.values(shells)) used.set(n, catalog.get(n));
   const usedList = [...used.values()];
   // Données compilées (catalogue produits, collections) sous lib/data : versionnées, déployées, jamais servies ; data/ reste à l'exploitation.
   if (project.products) await fs.writeFile(path.join(out, 'lib', 'data', 'products.json'), JSON.stringify(project.products));
@@ -112,7 +133,12 @@ export async function emit(project, catalogBase, out) {
   if (shopCfg) await fs.writeFile(path.join(out, 'lib', 'shop.php'), SHOP_PHP);
 
   // Jumeau : index d'intention, données structurées, instructions agents, JSON-LD.
-  const site = project.site.site;
+  // Rien à personnaliser (ni segments, ni mémoire du visiteur, ni boutique) et rien de dit dans le site : la personnalisation est
+  // coupée, donc ni bandeau de consentement ni cookie de profil. « personalization: { enabled: true } » la garde pour les mesures.
+  const profileUsed = !!project.segments || used.has('recent') || !!shopCfg;
+  const site0 = !profileUsed && project.site.site.personalization?.enabled === undefined ? { ...project.site.site, personalization: { ...(project.site.site.personalization || {}), enabled: false } } : project.site.site;
+  // La recherche est active sauf si le site la coupe : dit une fois ici, lu tel quel par l'habillage.
+  const site = { ...site0, intent: { ...(site0.intent || {}), enabled: site0.intent?.enabled !== false } };
   project.pages.__products = project.products; project.pages.__shop = shopCfg;
   const twin = buildTwin(site, project.pages, catalog);
   const agentsOn = site.agents?.enabled !== false;
@@ -125,7 +151,12 @@ export async function emit(project, catalogBase, out) {
   const staticEnabled = site.static?.enabled !== false;
   await fs.writeFile(path.join(out, 'index.php'), indexPhp(site, routes, { jsonld: buildJsonLd(twin), agents: agentsOn, shop: shopCfg, dynamic, staticEnabled, stores: [...stores], registers, collections: Object.keys(project.collections || {}) }));
   // Assets versionnés par empreinte (cache long, Subresource Integrity) : calculés avant le layout qui les référence.
-  const cssText = buildCss(site, usedList);
+  // Images : copie des assets, variantes WebP redimensionnées (site.images). Avant la feuille, qui nomme la variante du fond de page.
+  const images = await processAssets(path.join(project.root, 'assets'), path.join(out, 'assets'), site.images || {});
+  // Apparence au niveau du site : toutes les sections d'un composant, après la feuille des composants ; puis celle des sections.
+  const siteLook = Object.entries(site.appearance || {}).map(([cname, block]) => { const l = catalog.get(cname)?.look; return l && used.has(cname) ? compileApparence(block, { parts: l.parts, sectionClass: l.sectionClass, custom, outside: true }).css : ''; }).filter(Boolean).join('');
+  const extra = [siteLook ? '/* apparence, par composant (site) */\n' + siteLook : '', looks.size ? '/* apparence, par section (pages) */\n' + [...looks.values()].join('') : ''].filter(Boolean).join('\n');
+  const cssText = buildCss(site, usedList, { images: images.manifest, extra });
   const jsText = buildJs(usedList);
   const sha = (t) => crypto.createHash('sha256').update(t).digest();
   const cssSha = sha(cssText), jsSha = sha(jsText);
@@ -135,6 +166,7 @@ export async function emit(project, catalogBase, out) {
   await fs.writeFile(path.join(out, 'layout.php'), LAYOUT_PHP
     .replace('{{CSS_V}}', cssSha.toString('hex').slice(0, 10)).replace('{{CSS_SRI}}', cssSha.toString('base64'))
     .replace('{{JS_V}}', jsSha.toString('hex').slice(0, 10)).replace('{{JS_SRI}}', jsSha.toString('base64'))
+    .replace('{{SHELL_HEADER}}', phpValue(shells.header)).replace('{{SHELL_FOOTER}}', phpValue(shells.footer))
     .replace('{{OFFLINE_HEAD}}', offlineOn ? '\n<link rel="manifest" href="/manifest.webmanifest">\n<meta name="theme-color" content="' + themeColor + '">' : '')
     .replace('{{OFFLINE_SW}}', offlineOn ? "\n<script>if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js');</script>" : ''));
   await fs.writeFile(path.join(out, 'lib', 'deploy.php'), DEPLOY_PHP);
@@ -186,8 +218,7 @@ export async function emit(project, catalogBase, out) {
     await fs.writeFile(path.join(out, 'offline.html'), buildOfflinePage(site, staticPages.map(pg => ({ route: pg.data.route, title: pg.data.seo?.title || pg.id }))));
     await fs.writeFile(path.join(out, 'manifest.webmanifest'), buildWebManifest(site, themeColor));
   }
-  // Images : copie des assets, variantes WebP redimensionnées (site.images), manifeste des dimensions pour l'aide PHP img().
-  const images = await processAssets(path.join(project.root, 'assets'), path.join(out, 'assets'), site.images || {});
+  // Images : manifeste des dimensions pour l'aide PHP img() (les fichiers sont produits plus haut, avant la feuille).
   await fs.writeFile(path.join(out, 'assets', '.htaccess'), ASSETS_HTACCESS);
   await fs.writeFile(path.join(out, 'lib', 'images.php'), '<?php\n// Généré : dimensions et variantes WebP des images de assets/ (voir img() dans lib/render.php).\nreturn ' + phpValue(images.manifest) + ';\n');
 

@@ -500,7 +500,7 @@ try {
     r = run('explain', 'produits de la boutique');
     ok('lit : explain liste les paramètres d\'une source', /Paramètres .* : catégorie, vedettes, tri, limite\./.test(r.out) && /Elle rend une liste ; chaque élément :/.test(r.out), r.out.slice(0, 400));
     r = run('component', 'show', sav, 'selection', '--php');
-    ok('lit : la lecture devient un appel à la cible avant le rendu, valeurs par défaut posées', r.out.includes("$p += ['limit' => 3]; $p['_produits'] = sl_source($p, 'produits', 'products', ['category' => sl_get($p, 'category'), 'limit' => sl_get($p, 'limit')]);") && r.out.includes('{% if p._produits %}<section class="section selection">'), r.out.slice(-600));
+    ok('lit : la lecture devient un appel à la cible avant le rendu, valeurs par défaut posées', r.out.includes("$p += ['limit' => 3]; $p['_produits'] = sl_source($p, 'produits', 'products', ['category' => sl_get($p, 'category'), 'limit' => sl_get($p, 'limit')]);") && r.out.includes('{% if p._produits %}<section class="section selection{% if p._ap %} {{ p._ap }}{% endif %}">'), r.out.slice(-600));
     ok('lit : le mot « ajout au panier » pose le formulaire d\'action et son jeton', r.out.includes('<form method="post" action="/_cart" class="add-to-cart" data-category="{{ it1.category }}">') && r.out.includes('{{ csrf() }}<input type="hidden" name="action" value="add">') && r.out.includes('sl_fn_csrf()'), '');
     r = run('test', sav);
     s = lines(r.out).find(x => 'cases' in x);
@@ -608,7 +608,7 @@ try {
     const sj = async n => JSON.parse(await fs.readFile(path.join(voc, '.devanture', 'schema', n), 'utf8').catch(() => 'null'));
     const vs = await sj('vocabulaire.schema.json'), ms = await sj('manifest.schema.json');
     const vsc = JSON.parse(await fs.readFile(path.join(voc, '.vscode', 'settings.json'), 'utf8').catch(() => '{}'))['yaml.schemas'] || {};
-    ok('éditeur : schéma de vocabulaire.yaml branché, mots du site au survol de « forme »', r.code === 0 && Object.keys(vs?.properties?.mots?.additionalProperties?.properties || {}).join() === 'description,données,forme,apparence,gabarit,feuille' && (vsc['./.devanture/schema/vocabulaire.schema.json'] || []).includes('vocabulaire.yaml') && /`sortie du four: heure`/.test(ms?.properties?.forme?.markdownDescription || '') && /`ligne de tarif: nom, prix/.test(ms.properties.forme.markdownDescription), r.out.slice(0, 300));
+    ok('éditeur : schéma de vocabulaire.yaml branché, mots du site au survol de « forme »', r.code === 0 && Object.keys(vs?.properties?.mots?.additionalProperties?.properties || {}).join() === 'description,données,forme,apparence,gabarit,feuille,parties' && (vsc['./.devanture/schema/vocabulaire.schema.json'] || []).includes('vocabulaire.yaml') && /`sortie du four: heure`/.test(ms?.properties?.forme?.markdownDescription || '') && /`ligne de tarif: nom, prix/.test(ms.properties.forme.markdownDescription), r.out.slice(0, 300));
     const gp = path.join(tmp, 'gen-voc.json');
     r = run('component', 'new', voc, 'annonce', '--describe', 'Une annonce avec l\'heure de sortie du four.', '--export', gp);
     const gj = JSON.parse(await fs.readFile(gp, 'utf8').catch(() => '{}'));

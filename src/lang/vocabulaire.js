@@ -27,7 +27,7 @@ import { wantedParts } from './apparence.js';
 import { compileTemplate } from './template.js';
 import { lintComponentCss } from './css-lint.js';
 
-export const WORD_KEYS = ['description', 'données', 'forme', 'apparence', 'gabarit', 'feuille'];
+export const WORD_KEYS = ['description', 'données', 'forme', 'apparence', 'gabarit', 'feuille', 'parties'];
 /** Noms qu'une donnée de mot ne peut pas porter : ils désignent autre chose dans une forme ou dans un gabarit. */
 export const RESERVED_PARAMS = [...RESERVED_WORDS, 'p', 'site', 'page', 'loop', 'form', 'item', 'product', 'order', 'cart', 'shop', 'true', 'false', 'null', 'and', 'or', 'not', 'in'];
 const NAME_RE = /^[a-zà-öø-ÿœ][a-zà-öø-ÿœ0-9]*(?:[ '-][a-zà-öø-ÿœ0-9]+)*$/;
@@ -86,6 +86,18 @@ export function compileVocabulaire(text, { scope = 'site', inherited = new Map()
     if (hasGabarit && (typeof def.gabarit !== 'string' || !def.gabarit.trim())) { bad('gabarit : attendu un texte (« gabarit: | » puis le balisage)', { in: def, at: 'gabarit' }); ok = false; }
     if (def.apparence !== undefined && !hasForme) { bad('apparence sans forme : l\'apparence vise les parties d\'une forme (pour un gabarit, écrivez « feuille: »)', { in: def, at: 'apparence' }); ok = false; }
     if (def.feuille !== undefined && typeof def.feuille !== 'string') { bad('feuille : attendu un texte CSS (« feuille: | »)', { in: def, at: 'feuille' }); ok = false; }
+    // Parties : ce que le balisage d'un gabarit laisse viser à l'apparence de qui emploie le mot (« nom: sélecteur »).
+    const parties = {};
+    if (def.parties !== undefined) {
+      if (!hasGabarit) { bad('parties sans gabarit : les parties d\'une forme sont ses primitives et ses noms « »', { in: def, at: 'parties' }); ok = false; }
+      else if (!def.parties || typeof def.parties !== 'object' || Array.isArray(def.parties)) { bad('parties : attendu « nom: sélecteur » par ligne', { in: def, at: 'parties' }); ok = false; }
+      else for (const [k, v] of Object.entries(def.parties)) {
+        const sel = String(v ?? '').trim(), cls = '.' + (slug(name) || 'mot');
+        const fine = sel.split(',').every(x => /^\.[a-z][a-z0-9_-]*(?:[ >+~]*(?:[a-z][a-z0-9]*|\.[a-z][a-z0-9_-]*|\[[a-z-]+(?:=[a-z0-9_-]+)?\]|:[a-z-]+(?:\([a-z0-9+ -]*\))?))*$/i.test(x.trim()) && (!lint || x.trim() === cls || x.trim().startsWith(cls + '-') || x.trim().startsWith(cls + ' ') || x.trim().startsWith(cls + '.') || x.trim().startsWith(cls + '>')));
+        if (!fine) { bad(`partie « ${k} » : « ${sel} » n'est pas un sélecteur accepté (une classe${lint ? ` du mot, « ${cls} » ou « ${cls}-… »` : ''}, puis des balises, classes et attributs)`, { in: def.parties, at: k }); ok = false; continue; }
+        parties[k] = sel;
+      }
+    }
     const d = compileDonnees(def['données'] ?? {}, 'données');
     for (const e of d.errors) { bad(`${e.path} : ${e.message}`, e.ref || { in: def, at: 'données' }); ok = false; }
     for (const p of Object.keys(d.schema.properties)) if (RESERVED_PARAMS.includes(p) || /^(it|w)\d+/.test(p)) { bad(`donnée « ${p} » : ce nom est réservé (${RESERVED_PARAMS.slice(0, 8).join(', ')}…)`, { in: def, at: 'données' }); ok = false; }
@@ -96,7 +108,7 @@ export function compileVocabulaire(text, { scope = 'site', inherited = new Map()
       params: Object.entries(d.schema.properties).map(([n, schema]) => ({ name: n, schema, required: req.includes(n) })),
       schema: { ...d.schema, $defs: LINK_DEFS },
       kind: hasForme ? 'forme' : 'gabarit', forme: def.forme, apparence: def.apparence, want: wantedParts(def.apparence),
-      gabarit: hasGabarit ? def.gabarit : null, feuille: def.feuille ? def.feuille.trim() : null,
+      gabarit: hasGabarit ? def.gabarit : null, feuille: def.feuille ? def.feuille.trim() : null, parties,
       container: hasForme ? hasContenu(def.forme) : /\{\{\s*contenu\s*\}\}/.test(def.gabarit),
     };
     // Une donnée obligatoire après une facultative ne pourrait jamais être omise : l'ordre de la définition est l'ordre d'appel.

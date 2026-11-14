@@ -9,8 +9,9 @@
 //     changement arrête la compilation jusqu'à « sitec lire --accepter » ;
 //   - commandes : rediger, lire, explain ; mesure : les documents sont plus courts que le YAML sur chaque exemple.
 // Usage : node scripts/verify-site-document.mjs [port]     (PHP : PHP_BIN, sinon php ; sans PHP, la comparaison du rendu échoue)
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync, spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -415,6 +416,149 @@ try {
     ok('migrate : un site en documents est en version 1, rien à récrire', r.code === 0 && /Déjà en version 1/.test(r.out) && /"from":1/.test(r.out), r.out.slice(0, 300));
     const g = run('migrate', path.join(ROOT, 'examples', 'garnier-associes'), '--dry-run');
     ok('migrate : les suggestions lisent les pages en documents et parlent leur écriture', g.code === 0 && /recopié dans pages\/contact\.md/.test(g.out) && /« Constantes : » puis « - nom \| 30 minutes »/.test(g.out), g.out.slice(0, 400));
+  }
+
+  // --- corrections après la recréation d'un site réel : liste sans élément, consentement, page dérivée, titre principal, redirections
+  {
+    const reel = path.join(tmp, 'reel'); run('init', reel, '--name', 'Site réel', '--no-git', '--local');
+    await fs.mkdir(path.join(reel, 'components', 'puces'), { recursive: true });
+    await fs.writeFile(path.join(reel, 'components', 'puces', 'composant.md'), '# puces\n\nDes points en liste.\n\n## Données\n- items (liste, au moins 1) :\n  - text : texte\n\n## Forme\n- liste de items :\n  - texte : text\n\n## Exemple\n```\n## puces\n- Un\n- Deux\n```\n');
+    const acc = path.join(reel, 'pages', 'accueil.md'); await fs.writeFile(acc, (await fs.readFile(acc, 'utf8')).trimEnd() + '\n\n## puces\n- Rapide\n- Garanti\n');
+    const men = path.join(reel, 'pages', 'mentions-legales.md'); await fs.writeFile(men, (await fs.readFile(men, 'utf8')).replace('## Texte : Mentions légales', '## Texte #mentions : Mentions légales'));
+    await fs.writeFile(path.join(reel, 'pages', 'derivee.md'), '# Dérivée\n\nUne page dérivée des mentions\n\nAdresse : /derivee\nDérive de : mentions-legales\nRemplace :\n- mentions | texte : Premier paragraphe.\n\n  Second paragraphe.\n');
+    const sm = path.join(reel, 'site.md'), site0 = await fs.readFile(sm, 'utf8');
+    await fs.writeFile(sm, site0.replace('\n## Agents', 'Redirections :\n- /ancien.html | /contact\n\n## Agents'));
+    const c1 = run('check', reel, '--accepter'), b1 = run('build', reel, '--draft');
+    const lecture = await fs.readFile(path.join(reel, 'lecture', 'pages', 'derivee.page.yaml'), 'utf8').catch(() => ''), lsite = await fs.readFile(path.join(reel, 'lecture', 'site.yaml'), 'utf8').catch(() => '');
+    ok('site réel : redirections, liste sans élément et page dérivée à deux paragraphes se lisent et le site compile', site0.includes('\n## Agents') && c1.code === 0 && b1.code === 0 && /from: \/ancien\.html\n\s+to: \/contact/.test(lsite) && /Premier paragraphe\.\n\s*\n\s+Second paragraphe\./.test(lecture), c1.out.slice(0, 500) + b1.out.slice(0, 200) + lecture.slice(0, 300));
+    const puces = await fs.readFile(path.join(reel, 'dist', 'components', 'puces.php'), 'utf8').catch(() => ''), indexPhp = await fs.readFile(path.join(reel, 'dist', 'index.php'), 'utf8').catch(() => '');
+    ok('liste écrite sans « élément » : chaque tour est un élément de liste (<ul>…<li>), plus de <p> posé dans <ul>', /<ul[^>]*>(<\?php[\s\S]*?\?>)?<li><p>/.test(puces) && /<\/p><\/li>/.test(puces) && !/<ul[^>]*>(<\?php[\s\S]*?\?>)?<p>/.test(puces), puces.slice(0, 500));
+    ok('consentement : un site sans segments, sans composant recent et sans boutique a la personnalisation coupée', /'personalization' => \[\s*'enabled' => false/.test(indexPhp), (indexPhp.match(/'personalization'[^\]]{0,80}/) || [''])[0]);
+    const pm = run('build', path.join(ROOT, 'examples', 'plomberie-martin'), '--out', path.join(tmp, 'plomberie-reel'));
+    ok('consentement : un site qui déclare des segments garde la personnalisation et son bandeau', pm.code === 0 && !/'personalization' => \[\s*'enabled' => false/.test(await fs.readFile(path.join(tmp, 'plomberie-reel', 'index.php'), 'utf8')), pm.out.slice(0, 200));
+    // Servi par PHP : titre principal promu, redirection permanente, page dérivée, pas de bandeau.
+    const php = process.env.PHP_BIN || 'php', p2 = port + 11;
+    const srv = spawn(php, ['-S', `127.0.0.1:${p2}`, '-t', path.join(reel, 'dist'), path.join(reel, 'dist', 'index.php')], { stdio: 'ignore' });
+    const get = async u => { const r = await fetch(`http://127.0.0.1:${p2}${u}`, { redirect: 'manual' }); return { status: r.status, location: r.headers.get('location'), cookie: r.headers.get('set-cookie'), text: await r.text() }; };
+    let up = false; for (let i = 0; i < 40 && !up; i++) { try { await get('/'); up = true; } catch { await new Promise(r => setTimeout(r, 150)); } }
+    try {
+      const home = up ? await get('/') : { text: '' }, mentions = up ? await get('/mentions-legales') : { text: '' }, old = up ? await get('/ancien.html') : {}, lost = up ? await get('/perdue.html') : {}, der = up ? await get('/derivee') : { text: '' };
+      ok('titre principal : une page sans bandeau reçoit un h1, son premier titre ; une page à bandeau garde le sien, seul', up && (mentions.text.match(/<h1/g) || []).length === 1 && /<h1[^>]*>Mentions légales<\/h1>/.test(mentions.text) && (home.text.match(/<h1/g) || []).length === 1, up ? mentions.text.slice(mentions.text.indexOf('<main'), mentions.text.indexOf('<main') + 300) : 'serveur PHP non démarré');
+      ok('redirection : l\'ancienne adresse répond 301 vers la page, une adresse inconnue 404', old.status === 301 && old.location === '/contact' && lost.status === 404, `${old.status} ${old.location} / ${lost.status}`);
+      ok('servi : la page dérivée porte ses deux paragraphes, l\'accueil n\'a ni bandeau de consentement ni cookie', /<p>Premier paragraphe\.<\/p>/.test(der.text) && /<p>Second paragraphe\.<\/p>/.test(der.text) && !/class="consent"/.test(home.text) && !home.cookie && /<ul><li>/.test(home.text), der.text.slice(der.text.indexOf('<main'), der.text.indexOf('<main') + 400));
+    } finally { srv.kill(); }
+    // Refus : une redirection mal écrite.
+    await fs.writeFile(sm, site0.replace('\n## Agents', 'Redirections :\n- ancien.html | /contact\n- /vieux.html | /nulle-part\n\n## Agents'));
+    const c2 = run('check', reel, '--accepter');
+    ok('redirection refusée : origine sans « / », cible qui n\'est pas une page', c2.code !== 0 && /redirects\[0\]\.from/.test(c2.out) && /redirects\[1\]\.to/.test(c2.out) && /nulle-part/.test(c2.out), c2.out.slice(0, 600));
+  }
+
+  // --- habillage : l'en-tête et le pied sont des composants, que le site récrit ; charte : polices, fond de page, échelle
+  {
+    const hab = path.join(tmp, 'habillage'); run('init', hab, '--name', 'Site habillé', '--no-git', '--local');
+    const sm = path.join(hab, 'site.md'), site0 = await fs.readFile(sm, 'utf8');
+    const php = process.env.PHP_BIN || 'php', p3 = port + 12;
+    const serve = async (dir, fn) => {
+      const srv = spawn(php, ['-S', `127.0.0.1:${p3}`, '-t', dir, path.join(dir, 'index.php')], { stdio: 'ignore' });
+      const get = async u => { const r = await fetch(`http://127.0.0.1:${p3}${u}`, { redirect: 'manual' }); return { status: r.status, text: await r.text() }; };
+      let up = false; for (let i = 0; i < 40 && !up; i++) { try { await get('/'); up = true; } catch { await new Promise(r => setTimeout(r, 150)); } }
+      try { return await fn(up, get); } finally { srv.kill(); await new Promise(r => setTimeout(r, 200)); }
+    };
+    // 1. Sans rien écrire : l'habillage du catalogue, écrit dans le langage, rend l'en-tête et le pied de toujours.
+    const b0 = run('build', hab, '--draft');
+    const h0 = await serve(path.join(hab, 'dist'), async (up, get) => (up ? (await get('/')).text : ''));
+    ok('habillage du catalogue : en-tête (nom, menu, page marquée, recherche) et pied (mentions, liens, version texte) rendus par deux composants', b0.code === 0
+      && /<header class="site-header">\s*<div class="container">\s*<a class="brand" href="\/">Site habillé<\/a>/.test(h0) && /<nav class="site-nav"[^>]*>\s*<ul>[\s\S]*?<a href="\/" aria-current="page">/.test(h0) && /<form class="intent"/.test(h0)
+      && /<footer class="site-footer">\s*<div class="container">\s*<div class="site-mentions">\s*<strong>Site habillé<\/strong>/.test(h0) && /rel="alternate">Version texte<\/a>/.test(h0)
+      && existsSync(path.join(hab, 'dist', 'components', 'site.header.php')) && existsSync(path.join(hab, 'dist', 'components', 'site.footer.php')), b0.out.slice(0, 300) + h0.slice(h0.indexOf('<body'), h0.indexOf('<body') + 500));
+    // 2. Le site récrit son en-tête et son pied, dans le format des autres composants ; charte : police du site, fond de page, échelle.
+    await fs.mkdir(path.join(hab, 'components', 'entete'), { recursive: true }); await fs.mkdir(path.join(hab, 'components', 'pied'), { recursive: true });
+    await fs.writeFile(path.join(hab, 'components', 'entete', 'composant.md'), '# entete\n\nEn-tête du site : le nom, le menu en liste, le téléphone.\n\n## Forme\nen-tête de site :\n- lien « entete-nom » : home\n- liste de nav :\n  - si current :\n    - lien « entete-ici » : link\n  - sinon :\n    - lien : link\n- lien « entete-tel » : phone_link\n- texte : tagline\n\n## Apparence\n- entete-tel : gras\n');
+    await fs.writeFile(path.join(hab, 'components', 'pied', 'composant.md'), '# pied\n\nPied de page : la mention, puis les liens.\n\n## Forme\npied de site « pied » :\n- texte : footer_text\n- liste de footer_links :\n  - lien : valeur\n- lien : readable_link\n');
+    await fs.writeFile(path.join(hab, 'assets', 'essai.woff2'), 'police de test');
+    await fs.writeFile(path.join(hab, 'assets', 'fond.png'), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64'));
+    const charte = 'Téléphone : 05 56 00 00 00\nPied de page : Mention du pied\nfont.body : Essai, sans-serif\nh1.size : 2.2rem\nsection.space : 40px\nheader.bg : #123456\nPolices :\n- Essai | essai.woff2 | 400\n- Essai | essai.woff2 | 700 | italic\nFond de page : fond.png\nFond de bas de page : fond.png\nFond de page sur téléphone : fond.png\n';
+    await fs.writeFile(sm, site0.replace(/^Téléphone : .*\n/m, '').replace(/^Pied de page : .*\n/m, '').replace('\n## Agents', charte + '\n## Agents'));
+    const c1 = run('check', hab, '--accepter'), b1 = run('build', hab, '--draft');
+    const lsite = await fs.readFile(path.join(hab, 'lecture', 'site.yaml'), 'utf8').catch(() => '');
+    ok('charte en document : polices, fond de page (haut, bas, téléphone) et jetons d\'échelle se lisent', c1.code === 0 && b1.code === 0 && /fonts:\n\s+- family: Essai\n\s+file: essai\.woff2\n\s+weight: "400"/.test(lsite) && /style: italic/.test(lsite) && /background:\n\s+image: fond\.png\n\s+bottom: fond\.png\n\s+phone:\n\s+image: fond\.png/.test(lsite) && /h1\.size: 2\.2rem/.test(lsite), c1.out.slice(0, 500) + b1.out.slice(0, 200) + lsite.slice(0, 600));
+    const read1 = readSiteDocument(await fs.readFile(sm, 'utf8'), { tokens, groups }), back = writeSiteDocument(read1.data, { tokens, groups });
+    ok('charte : le document du site se récrit et se relit à l\'identique', !read1.errors.length && back.text && same(readSiteDocument(back.text, { tokens, groups }).data, read1.data) && /^Polices :$/m.test(back.text) && /^Fond de page sur téléphone : fond\.png$/m.test(back.text), back.error || (back.text || '').slice(0, 600));
+    const css = await fs.readFile(path.join(hab, 'dist', 'assets', 'site.css'), 'utf8').catch(() => '');
+    ok('charte compilée : @font-face servi par le site, jetons d\'échelle, fond de page en deux images et sa règle de téléphone', /@font-face\{font-family:"Essai";src:url\("\/assets\/essai\.woff2"\) format\("woff2"\);font-weight:400;font-style:normal;font-display:swap\}/.test(css) && /font-weight:700;font-style:italic/.test(css)
+      && /--h1-size: 2\.2rem;/.test(css) && /--section-space: 40px;/.test(css) && /--header-bg: #123456;/.test(css) && /h1\{font-size:var\(--h1-size\)\}/.test(css) && /\.section\{padding:var\(--section-space\) 0\}/.test(css)
+      && /body\{background-image:url\("\/assets\/fond\.(png|1\.webp)"\),url\("\/assets\/fond\.(png|1\.webp)"\);background-position:top center,bottom center;/.test(css) && /@media \(max-width:760px\)\{body\{background-image:url\("\/assets\/fond\.(png|1\.webp)"\);background-position:top center/.test(css), css.slice(0, 300) + (css.match(/\/\* fond de page \*\/[\s\S]{0,400}/) || [''])[0]);
+    const cat1 = run('catalog', hab);
+    const [h1, h1m] = await serve(path.join(hab, 'dist'), async (up, get) => (up ? [(await get('/')).text, (await get('/mentions-legales')).text] : ['', '']));
+    ok('habillage du site : son en-tête et son pied remplacent ceux du catalogue (classe, données du site, page marquée, lien d\'appel)', /<header class="site-header entete">/.test(h1) && /<a class="entete-nom" href="\/">Site habillé<\/a>/.test(h1)
+      && /<a class="entete-ici" href="\/">/.test(h1) && !/<a class="entete-ici" href="\/">/.test(h1m) && /<a class="entete-tel" href="tel:0556000000">05 56 00 00 00<\/a>/.test(h1) && !/class="intent"/.test(h1) && !/class="brand"/.test(h1)
+      && /<footer class="site-footer pied">/.test(h1) && /<p>Mention du pied<\/p>/.test(h1) && /href="\/lisible\/">Version texte<\/a>/.test(h1) && (h1.match(/<header/g) || []).length === 1
+      && /\.entete \.entete-tel\{font-weight:700\}/.test(css) && !existsSync(path.join(hab, 'dist', 'components', 'site.header.php')) && /entete\s+En-tête du site[^\n]*\[habillage : en-tête du site, écrit par le site/.test(cat1.out), h1.slice(h1.indexOf('<body'), h1.indexOf('<body') + 900) + cat1.out.slice(0, 200));
+    // 3. Refus.
+    const acc = path.join(hab, 'pages', 'accueil.md'), acc0 = await fs.readFile(acc, 'utf8');
+    await fs.writeFile(acc, acc0.trimEnd() + '\n\n## entete\n');
+    const r1 = run('check', hab, '--accepter');
+    ok('refus : un habillage ne s\'écrit pas comme section d\'une page', r1.code !== 0 && /E_SHELL/.test(r1.out) && /rendu autour de chaque page/.test(r1.out), r1.out.slice(0, 500));
+    await fs.writeFile(acc, acc0); run('check', hab, '--accepter');
+    await fs.mkdir(path.join(hab, 'components', 'bandeau-haut'), { recursive: true });
+    await fs.writeFile(path.join(hab, 'components', 'bandeau-haut', 'composant.md'), '# bandeau-haut\n\nUn second en-tête.\n\n## Forme\nen-tête de site :\n- marque du site\n');
+    const r2 = run('check', hab);
+    ok('refus : deux en-têtes écrits par le même site', r2.code !== 0 && /E_SHELL/.test(r2.out) && /Un site n'a qu'un en-tête/.test(r2.out), r2.out.slice(0, 500));
+    await fs.writeFile(path.join(hab, 'components', 'bandeau-haut', 'composant.md'), '# bandeau-haut\n\nUn habillage avec des données.\n\n## Données\n- title : texte\n\n## Forme\npied de site, variante x par défaut y :\n- texte : title\n');
+    const r3 = run('check', hab);
+    ok('refus : un habillage n\'a pas de données à lui, et son ouverture n\'accepte que classe et conteneur', r3.code !== 0 && /n'a ni données ni fonctionnement/.test(r3.out) && /option d'habillage inconnue/.test(r3.out), r3.out.slice(0, 700));
+    await fs.rm(path.join(hab, 'components', 'bandeau-haut'), { recursive: true, force: true });
+    await fs.writeFile(sm, (await fs.readFile(sm, 'utf8')).replace('- Essai | essai.woff2 | 400\n', '- Essai | absente.woff2 | 400\n').replace('Fond de page : fond.png', 'Fond de page : absent.png'));
+    const r4 = run('check', hab, '--accepter');
+    ok('refus : police ou fond absents de assets/', r4.code !== 0 && /fonts\[0\]\.file/.test(r4.out) && /background\.image/.test(r4.out), r4.out.slice(0, 700));
+    await fs.writeFile(sm, (await fs.readFile(sm, 'utf8')).replace('h1.size : 2.2rem', 'h9.size : 2.2rem'));
+    const r5 = run('check', hab, '--accepter');
+    ok('refus : un jeton d\'échelle inconnu est refusé à sa ligne, avec le nom voisin', r5.code !== 0 && /« h9\.size » n'est pas une donnée de ce site : vouliez-vous dire « h1\.size »/.test(r5.out), r5.out.slice(0, 400));
+  }
+
+  // --- apparence : intentions à valeur et de placement, apparence d'une section dans une page, par composant dans le site, intentions du site
+  {
+    const ap = path.join(tmp, 'apparence'); run('init', ap, '--name', 'Site apparent', '--no-git', '--local');
+    const sm = path.join(ap, 'site.md'), site0 = await fs.readFile(sm, 'utf8');
+    const acc = path.join(ap, 'pages', 'accueil.md'), acc0 = await fs.readFile(acc, 'utf8');
+    // Un composant du site : titre posé sur la photo, intentions à valeur, intention du site dans son propre bloc.
+    await fs.mkdir(path.join(ap, 'components', 'vignettes'), { recursive: true });
+    await fs.writeFile(path.join(ap, 'components', 'vignettes', 'composant.md'), '# vignettes\n\nDes cartes dont le titre est posé sur le fond.\n\n## Données\n- items (liste, au moins 1) :\n  - title : texte\n  - text : texte, facultatif\n\n## Forme\n- grille de items, 2 colonnes :\n  - carte :\n    - bloc « vignettes-fond » :\n      - titre : title\n    - texte : text\n\n## Apparence\n- cartes : sans fond, coins 0, espace intérieur 0 12px 4px 12px\n- vignettes-fond : cadre, hauteur minimale 120px, fond rgba(1, 44, 74, .5)\n- titre : posé en bas, voile sombre, taille 1,5rem, marque maison\n- texte, sur téléphone : masqué\n\n## Exemple\n```\n## vignettes\n- Un | Texte\n```\n');
+    await fs.writeFile(sm, site0.replace('\n## Agents', '\n## Intentions\n- colonne à droite | largeur 540px, marge à gauche 45%, à gauche\n- colonne à droite, sur téléphone | sans marge, pleine largeur\n- marque maison | majuscules, couleur #c8a24a\n\n## Apparence\n- features › cartes | sans fond, bordure #123456\n- site.header › liens du menu | majuscules, petit\n- site.footer › section | fond #0a0a0a, couleur blanc\n\n## Agents'));
+    const feat = /^## (Points forts|features)[^\n]*\n/m.exec(acc0);
+    await fs.writeFile(acc, acc0.replace(/^(## (?:Bandeau|hero)[^\n]*\n)/m, '$1Apparence :\n- conteneur | colonne à droite\n- titre principal | taille 2.4rem, ombre du texte\n- texte, sur téléphone | masqué\n\n').trimEnd() + '\n\n## vignettes\nApparence :\n- section | fond noir\n\n- Premier | Un texte\n- Second | Un autre\n');
+    const c1 = run('check', ap, '--accepter'), b1 = run('build', ap, '--draft');
+    const lacc = await fs.readFile(path.join(ap, 'lecture', 'pages', 'accueil.page.yaml'), 'utf8').catch(() => ''), lsite = await fs.readFile(path.join(ap, 'lecture', 'site.yaml'), 'utf8').catch(() => '');
+    ok('apparence en document : « Apparence : » d\'une section (puis ses puces, séparées par une ligne vide), « ## Apparence » et « ## Intentions » du site', !!feat && c1.code === 0 && b1.code === 0
+      && /appearance:\n\s+conteneur: colonne à droite\n\s+titre principal: taille 2\.4rem, ombre du texte\n\s+texte, sur téléphone: masqué/.test(lacc) && /vignettes:\n\s+items:\n\s+- title: Premier[\s\S]*?\n\s+appearance:\n\s+section: fond noir/.test(lacc)
+      && /appearance:\n\s+features:\n\s+cartes: "sans fond, bordure #123456"\n\s+site\.header:\n\s+liens du menu: majuscules, petit/.test(lsite) && /intentions:\n\s+colonne à droite: largeur 540px, marge à gauche 45%, à gauche\n\s+colonne à droite, sur téléphone: sans marge, pleine largeur/.test(lsite), c1.out.slice(0, 600) + b1.out.slice(0, 200) + lacc.slice(0, 500));
+    const read1 = readSiteDocument(await fs.readFile(sm, 'utf8'), { tokens, groups }), back = writeSiteDocument(read1.data, { tokens, groups });
+    const pg = await loadProject(ap), accPage = pg.pages.find(p => p.id === 'accueil'), wp = writePageDocument(accPage.data, { schemas: componentSchemas(pg, catalog) });
+    ok('apparence : le site et la page se récrivent et se relisent à l\'identique', !read1.errors.length && back.text && same(readSiteDocument(back.text, { tokens, groups }).data, read1.data) && /^## Intentions$/m.test(back.text) && /^- features › cartes \| sans fond, bordure #123456$/m.test(back.text)
+      && wp.text && /^Apparence :\n- conteneur \| colonne à droite$/m.test(wp.text) && !/```yaml/.test(wp.text), (back.error || '') + (wp.error || '') + (wp.text || '').slice(0, 500));
+    const css = await fs.readFile(path.join(ap, 'dist', 'assets', 'site.css'), 'utf8').catch(() => '');
+    const cls = (css.match(/\.hero\.(ap-[0-9a-f]{7}) \.container\{/) || [])[1], cls2 = (css.match(/\.vignettes\.(ap-[0-9a-f]{7})\{background:#000\}/) || [])[1];
+    ok('apparence compilée : intentions à valeur (mesures, couleurs, décimale à virgule, rgba), placement, écran étroit, intention du site dans un composant du site', /\.vignettes \.vignettes-carte\{background:transparent;border-radius:0;padding:0 12px 4px 12px\}/.test(css)
+      && /\.vignettes \.vignettes-fond\{position:relative;overflow:hidden;min-height:120px;background:rgba\(1,44,74,\.5\)\}/.test(css) && /\.vignettes \.vignettes-titre\{position:absolute;left:0;right:0;bottom:0;margin:0;background:linear-gradient\(transparent,rgba\(0,0,0,\.7\)\);color:#fff;font-size:1\.5rem;text-transform:uppercase;letter-spacing:\.06em;color:#c8a24a\}/.test(css)
+      && /@media \(max-width:760px\)\{\.vignettes \.vignettes-texte\{display:none\}\}/.test(css), (css.match(/\/\* vignettes \*\/[\s\S]{0,700}/) || [''])[0]);
+    ok('apparence compilée : par composant pour tout le site (habillage du catalogue compris), puis par section sous sa classe', /\/\* apparence, par composant \(site\) \*\/\n\.features \.feature\{background:transparent;border:1px solid #123456\}\n\.site-header \.site-nav > ul a\{text-transform:uppercase;letter-spacing:\.06em;font-size:\.875rem\}\n\.site-footer\{background:#0a0a0a;color:#fff\}/.test(css)
+      && !!cls && !!cls2 && cls !== cls2 && new RegExp('\\.hero\\.' + cls + ' \\.container\\{max-width:540px;margin-left:45%;text-align:left\\}\\n@media \\(max-width:760px\\)\\{\\.hero\\.' + cls + ' \\.container\\{margin:0;max-width:none;width:100%\\}\\}\\n\\.hero\\.' + cls + ' h1\\{font-size:2\\.4rem;text-shadow:[^}]+\\}\\n@media \\(max-width:760px\\)\\{\\.hero\\.' + cls + ' \\.hero-sub\\{display:none\\}\\}').test(css), (css.match(/\/\* apparence, par composant[\s\S]{0,900}/) || [''])[0]);
+    const php = process.env.PHP_BIN || 'php', p4 = port + 13;
+    const srv = spawn(php, ['-S', `127.0.0.1:${p4}`, '-t', path.join(ap, 'dist'), path.join(ap, 'dist', 'index.php')], { stdio: 'ignore' });
+    let home = ''; for (let i = 0; i < 40 && !home; i++) { try { home = await (await fetch(`http://127.0.0.1:${p4}/`)).text(); } catch { await new Promise(r => setTimeout(r, 150)); } }
+    srv.kill(); await new Promise(r => setTimeout(r, 200));
+    const pagePhp = await fs.readFile(path.join(ap, 'dist', 'pages', 'accueil.php'), 'utf8').catch(() => '');
+    ok('servi : la section porte sa classe d\'apparence, les autres n\'en portent pas, et l\'apparence n\'est pas passée au rendu', !!cls && new RegExp('<section class="hero[^"]* ' + cls + '"').test(home) && new RegExp('<section class="section vignettes ' + cls2 + '"').test(home) && (home.match(/ ap-[0-9a-f]{7}"/g) || []).length === 2 && !/appearance/.test(pagePhp) && /'_ap' => 'ap-/.test(pagePhp), home.slice(home.indexOf('<main'), home.indexOf('<main') + 400));
+    // Refus : partie inconnue, mesure mal écrite, intention inconnue, composant inconnu, intention du site qui en emploie une autre, apparence dans une variante.
+    await fs.writeFile(acc, acc0.replace(/^(## (?:Bandeau|hero)[^\n]*\n)/m, '$1Apparence :\n- cartouche | centré\n- conteneur | largeur 12 pommes, colone à droite\n\n'));
+    await fs.writeFile(sm, site0.replace('\n## Agents', '\n## Intentions\n- colonne à droite | largeur 540px\n- gras | graisse 900\n- double | colonne à droite, centré\n\n## Apparence\n- carrousel › cartes | sans fond\n- features › cartes | fond de mer\n\n## Agents'));
+    const r1 = run('check', ap, '--accepter'), e1 = jsonLines(r1.out).filter(e => e.code === 'E_APPEARANCE' || e.code === 'E_UNKNOWN_COMPONENT');
+    const lineOfDoc = (t, re) => t.split('\n').findIndex(l => re.test(l)) + 1, accT = await fs.readFile(acc, 'utf8');
+    ok('refus dans une page : partie inconnue (avec les parties), mesure mal écrite, intention voisine du site proposée, à la ligne du document', r1.code !== 0
+      && e1.some(e => /pages[\\/]accueil\.md$/.test(e.file) && /partie inconnue « cartouche »/.test(e.message) && /citation\)/.test(e.message) && String(e.path).startsWith('ligne ' + lineOfDoc(accT, /^- cartouche/) + ' '))
+      && e1.some(e => /« largeur 12 pommes » : attendu « largeur <mesure> »/.test(e.message)) && e1.some(e => /intention inconnue « colone à droite » ; vouliez-vous dire « colonne à droite »/.test(e.message) && String(e.path).startsWith('ligne ' + lineOfDoc(accT, /^- conteneur/) + ' ')), r1.out.slice(0, 900));
+    ok('refus dans le site : composant inconnu, intention inconnue, intention du site au nom déjà pris ou qui en emploie une autre', e1.some(e => /Apparence d'un composant inconnu : carrousel/.test(e.message)) && e1.some(e => /features : « fond de mer » : attendu « fond <couleur> »/.test(e.message))
+      && e1.some(e => /« gras » est déjà une intention du langage/.test(e.message)) && e1.some(e => /« double » : « colonne à droite » n'est pas une intention du langage/.test(e.message)), JSON.stringify(e1.map(e => e.message.slice(0, 90))).slice(0, 900));
   }
 
   // --- mesure : la source en documents est plus courte que la source en YAML, sur chaque exemple

@@ -35,7 +35,7 @@ export const PROP_NAMES = {
   fields: 'champs', required: 'obligatoires', success: 'confirmation', members: 'membres', address: 'adresse', access: 'accès',
   limit: 'limite', sort: 'tri', days: 'jours', groups: 'groupes', icon: 'icône', tone: 'ton', label: 'libellé', value: 'valeur',
   q: 'question', a: 'réponse', name: 'nom', role: 'rôle', src: 'fichier', caption: 'légende', price: 'prix', badge: 'mention',
-  back: 'retour', unit: 'unité', variants: 'variantes', filter: 'filtre', category: 'catégorie', featured: 'vedette', project: 'projet', domain: 'domaine', aliases: 'alias', priority: 'priorité', goals: 'objectifs', experiments: 'expériences', goal: 'objectif', arms: 'bras', holdout: 'témoin', event: 'événement', where: 'où', constants: 'constantes', enabled: 'actif', currency: 'devise', payment: 'paiement', summary: 'résumé', quality: 'qualité', widths: 'largeurs', business_type: "type d'activité", manual_instructions: 'instructions de paiement', order_email: 'e-mail des commandes', short_name: 'nom court', theme_color: 'couleur du thème', requires_consent: 'consentement requis', consent_text: 'texte du consentement', title_field: 'champ du titre', placeholder: 'invite', timezone: 'fuseau', closed: 'fermé', slots: 'plages', day: 'jour', id: 'ancre', keywords: 'mots-clés', empty: 'vide',
+  back: 'retour', unit: 'unité', variants: 'variantes', appearance: 'apparence', filter: 'filtre', category: 'catégorie', featured: 'vedette', project: 'projet', domain: 'domaine', aliases: 'alias', priority: 'priorité', goals: 'objectifs', experiments: 'expériences', goal: 'objectif', arms: 'bras', holdout: 'témoin', event: 'événement', where: 'où', constants: 'constantes', enabled: 'actif', currency: 'devise', payment: 'paiement', summary: 'résumé', quality: 'qualité', widths: 'largeurs', business_type: "type d'activité", manual_instructions: 'instructions de paiement', order_email: 'e-mail des commandes', short_name: 'nom court', theme_color: 'couleur du thème', requires_consent: 'consentement requis', consent_text: 'texte du consentement', title_field: 'champ du titre', placeholder: 'invite', timezone: 'fuseau', closed: 'fermé', slots: 'plages', day: 'jour', id: 'ancre', keywords: 'mots-clés', empty: 'vide',
 };
 /** Valeurs d'un choix dites en français. */
 const VALUE_NAMES = { gauche: 'left', droite: 'right', centre: 'center', 'centré': 'center' };
@@ -194,7 +194,7 @@ function readMap(nodes, map0, fail, where, base) {
     if (!key || key in out) { fail(n.line, key ? `« ${key} » est dit deux fois` : 'nom manquant avant « | »'); continue; }
     where[`${base}.${key}`] = n.line;
     if (map.parse) { const v = map.parse(parts.slice(1).join(' | '), n.children, fail, n.line); if (v !== undefined) out[key] = v; continue; }
-    if (n.children.length || n.more?.length) { fail((n.children[0] || n).line, 'rien ne se met en retrait sous une donnée nommée'); continue; }
+    if (n.children.length) { fail(n.children[0].line, 'pas de puce en retrait sous une donnée nommée'); continue; }
     if (map.group) {
       const GP = map.group.properties || {}, k = labelsOf(GP).get(norm(key));
       if (!k) { const s = near(key, Object.keys(GP)); fail(n.line, `donnée inconnue : ${key}${s ? ` (vouliez-vous dire ${s} ?)` : ''}`, `Données : ${Object.keys(GP).join(', ')}.`); continue; }
@@ -208,6 +208,8 @@ function readMap(nodes, map0, fail, where, base) {
     if (parts.length < 2) { fail(n.line, `« ${key} » : ses données manquent après « | »`, `Données : ${Object.keys(map.schema.properties).join(', ')}.`); continue; }
     const r = fitItem(parts.slice(1).join(' | '), map.schema);
     if (r.error) { fail(n.line, `${key} : ${r.error}`, `Données : ${Object.keys(map.schema.properties).join(', ')}.`); continue; }
+    // Lignes en retrait sous la puce : la suite de son dernier texte (une ligne vide fait un paragraphe).
+    if (n.more?.length) { if (!r.lastText) { fail(n.line + 1, 'des lignes en retrait, mais la puce ne finit pas par un texte'); continue; } r.value[r.lastText] += n.more.map(x => (x.gap ? '\n\n' : '\n') + x.text).join(''); }
     out[key] = map.short && Object.keys(r.value).length === 1 && map.short in r.value ? r.value[map.short] : r.value;
   }
   return out;
@@ -301,13 +303,14 @@ export function readBody(blocks, schema, opts = {}) {
   // Données nommées, écrites en puces « nom | … » : groupe libre, ou données d'un schéma (variantes).
   const mapOf = k => (opts.maps && k in opts.maps ? opts.maps[k] : kinds[k]?.k === 'free' ? {} : kinds[k]?.k === 'group' ? { group: kinds[k].schema } : null);
   /** Les puces qui se suivent à partir du bloc i : un arbre par le retrait ; les lignes en retrait sans puce prolongent la puce. */
-  const takeRun = i => {
+  // named : les puces d'une donnée nommée (« Apparence : », « Variantes : ») ; une ligne vide les sépare des puces qui suivent.
+  const takeRun = (i, named = false) => {
     const root = { children: [], indent: -1 }, stack = [root]; let j = i, last = null, gap = false, first = blocks[i].line;
     for (; j < blocks.length; j++) {
       const x = blocks[j];
       if (x.kind === 'item') { while (stack.length > 1 && x.indent <= stack[stack.length - 1].indent) stack.pop(); last = { text: x.text, line: x.line, indent: x.indent, children: [], more: [] }; stack[stack.length - 1].children.push(last); stack.push(last); gap = false; }
       else if (x.kind === 'text' && x.indent >= 2 && last) { last.more.push({ text: x.text, gap }); gap = false; }
-      else if (x.kind === 'blank' && (blocks[j + 1]?.kind === 'item' || (blocks[j + 1]?.kind === 'text' && blocks[j + 1].indent >= 2 && last))) gap = true;
+      else if (x.kind === 'blank' && ((blocks[j + 1]?.kind === 'item' && !named) || (blocks[j + 1]?.kind === 'text' && blocks[j + 1].indent >= 2 && last))) gap = true;
       else break;
     }
     return { nodes: root.children, next: j, first };
@@ -340,9 +343,11 @@ export function readBody(blocks, schema, opts = {}) {
     if (/^h[13-6]$/.test(b.kind)) { fail(b.line, b.kind === 'h1' ? 'un seul « # » par document : c\'est son titre' : 'intertitre non lu : une section s\'ouvre par « ## composant : titre », une liste par « Nom : »', 'Dans un texte, annoncez-le d\'abord : « Texte : » seul sur sa ligne.'); continue; }
     if (b.kind === 'item' && target && mapOf(target)) {
       open = false;
-      const run = takeRun(i); i = run.next - 1;
+      const run = takeRun(i, true); i = run.next - 1;
       if (target in props) { fail(run.first, `« ${target} » est déjà dit ligne ${where[target]}`); continue; }
       props[target] = readMap(run.nodes, mapOf(target), fail, where, target); where[target] = run.first;
+      // Une donnée nommée finit avec ses puces : celles qui viennent plus bas sont à la liste du composant, ou à une autre annonce.
+      target = null;
       continue;
     }
     if (b.kind === 'item') {
@@ -418,7 +423,7 @@ const PAGE_HEAD = { open: true, properties: { description: { type: 'string' }, r
 /** Assemblage par segment d'une page : « Variantes : » puis « - segment | first : a, b | hide : c ». */
 const PAGE_MAPS = { variants: { schema: { properties: { first: { type: 'array', items: { type: 'string' } }, hide: { type: 'array', items: { type: 'string' } } } } } };
 /** Variantes d'une section : « Variantes : » puis « - segment | donnée : valeur | … », les données du composant lui-même. */
-const sectionMaps = schema => ({ variants: { schema: { properties: Object.fromEntries(Object.entries(schema.properties || {}).filter(([k]) => !['id', 'keywords', 'variants'].includes(k))) } } });
+const sectionMaps = schema => ({ variants: { schema: { properties: Object.fromEntries(Object.entries(schema.properties || {}).filter(([k]) => !['id', 'keywords', 'variants', 'appearance'].includes(k))) } } });
 const PAGE_LABELS = [['adresse', 'route'], ['description', 'description'], ['source', 'source'], ['dérive de', 'extends'], ['retire', 'remove'], ['remplace', 'override']];
 /** Données nommées de l'en-tête d'une page. Une page dérivée remplace des sections de sa page de base : « Remplace : » puis
  *  « - ancre | donnée : valeur | … », lues d'après le composant de la section qui porte cette ancre. */
@@ -510,15 +515,18 @@ export function readPageDocument(text, { schemas, pageOf = null }) {
 function siteSchema(tokens) {
   const properties = {
     tagline: { type: 'string' }, locale: { type: 'string' }, preset: { type: 'string' },
+    fonts: { type: 'array', items: { type: 'object', properties: { family: { type: 'string' }, file: { type: 'string' }, weight: { type: 'string' }, style: { type: 'string' } } } },
+    background: { type: 'string' }, background_bottom: { type: 'string' }, background_fixed: { type: 'boolean' }, background_phone: { type: 'string' }, background_bottom_phone: { type: 'string' },
     ...Object.fromEntries(tokens.map(t => [t, { type: 'string' }])),
     nav: { type: 'array', items: { $ref: '#/$defs/link' } },
     footer_text: { type: 'string' }, footer_links: { type: 'array', items: { $ref: '#/$defs/link' } },
     email: { type: 'string' }, phone: { type: 'string' }, address: { type: 'string' },
+    redirects: { type: 'array', items: { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' } } } },
     packages: { type: 'array', items: { type: 'string' } }, language: { type: 'integer' }, constants: { type: 'object' },
   };
   return { open: true, properties };
 }
-const SITE_LABELS = [['langue', 'locale'], ['thème', 'preset'], ['menu', 'nav'], ['pied de page', 'footer_text'], ['liens du pied de page', 'footer_links'], ['liens du pied', 'footer_links'], ['e-mail', 'email'], ['courriel', 'email'], ['téléphone', 'phone'], ['adresse', 'address'], ['paquets', 'packages'], ['langage', 'language']];
+const SITE_LABELS = [['langue', 'locale'], ['thème', 'preset'], ['menu', 'nav'], ['pied de page', 'footer_text'], ['liens du pied de page', 'footer_links'], ['liens du pied', 'footer_links'], ['e-mail', 'email'], ['courriel', 'email'], ['téléphone', 'phone'], ['adresse', 'address'], ['paquets', 'packages'], ['langage', 'language'], ['redirections', 'redirects'], ['polices', 'fonts'], ['fond de page', 'background'], ['fond de bas de page', 'background_bottom'], ['fond fixe', 'background_fixed'], ['fond de page sur téléphone', 'background_phone'], ['fond de bas de page sur téléphone', 'background_bottom_phone']];
 
 /** Noms français des réglages du site, chacun dans sa section : « ## Boutique », « ## Recherche »… */
 export const GROUP_NAMES = { intent: 'recherche', agents: 'agents', personalization: 'personnalisation', static: 'statique', studio: 'atelier', images: 'images', offline: 'hors ligne', shop: 'boutique' };
@@ -555,15 +563,21 @@ export function readSiteDocument(text, { tokens = [], groups = {} } = {}) {
   const theme = {}; put(theme, 'preset', p.preset, 'site.theme.preset', 'preset');
   const tk = {}; for (const t of tokens) put(tk, t, p[t], `site.theme.tokens.${t}`, t);
   if (Object.keys(tk).length) theme.tokens = tk;
+  put(theme, 'fonts', p.fonts, 'site.theme.fonts', 'fonts');
+  const bg = {}; put(bg, 'image', p.background, 'site.theme.background.image', 'background'); put(bg, 'bottom', p.background_bottom, 'site.theme.background.bottom', 'background_bottom'); put(bg, 'fixed', p.background_fixed, 'site.theme.background.fixed', 'background_fixed');
+  const bgp = {}; put(bgp, 'image', p.background_phone, 'site.theme.background.phone.image', 'background_phone'); put(bgp, 'bottom', p.background_bottom_phone, 'site.theme.background.phone.bottom', 'background_bottom_phone');
+  if (Object.keys(bgp).length) bg.phone = bgp;
+  if (Object.keys(bg).length) theme.background = bg;
   if (Object.keys(theme).length) site.theme = theme;
   put(site, 'nav', p.nav, 'site.nav', 'nav');
   const footer = {}; put(footer, 'text', p.footer_text, 'site.footer.text', 'footer_text'); put(footer, 'links', p.footer_links, 'site.footer.links', 'footer_links');
   if (Object.keys(footer).length) site.footer = footer;
   const contact = {}; put(contact, 'email', p.email, 'site.contact.email', 'email'); put(contact, 'phone', p.phone, 'site.contact.phone', 'phone'); put(contact, 'address', p.address, 'site.contact.address', 'address');
   if (Object.keys(contact).length) site.contact = contact;
+  put(site, 'redirects', p.redirects, 'site.redirects', 'redirects');
   const data = { language: p.language ?? 1 };
   if (p.packages !== undefined) { data.packages = p.packages; where.packages = r.where.packages; }
-  const said = new Set(['tagline', 'locale', 'preset', ...tokens, 'nav', 'footer_text', 'footer_links', 'email', 'phone', 'address', 'packages', 'language']);
+  const said = new Set(['tagline', 'locale', 'preset', 'fonts', 'background', 'background_bottom', 'background_fixed', 'background_phone', 'background_bottom_phone', ...tokens, 'nav', 'footer_text', 'footer_links', 'email', 'phone', 'address', 'packages', 'language', 'redirects']);
   if (p.collections !== undefined) { if (!p.collections || typeof p.collections !== 'object' || Array.isArray(p.collections)) fail(r.where.collections, 'collections: attend des collections nommées'); else data.collections = { ...p.collections }; said.add('collections'); }
   const merge = (into, from, path, line) => { for (const [k, v] of Object.entries(from)) { if (v && typeof v === 'object' && !Array.isArray(v) && into[k] && typeof into[k] === 'object' && !Array.isArray(into[k])) merge(into[k], v, `${path}${k}.`, line); else if (k in into) fail(line, `« ${path}${k} » est dit deux fois : en ligne et dans le bloc yaml`); else { into[k] = v; where[`${path}${k}`] = line; } } };
   for (const [k, v] of Object.entries(p)) {
@@ -583,6 +597,33 @@ export function readSiteDocument(text, { tokens = [], groups = {} } = {}) {
       if ((data.collections ||= {})[col[1]]) fail(h.line, `collection dite deux fois : ${col[1]}`); else { data.collections[col[1]] = ordered; where[`collections.${col[1]}`] = h.line; for (const [k, l] of Object.entries(r2.where)) where[`collections.${col[1]}.${k}`] = l; }
       continue;
     }
+    // « ## Intentions » : une puce « nom | intention, intention » par intention du site ; « nom, sur téléphone | … » pour un écran étroit.
+    if (norm(h.text) === 'intentions') {
+      if ('intentions' in site) { fail(h.line, '« Intentions » est dit deux fois'); continue; }
+      const it = {}; where['site.intentions'] = h.line;
+      for (const b of body) {
+        if (b.kind === 'blank') continue;
+        const m = b.kind === 'item' && !b.indent ? /^(.+?)\s+\|\s+(.+)$/.exec(b.text) : null;
+        if (!m) { fail(b.line, 'sous « ## Intentions », chaque ligne est une puce « nom | intention, intention »', 'Exemple : « - colonne à droite | largeur 560px, poussé à droite ». Intentions du langage : sitec explain apparence.'); continue; }
+        if (m[1] in it) { fail(b.line, `« ${m[1]} » est dit deux fois`); continue; }
+        it[m[1]] = m[2].trim(); where[`site.intentions.${m[1]}`] = b.line;
+      }
+      site.intentions = it; continue;
+    }
+    // « ## Apparence » : une puce « composant › partie | intentions » par réglage ; « partie, sur téléphone » pour un écran étroit.
+    if (norm(h.text) === 'apparence') {
+      if ('appearance' in site) { fail(h.line, '« Apparence » est dit deux fois'); continue; }
+      const ap = {}; where['site.appearance'] = h.line;
+      for (const b of body) {
+        if (b.kind === 'blank') continue;
+        const m = b.kind === 'item' && !b.indent ? /^(.+?)\s+›\s+(.+?)\s+\|\s+(.+)$/.exec(b.text) : null;
+        if (!m) { fail(b.line, 'sous « ## Apparence », chaque ligne est une puce « composant › partie | intention, intention »', 'Exemple : « - steps › cartes | sans fond, sans bordure ». Parties et intentions : sitec explain apparence.'); continue; }
+        const [, comp, part, value] = m;
+        if (ap[comp] && part in ap[comp]) { fail(b.line, `« ${comp} › ${part} » est dit deux fois`); continue; }
+        (ap[comp] ||= {})[part] = value.trim(); where[`site.appearance.${comp}`] ??= b.line; where[`site.appearance.${comp}.${part}`] = b.line;
+      }
+      site.appearance = ap; continue;
+    }
     const key = Object.keys(groups).find(k => norm(k) === norm(h.text) || (GROUP_NAMES[k] && norm(GROUP_NAMES[k]) === norm(h.text)));
     if (!key || !groups[key] || groups[key].type !== 'object' || !GROUP_NAMES[key]) { const names = Object.keys(GROUP_NAMES).filter(k => groups[k]).map(k => GROUP_NAMES[k]); fail(h.line, `« ${h.text} » n'est pas un réglage du site${near(h.text, names) ? ` : vouliez-vous dire « ${near(h.text, names)} » ?` : ''}`, `Sections de site.md : ${names.join(', ')}, ou « Collection <nom> : Libellé ». Les pages s'écrivent dans pages/<id>.md.`); continue; }
     if (key in site) { fail(h.line, `« ${h.text} » est dit deux fois`); continue; }
@@ -599,7 +640,7 @@ export function readSiteDocument(text, { tokens = [], groups = {} } = {}) {
 // Schémas des données de tous les composants visibles d'un site, sans attendre la validation : natifs, composants du site et des
 // paquets (bloc données, props, ou document), composés (params).
 
-const COMMON = { id: { type: 'string', pattern: '^[a-z][a-z0-9-]*$' }, keywords: { type: 'array', items: { type: 'string' } }, variants: { type: 'object' } };
+const COMMON = { id: { type: 'string', pattern: '^[a-z][a-z0-9-]*$' }, keywords: { type: 'array', items: { type: 'string' } }, variants: { type: 'object' }, appearance: { type: 'object' } };
 const PARAM = { string: { type: 'string' }, text: { type: 'string' }, number: { type: 'number' }, boolean: { type: 'boolean' }, list: { type: 'array', items: {} }, object: { type: 'object' }, link: { $ref: '#/$defs/link' }, asset: { type: 'string', format: 'asset' } };
 
 export function componentSchemas(project, catalog) {
@@ -862,11 +903,16 @@ export function writeSiteDocument(data, { tokens = [], groups = {} } = {}) {
   if (!oneLine(site.name)) return { error: 'site.name manquant ou sur plusieurs lignes' };
   const props = {}, rest = {};
   const take = (k, v) => { if (v !== undefined) props[k] = v; };
-  take('tagline', site.tagline); take('locale', site.locale);
+  take('tagline', site.tagline); take('locale', site.locale); take('redirects', site.redirects);
   const theme = site.theme && typeof site.theme === 'object' ? site.theme : {};
   take('preset', theme.preset);
   const tk = theme.tokens && typeof theme.tokens === 'object' ? theme.tokens : {};
-  const themeRest = {}; for (const [k, v] of Object.entries(theme)) if (!['preset', 'tokens'].includes(k)) themeRest[k] = v;
+  take('fonts', theme.fonts);
+  const bg = theme.background && typeof theme.background === 'object' && !Array.isArray(theme.background) ? theme.background : null;
+  const bgPhone = bg && bg.phone && typeof bg.phone === 'object' && !Array.isArray(bg.phone) && Object.keys(bg.phone).every(x => ['image', 'bottom'].includes(x)) ? bg.phone : null;
+  if (bg) { take('background', bg.image); take('background_bottom', bg.bottom); take('background_fixed', bg.fixed); }
+  if (bgPhone) { take('background_phone', bgPhone.image); take('background_bottom_phone', bgPhone.bottom); }
+  const themeRest = {}; for (const [k, v] of Object.entries(theme)) if (!['preset', 'tokens', 'fonts', ...(bg && Object.keys(bg).every(x => ['image', 'bottom', 'fixed'].includes(x) || (x === 'phone' && bgPhone)) ? ['background'] : [])].includes(k)) themeRest[k] = v;
   const tokensRest = {}; for (const [k, v] of Object.entries(tk)) { if (tokens.includes(k) && oneLine(v)) props[k] = v; else tokensRest[k] = v; }
   if (Object.keys(tokensRest).length) themeRest.tokens = tokensRest;
   if (theme.tokens && !Object.keys(tk).length) themeRest.tokens = theme.tokens;
@@ -881,7 +927,17 @@ export function writeSiteDocument(data, { tokens = [], groups = {} } = {}) {
   // Réglages et collections : chacun dans sa section, s'il s'y écrit sans bloc yaml ; sinon il reste dans le bloc.
   const sections = [];
   for (const [k, v] of Object.entries(site)) {
-    if (['name', 'tagline', 'locale', 'theme', 'nav', 'footer', 'contact'].includes(k)) continue;
+    if (['name', 'tagline', 'locale', 'theme', 'nav', 'footer', 'contact', 'redirects'].includes(k)) continue;
+    if (k === 'intentions') {
+      const flat = v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length && Object.entries(v).every(([n, x]) => oneLine(n) && !/ \| /.test(n) && typeof x === 'string' && oneLine(x));
+      if (flat) sections.push(['## Intentions', ...Object.entries(v).map(([n, x]) => `- ${n} | ${x}`)]); else rest[k] = v;
+      continue;
+    }
+    if (k === 'appearance') {
+      const flat = v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length && Object.entries(v).every(([c, b]) => oneLine(c) && !/›| \| /.test(c) && b && typeof b === 'object' && !Array.isArray(b) && Object.keys(b).length && Object.entries(b).every(([p, x]) => oneLine(p) && !/›| \| /.test(p) && typeof x === 'string' && oneLine(x) && x.trim() === x));
+      if (flat) sections.push(['## Apparence', ...Object.entries(v).flatMap(([c, b]) => Object.entries(b).map(([p, x]) => `- ${c} › ${p} | ${x}`))]); else rest[k] = v;
+      continue;
+    }
     const g = GROUP_NAMES[k] && groups[k] && groups[k].type === 'object' && v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length ? flatSchema(groups[k]) : null;
     const gopts = { title: null, prose: null, what: `la section ${GROUP_NAMES[k]}`, label: groupLabel };
     const lines = g ? writeChecked(flatData(v, groups[k]), g, gopts, ls => readBody(splitBlocks(ls.join('\n')), g, gopts)) : null;
@@ -905,7 +961,7 @@ export function writeSiteDocument(data, { tokens = [], groups = {} } = {}) {
   if (collections !== undefined && d.collections !== undefined) props.collections = collections;
   if (Object.keys(rest).length) props.site = rest;
   const schema = siteSchema(tokens);
-  const label = k => ({ locale: 'Langue', preset: 'Thème', nav: 'Menu', footer_text: 'Pied de page', footer_links: 'Liens du pied de page', email: 'E-mail', phone: 'Téléphone', address: 'Adresse', packages: 'Paquets', language: 'Langage' }[k] || (tokens.includes(k) ? k : null));
+  const label = k => ({ locale: 'Langue', preset: 'Thème', nav: 'Menu', footer_text: 'Pied de page', footer_links: 'Liens du pied de page', email: 'E-mail', phone: 'Téléphone', address: 'Adresse', packages: 'Paquets', language: 'Langage', redirects: 'Redirections', fonts: 'Polices', background: 'Fond de page', background_bottom: 'Fond de bas de page', background_fixed: 'Fond fixe', background_phone: 'Fond de page sur téléphone', background_bottom_phone: 'Fond de bas de page sur téléphone' }[k] || (tokens.includes(k) ? k : null));
   const opts = { title: null, prose: 'tagline', what: 'ce site', label };
   const body = writeChecked(props, schema, opts, lines => readBody(splitBlocks(lines.join('\n')), schema, { ...opts, labels: SITE_LABELS }));
   if (!body) return { error: 'document du site qui ne se relit pas' };

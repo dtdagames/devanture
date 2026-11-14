@@ -491,12 +491,13 @@ forme:
 | `apparence` | l'allure des parties de cette forme, avec les intentions d'un composant |
 | `gabarit` | à la place de `forme`, quand aucune primitive ne produit le balisage voulu : un fragment de gabarit neutre (plus bas), sans script |
 | `feuille` | la CSS du fragment, encadrée comme celle d'un composant : chaque sélecteur commence par la classe du mot (`.heure`, `.carte-de-visite-photo`), couleurs par les jetons |
+| `parties` | avec un gabarit : les parties que l'apparence de qui emploie le mot peut viser, « nom: sélecteur » par ligne (`liens: .menu-maison a`) ; le sélecteur commence par la classe du mot. En document, `### Parties` |
 
 Dans une forme, `- mot: a, b` passe les données dans l'ordre de la définition (un nom de donnée du composant, « un texte », un nombre, `oui`, `non`, ou `rien` pour sauter une donnée facultative). Un mot dont la définition emploie `contenu` reçoit des éléments : `- mot, a:` puis la liste en dessous. Une donnée obligatoire du mot liée à une donnée facultative du composant rend l'élément conditionnel, comme pour une primitive. Un mot ne prend pas de nom entre « » : ses classes viennent de sa définition, et ses parties nommées (`fiche`, `cadre`) s'ajoutent à celles que l'apparence du composant peut viser.
 
 La portée est fermée : un mot ne lit que ses données, plus `site` et `page` dans un fragment de gabarit ; il ne voit ni les données du composant qui l'emploie, ni les variables d'une liste en cours. Ce qu'il produit entre dans le gabarit du composant à la compilation : `sitec component show` montre le mot développé, et rien n'est résolu à l'exécution. La feuille d'un mot est émise une seule fois dans la feuille du site, et seulement si un composant utilisé l'emploie.
 
-Un mot de paquet s'écrit sans préfixe dans les composants du paquet et avec le préfixe depuis le site (`- vitrine.mention: note`). Mots natifs : `ligne de tarif`, `adresse`, `itinéraire`, `carte à la demande`, `carte de collection`, `état d'ouverture`, `tableau des horaires`, `consultation récente`, `événement d'achat`, `événement de vue de produit`, `événement de début de commande`, `aperçu de produit`, `reçu de commande`, `carte de produit`, `ajout au panier`, `fiche de produit`, `tableau du panier`, `totaux du panier`, `formulaire de commande`, `récapitulatif du panier`, `contact en colonnes`, `formulaire de contact`, `coordonnées du site` ; les natifs `pricelist`, `map`, `collection.list`, `hours`, `recent`, `contact.form`, `products.grid`, `product.hero`, `products.related`, `cart.page`, `checkout.page`, `order.confirmation` sont écrits avec eux. `sitec catalog <dossier>` liste les mots visibles avec leur origine, `sitec explain "<mot>" <dossier>` affiche la définition elle-même (forme ou fragment, apparence, feuille) et la ligne où elle se trouve.
+Un mot de paquet s'écrit sans préfixe dans les composants du paquet et avec le préfixe depuis le site (`- vitrine.mention: note`). Mots natifs : `ligne de tarif`, `adresse`, `itinéraire`, `carte à la demande`, `carte de collection`, `état d'ouverture`, `tableau des horaires`, `consultation récente`, `événement d'achat`, `événement de vue de produit`, `événement de début de commande`, `aperçu de produit`, `reçu de commande`, `carte de produit`, `ajout au panier`, `fiche de produit`, `tableau du panier`, `totaux du panier`, `formulaire de commande`, `récapitulatif du panier`, `contact en colonnes`, `formulaire de contact`, `coordonnées du site`, `marque du site`, `menu du site`, `panier du site`, `recherche du site`, `téléphone du site`, `mentions du site`, `liens du pied` ; les natifs `pricelist`, `map`, `collection.list`, `hours`, `recent`, `contact.form`, `products.grid`, `product.hero`, `products.related`, `cart.page`, `checkout.page`, `order.confirmation`, `site.header`, `site.footer` sont écrits avec eux. `sitec catalog <dossier>` liste les mots visibles avec leur origine, `sitec explain "<mot>" <dossier>` affiche la définition elle-même (forme ou fragment, apparence, feuille) et la ligne où elle se trouve.
 
 Une erreur dans la définition d'un mot est rapportée une fois, à sa ligne dans `vocabulaire.yaml` (`E_WORD`) : nom d'une primitive, description manquante, donnée obligatoire après une facultative, donnée inconnue dans la forme, variable inconnue ou `<script>` dans un fragment, sélecteur hors du mot dans la feuille. Les composants qui emploient ce mot ne la répètent pas. Une erreur d'emploi (mot mal écrit, donnée en trop, éléments sous un mot qui n'en contient pas) est rapportée à la ligne du manifeste (`E_COMPONENT`), avec le mot le plus proche ou l'écriture attendue.
 
@@ -694,7 +695,7 @@ Les neuf natifs à état portés en v0.11.0 avec les lectures à la visite (`hou
 | `{% form %} … {% endform %}` | formulaire déclaré par `fonctionnement` (ou `effects.form`) : méthode, nom, jeton, pot de miel |
 | `{# … #}` | commentaire |
 
-Variables : `p` (props, vérifiées contre le manifeste), `site`, `page`, `item`, `product`, `order`, `form`, `loop`, `cart`, `shop`. Fonctions : `link(lien, classe)`, `img(chemin, alt, sizes, eager)`, `img_src(chemin, largeur)`, `asset(chemin)`, `url(cible)`, `icon(nom)`, `paragraphs(texte)`, `markup(texte)`, `lines(texte)` (retours à la ligne conservés), `money(n)`, `field(nom)`, `csrf()` (jeton d'un formulaire d'action de la cible), `event(nom, clé, valeur…)` (marque invisible d'un événement de mesure).
+Variables : `p` (props, vérifiées contre le manifeste), `site`, `page`, `item`, `product`, `order`, `form`, `loop`, `cart`, `shop`. Fonctions : `link(lien, classe)`, `img(chemin, alt, sizes, eager)`, `img_src(chemin, largeur)`, `asset(chemin)`, `url(cible)`, `icon(nom)`, `paragraphs(texte)`, `markup(texte)`, `lines(texte)` (retours à la ligne conservés), `money(n)`, `field(nom)`, `csrf()` (jeton d'un formulaire d'action de la cible), `event(nom, clé, valeur…)` (marque invisible d'un événement de mesure), `cart_count()` (nombre d'articles du panier du visiteur, zéro sans boutique).
 
 La vérification refuse, avec le numéro de ligne : PHP ou tout code de cible, variable inconnue, prop absente du manifeste, clé inconnue d'un élément de liste typé, balise déséquilibrée, filtre ou fonction inconnus, `form` sans formulaire déclaré. Pour un composant au format langage, ces erreurs portent sur `manifest.yaml`, à la ligne de la forme (`E_COMPONENT`) ; pour le fragment d'un mot, sur `vocabulaire.yaml`, à la ligne du fragment (`E_WORD`) ; pour un gabarit écrit à la main, sur `template.html` (`E_TEMPLATE`). Le balisage ne contient pas de code navigateur : `<script>`, attributs `on…=`, liens `javascript:`, `<iframe>`, `<object>`, `<embed>`, `<link>`, `<meta>`, `<base>` sont refusés.
 
@@ -1100,6 +1101,116 @@ Hors du format à ce jour : `sitec migrate`, `sitec keywords --import`, les sch�
 - **Relire, accepter et vérifier en une commande.** `sitec check <dossier> --accepter` fige la lecture des documents modifiés avant de valider, et dit ce qu'il accepte : une ligne `I_READING` par document, avec les lignes retirées et ajoutées, ou ce que vaut un document nouveau. `sitec lire` reste la commande qui montre sans rien figer.
 - **Une lecture fausse passée.** Sur les trois créations en documents, une portait une ligne de réglage mal nommée, lue comme du texte et affichée sur la page ; `check` et le banc ne la voyaient pas, l'agent l'a vue dans la lecture redite. Depuis la v0.15.0, le lecteur refuse toute ligne « nom : suite » courte dont le nom n'est pas une donnée ; cinq des six sites en documents laissés par les agents, écrits avant cette règle, ne passent plus `check` (leurs mentions légales commencent par « Éditeur du site : … ») et gardent leurs mesures d'alors.
 
+## 6 septies. Habillage du site et charte
+
+Ce qui entoure chaque page (l'en-tête, le pied) et ce qui règle son allure générale (polices, échelle, fond) se dit dans le langage, comme le reste.
+
+### En-tête et pied de page
+
+L'en-tête et le pied sont deux composants du catalogue, `site.header` et `site.footer`, écrits en plan comme les autres. La mise en page les rend autour de chaque page. Leur forme entière :
+
+```
+en-tête de site :
+- marque du site
+- menu du site :
+  - panier du site
+  - recherche du site
+```
+
+```
+pied de site :
+- mentions du site
+- liens du pied
+```
+
+Un site les remplace en écrivant les siens : un composant du site (`components/<nom>/composant.md`) dont la forme s'ouvre par « en-tête de site » remplace l'en-tête, « pied de site » le pied. Rien d'autre à déclarer. Un site n'en écrit qu'un de chaque (`E_SHELL` sinon), et un habillage ne s'écrit jamais comme section d'une page (`E_SHELL`). L'ouverture accepte une classe entre « » et `conteneur « classe »` ; l'élément porte toujours `site-header` ou `site-footer`, plus la classe du composant du site.
+
+Un habillage n'a ni `données` ni `fonctionnement` : sa forme lit les données du site, sous ces noms.
+
+| Nom | Ce que c'est |
+|---|---|
+| `name`, `tagline` | nom et slogan du site |
+| `home` | le nom du site, en lien vers l'accueil |
+| `phone`, `email`, `address` | coordonnées du site |
+| `phone_link`, `email_link` | le téléphone en lien d'appel, l'e-mail en lien |
+| `nav` | liste des entrées du menu : `link`, `label`, `current` (c'est la page affichée) |
+| `footer_text`, `footer_links` | texte et liens du pied de page |
+| `readable_link` | la version texte de la page affichée |
+
+Sept mots natifs portent ce que les primitives ne disent pas : `marque du site` (option : un logo), `menu du site` (la page affichée y est marquée, il se replie sur téléphone ; ce qui est écrit dessous suit les entrées), `panier du site`, `recherche du site`, `téléphone du site`, `mentions du site`, `liens du pied`. Un en-tête écrit par un site :
+
+```
+# entete
+
+En-tête de l'école : le menu, puis le téléphone et le nom.
+
+## Forme
+en-tête de site :
+- menu du site
+- bloc « entete-appel » :
+  - lien : phone_link
+  - texte : name
+
+## Apparence
+- entete-appel : en ligne, petit
+```
+
+L'apparence se règle par le bloc `apparence` et, pour ce qu'il ne dit pas, par `styles.css` à côté du composant, sous les règles de la feuille encadrée (chaque sélecteur commence par la classe du composant). `sitec explain habillage` redit tout cela, avec les modèles.
+
+### Charte
+
+Sous `site › theme`, à côté de `preset` et `tokens` :
+
+- **Jetons d'échelle**, mêmes valeurs par défaut dans les trois thèmes : `font.size` (16px), `line.height` (1.6), `heading.weight` (700), `h1.size`, `h2.size`, `h3.size`, `section.space` (64px, les trois quarts sur téléphone), `header.bg` et `header.fg` (fond et texte de l'en-tête). Ils se surchargent comme une couleur.
+- **Polices du site** : `fonts: [ { family: Lato, file: lato.woff2, weight: 400, style: normal } ]`. Le fichier (woff2, woff, ttf, otf) est dans `assets/`, servi par le site ; la famille se nomme ensuite dans `font.body` ou `font.heading`. `weight` vaut 100 à 900, ou une plage (« 400 700 ») pour une police variable. En document : « Polices : » puis une puce « Lato | lato.woff2 | 400 | italic » par fichier.
+- **Fond de page** : `background: { image, bottom, fixed, phone: { image, bottom } }`. `image` se pose en haut de la page, `bottom` en bas, à la largeur de la page ; `fixed: true` avec une seule image la fait couvrir l'écran sans défiler. `phone` donne les images d'un écran étroit. Le compilateur sert la plus grande variante WebP qu'il a produite. En document : « Fond de page : », « Fond de bas de page : », « Fond fixe : oui », « Fond de page sur téléphone : », « Fond de bas de page sur téléphone : ».
+
+Une police ou une image absente de `assets/` est une erreur de `check`.
+
+### Apparence hors du composant
+
+Le bloc `apparence` d'un composant règle toutes ses sections. Les mêmes lignes, « partie : intention, intention », se disent à deux autres endroits.
+
+**Dans une page**, pour une section : la prop commune `appearance`.
+
+<!-- sitec: fragment sections -->
+```yaml
+- hero:
+    title: Passez votre permis en deux jours
+    appearance:
+      conteneur: largeur 540px, marge à gauche 45%, à gauche
+      titre principal: taille 2.4rem, ombre du texte
+      texte, sur téléphone: masqué
+```
+
+En document, « Apparence : » sous l'intitulé de la section, une puce « partie | intentions » par partie, puis une ligne vide avant les puces de la section elle-même. La section reçoit une classe (`ap-…`, la même pour deux sections de même apparence) que la feuille du site vise ; rien n'est écrit dans le balisage. Une variante ne change pas l'apparence.
+
+**Dans le site**, pour toutes les sections d'un composant : `site › appearance: { steps: { cartes: sans fond, sans bordure } }`. En document, une section « ## Apparence » dans `site.md`, une puce « composant › partie | intentions » par réglage. L'habillage du catalogue se règle ainsi sans le récrire : « - site.header › liens du menu | majuscules, petit ».
+
+**Parties.** `section`, `conteneur` (la boîte qui tient le contenu de la section, toujours présente), les primitives de la forme et ses noms entre « », et les parties qu'un mot à gabarit expose (`### Parties` dans le vocabulaire : une puce « nom : sélecteur », le sélecteur commençant par la classe du mot). Hors du composant, une primitive que la forme n'a pas nommée se vise par son genre : `titre principal`, `grand titre`, `titre`, `sous-titre`, `texte`, `lien`, `bouton`, `image`, `carte`, `liste`, `élément`, `en-tête`, `citation`. L'écran se dit sur la ligne : « cartes, sur téléphone ».
+
+**Intentions à valeur.** Une mesure est un nombre suivi de px, rem, em, %, vw, vh ou ch (ou 0, ou auto) ; une couleur est #hex, rgb(), rgba(), transparent, blanc ou noir.
+
+| Intention | Effet |
+|---|---|
+| `largeur 620px`, `largeur fixe 12rem`, `hauteur 200px`, `hauteur minimale 38px` | dimensions |
+| `taille 1.4rem`, `interligne 1.3`, `graisse 600`, `espacement des lettres 1px` | texte |
+| `marge au-dessus 24px`, `marge en dessous`, `marge à gauche 45%`, `marge à droite` | marges |
+| `espace intérieur 12px 20px` (une à quatre mesures), `espace entre 8px` | espaces |
+| `fond #012c4a`, `couleur blanc`, `bordure #fff`, `bordure en dessous`, `bordure au-dessus`, `coins 3px`, `opacité 0.8` | couleurs et traits |
+| `3 colonnes` (de 2 à 6) | grille |
+| `haut 72px`, `bas 0`, `gauche 0`, `droite 0` | place d'une partie posée ou épinglée |
+
+**Placement.** `cadre` (ou `repère`) sur la partie qui porte ; `posé en bas`, `posé en haut`, `épinglé en haut à droite` (et les trois autres coins) sur celle qui est posée ; `poussé à droite`, `poussé à gauche`, `pleine largeur` ; `collant`, `non collant`, `à sa place` ; `contenu centré`, `contenu à droite`, `contenu réparti` ; `voile sombre`, `ombre du texte`, `sans ombre`, `image couvrante` ; `souligné`, `sans soulignement`, `sans puces`, `graisse normale`, `casse normale`, `police du texte`, `couleur du texte`, `en bloc`, `visible`.
+
+**Intentions du site.** Un site nomme les siennes, faites d'intentions du langage : `site › intentions: { colonne à droite: "largeur 540px, marge à gauche 45%", "colonne à droite, sur téléphone": "sans marge, pleine largeur" }`. En document, « ## Intentions » dans `site.md`, une puce « nom | intentions ». Elles s'emploient dans les pages, dans « ## Apparence » du site et dans les composants du site. Une intention du site ne porte pas le nom d'une intention du langage et n'en emploie pas d'autre du site.
+
+Une partie inconnue, une intention inconnue ou une valeur mal écrite est refusée (`E_APPEARANCE`), à la ligne du document, avec les parties du composant ou la forme attendue. Un composant écrit en gabarit, sans bloc `forme`, n'a pas de parties : son apparence ne se règle pas d'une page. `sitec explain apparence` donne les listes entières.
+
+### Mesurer l'écart avec une maquette
+
+`node scripts/compare-visuel.mjs <origine> <recréation> [--largeurs 1280,390] [--pages /,/a=/a.html] [--sortie dossier]` capture les deux sites aux mêmes largeurs (Chrome sans fenêtre), page entière, et donne trois indices par page : l'écart moyen des pixels du premier écran, la part de palette commune, le rapport des hauteurs. Les captures sont posées côte à côte dans `<sortie>/index.html`. Ce sont des indices grossiers : ils disent si l'on s'approche, pas si la page est fidèle.
+
 ## 6 ter. Éditeur
 
 `sitec schema <dossier>` produit des schémas JSON dérivés du catalogue réel du site (`.devanture/schema/` : site, pages, composés, manifestes, vocabulaire, paquet, cas de test, chaque collection, produits) et les déclare à l'extension YAML de VS Code (`.vscode/settings.json`, extension recommandée `redhat.vscode-yaml`). L'éditeur propose alors les composants et leurs props avec leur description et leur exemple, les fichiers d'`assets/`, les routes et les sources ; il souligne une prop, un composant, une image ou une route inconnus. Les expressions `{{ … }}` sont acceptées partout, `{ for, as, item }` dans les composés. Les schémas aident à la frappe, `sitec check` reste l'autorité (expressions, références croisées, gabarits).
@@ -1112,7 +1223,7 @@ Avant toute génération : structure et types de chaque document, routes et ancr
 
 Le rendu des gabarits, le protocole des formulaires, le stockage, le cache statique, le déploiement : `docs/CIBLES.md`. Le langage n'y fait pas référence.
 
-Composants natifs écrits sans code de la cible, tous au format langage (aucun gabarit HTML ni PHP ne reste dans le catalogue ; les mots natifs portent le balisage que les primitives n'écrivent pas, et ceux qui ont un état le lisent par une source) : `hero`, `richtext`, `gallery`, `pricelist`, `map`, `collection.list`, `features`, `stats`, `steps`, `cta`, `timeline`, `testimonials`, `faq`, `team`, `contact.form`, `products.grid`, `product.hero`, `products.related`, `cart.page`, `checkout.page`, `order.confirmation`, `hours`, `recent`. Aucun composant natif n'est écrit pour la cible : la porte de sortie `custom` (un fichier PHP du projet) est retirée depuis la v0.15.0. Leur contrat est décrit dans `CIBLES.md`. Ce qu'une seconde cible devrait réécrire n'est plus un jeu de gabarits : ce sont les sources et les actions (boutique, formulaires, horaires, mémoire du visiteur), le reste vient du gabarit. Un natif au format langage peut recevoir des données que le compilateur calcule (les éléments d'une collection, filtrés et triés) : il les déclare dans un bloc `calculé`, écrit comme `données`, et sa forme les emploie par leur nom. Ce bloc est réservé au catalogue natif.
+Composants natifs écrits sans code de la cible, tous au format langage (aucun gabarit HTML ni PHP ne reste dans le catalogue ; les mots natifs portent le balisage que les primitives n'écrivent pas, et ceux qui ont un état le lisent par une source) : `hero`, `richtext`, `gallery`, `pricelist`, `map`, `collection.list`, `features`, `stats`, `steps`, `cta`, `timeline`, `testimonials`, `faq`, `team`, `contact.form`, `products.grid`, `product.hero`, `products.related`, `cart.page`, `checkout.page`, `order.confirmation`, `hours`, `recent`, `site.header`, `site.footer`. Aucun composant natif n'est écrit pour la cible : la porte de sortie `custom` (un fichier PHP du projet) est retirée depuis la v0.15.0. Leur contrat est décrit dans `CIBLES.md`. Ce qu'une seconde cible devrait réécrire n'est plus un jeu de gabarits : ce sont les sources et les actions (boutique, formulaires, horaires, mémoire du visiteur), le reste vient du gabarit. Un natif au format langage peut recevoir des données que le compilateur calcule (les éléments d'une collection, filtrés et triés) : il les déclare dans un bloc `calculé`, écrit comme `données`, et sa forme les emploie par leur nom. Ce bloc est réservé au catalogue natif.
 
 ## 9. Versions et migration
 
@@ -1120,3 +1231,6 @@ Composants natifs écrits sans code de la cible, tous au format langage (aucun g
 
 - **0** : sites écrits avant la déclaration de version (compilateur ≤ 0.1.3). Migration vers 1 : ajout de `language: 1`, aucune construction ne change.
 - **1** (2026-11-08) : première version écrite. Expressions, constantes, collections, composants composés, composants de projet avec gabarit neutre et effet `form`, paquets de composants, tests de composants, feuille de style encadrée, comportements déclarés. Ajouts compatibles, sans changement de version : composants en français contrôlé (compilateur 0.7.0 et 0.8.0), objectifs et expériences dans `segments.yaml` (0.9.0), vocabulaire ouvert (`vocabulaire.yaml`, 0.10.0), lectures à la visite (`fonctionnement: lit:`, 0.11.0), registres à règles (`places`, `liste d'attente`, `une fois par`, 0.12.0), composant et site écrits en documents (0.13.0 à 0.15.0), composant écrit en plan (`composant.md`, 0.16.0). Retrait, sans changement de version : le bloc `custom` (0.15.0), qui incluait un fichier PHP du projet hors de toute validation ; une page qui l'emploie encore reçoit `E_UNKNOWN_COMPONENT` avec la marche à suivre (un composant du site).
+  Ajouts de la v0.19.0, sans changement de version du langage : l'apparence hors du composant (prop commune `appearance` d'une section, `site › appearance` par composant), les intentions à valeur et de placement, `site › intentions`, les parties d'un mot à gabarit (`### Parties`), la partie `conteneur` toujours présente. Section 6 septies.
+  Ajouts de la v0.18.0, sans changement de version du langage : l'habillage (l'en-tête et le pied sont deux composants, `site.header` et `site.footer`, qu'un site remplace par un composant dont la forme s'ouvre par « en-tête de site » ou « pied de site »), sept mots natifs pour l'habillage, les jetons d'échelle (`font.size`, `line.height`, `heading.weight`, `h1.size`, `h2.size`, `h3.size`, `section.space`, `header.bg`, `header.fg`), `theme › fonts` et `theme › background`. Section 6 septies.
+  Ajouts de la v0.17.0, après la recréation d'un site réel, sans changement de version du langage : `site › redirects` (une liste `{ from, to }` : une ancienne adresse répond par une redirection permanente vers une page ; en document, « Redirections : » puis une puce « /ancienne.html | /nouvelle ») ; une liste de la forme écrite sans `élément` enveloppe chaque tour dans un élément de liste ; une page sans bandeau reçoit pour titre principal son premier titre de section ; sans segments, sans composant `recent` et sans boutique, la personnalisation est coupée par défaut (ni bandeau de consentement ni cookie) ; sous une puce de « Remplace : » ou de « Variantes : », des lignes en retrait prolongent son dernier texte.

@@ -1,6 +1,48 @@
 # Journal des versions
 
-Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.16.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+Les dépôts de sites créés par `sitec init` épinglent une étiquette (`github:dtdagames/devanture#v0.19.0`). Pour qu'un site profite d'une version, changer l'étiquette dans son `package.json` puis `npm install`.
+
+## v0.19.0 — 2026-11-14 — apparence ouverte : intentions à valeur, apparence d'une section dans une page et par composant dans le site, intentions du site
+
+Deuxième pas vers la fidélité à une maquette. L'apparence ne se disait que dans un composant, avec une liste fermée d'intentions sans valeur : une largeur de colonne, un titre posé sur une photo ou la couleur d'un bandeau demandaient un `styles.css`.
+
+- **Intentions à valeur** : `largeur 620px`, `hauteur minimale 38px`, `taille 1.4rem`, `interligne 1.3`, `graisse 600`, `marge à gauche 45%`, `espace intérieur 12px 20px`, `espace entre 8px`, `fond #012c4a`, `couleur blanc`, `bordure #fff`, `bordure en dessous`, `coins 3px`, `opacité 0.8`, `3 colonnes`, `haut 72px`. La mesure et la couleur sont vérifiées ; rien d'autre n'entre dans la feuille.
+- **Intentions de placement** : `cadre` et `posé en bas` (un titre sur une photo), `épinglé en haut à droite`, `poussé à droite`, `pleine largeur`, `non collant`, `contenu centré`, `voile sombre`, `ombre du texte`, `sans puces`, `souligné`…
+- **Apparence d'une section dans une page** : toute section accepte `appearance: { partie: intentions }` ; en document, « Apparence : » puis « - conteneur | largeur 620px ». La section reçoit une classe d'apparence, la feuille du site la vise.
+- **Apparence par composant dans le site** : `site › appearance`, en document « ## Apparence » puis « - steps › cartes | sans fond ». L'habillage du catalogue se règle ainsi sans être récrit.
+- **Intentions du site** : `site › intentions`, en document « ## Intentions » puis « - colonne à droite | largeur 540px, marge à gauche 45% », avec sa ligne « sur téléphone ». Employées dans les pages, le site et les composants du site.
+- **Parties** : `conteneur` est toujours une partie ; les mots de l'habillage exposent les leurs (`liens du menu`, `lien de la page`, `marque`, `recherche`…) par un bloc `### Parties` du vocabulaire ; hors du composant, une primitive sans nom se vise par son genre (`titre`, `texte`, `carte`…). L'écran se dit aussi sur la ligne : « cartes, sur téléphone ».
+- `sitec explain apparence` ; refus `E_APPEARANCE` à la ligne du document, avec les parties du composant ou la forme attendue de l'intention.
+- Lecture des documents : les puces d'une donnée nommée (« Apparence : », « Variantes : ») finissent à la première ligne vide ; celles qui suivent sont à la section. L'avertissement « couleur écrite en dur » ne porte plus que sur le `styles.css` de l'auteur, pas sur la feuille que l'apparence produit.
+- Les règles de cache Apache des assets couvrent aussi les polices ttf et otf, que le thème accepte depuis la v0.18.0 (seules woff et woff2 l'étaient). Sur le site d'essai, les trois polices de l'original (Lato et Martel, licence SIL Open Font License 1.1) sont déclarées dans site.md : la typographie est la sienne, les indices du premier écran ne bougent pas (ils mesurent couleurs et masses, pas la forme des lettres).
+- Changement visible : le pied de page du catalogue porte deux classes de plus (`site-mentions`, `site-links`), et la partie `conteneur` d'un composant vise `.container` au lieu de sa classe nommée (la même boîte).
+- Sur le site réel recréé (hors dépôt), l'en-tête, le pied et les cartes n'ont plus aucun `styles.css` : tout est dit en intentions. Page du permis côtier à 1280 px : écart du premier écran de 7,1 % à 6,5 %, hauteur de la page de 93 % à 106 % de l'original ; accueil : hauteur de 106 % à 103 %, à 390 px de 118 % à 105 %. Les indices du premier écran bougent peu, la mise en page plus bas se lit sur les captures. Indices grossiers.
+- Non fait : un mot grossi à l'intérieur d'un titre, l'apparence d'une page entière en une ligne, les polices du site d'essai, un habillage fourni par un paquet. Banc du site en documents à 158 contrôles, dont sept pour l'apparence.
+
+## v0.18.0 — 2026-11-14 — habillage du site : l'en-tête et le pied sont des composants qu'un site récrit, charte plus riche, banc d'écart visuel
+
+Premier pas vers la fidélité à une maquette. Jusqu'ici l'en-tête et le pied de page étaient du PHP écrit dans le compilateur, les mêmes pour tous les sites, et le thème ne réglait que des couleurs et deux familles de police.
+
+- **L'en-tête et le pied sont deux composants** du catalogue, `site.header` et `site.footer`, écrits en plan comme les autres ; la mise en page les rend autour de chaque page. Leur balisage est celui d'avant.
+- **Un site les récrit** dans le même format : un composant du site dont la forme s'ouvre par « en-tête de site » remplace l'en-tête, « pied de site » le pied. Rien à déclarer ailleurs. Sa forme lit les données du site (`name`, `home`, `tagline`, `phone`, `phone_link`, `email`, `email_link`, `address`, `nav`, `footer_text`, `footer_links`, `readable_link`) ; il n'a ni données ni fonctionnement à lui. Deux en-têtes dans un site, ou un habillage écrit comme section d'une page, sont refusés (`E_SHELL`).
+- **Sept mots natifs** pour l'habillage : `marque du site`, `menu du site`, `panier du site`, `recherche du site`, `téléphone du site`, `mentions du site`, `liens du pied`. Le gabarit d'un mot lit maintenant `shop` en plus de `site` et `page`, et `page.route` donne l'adresse de la page affichée.
+- **Jetons d'échelle** : `font.size`, `line.height`, `heading.weight`, `h1.size`, `h2.size`, `h3.size`, `section.space`, `header.bg`, `header.fg`. Valeurs par défaut : celles qui étaient écrites en dur dans la feuille.
+- **Polices du site** : `theme › fonts` déclare des fichiers de `assets/` (`@font-face`, servis par le site, aucune police externe). En document : « Polices : » puis « - Lato | lato.woff2 | 400 ».
+- **Fond de page** : `theme › background` pose une image en haut de la page et une autre en bas, ou une image fixe qui couvre l'écran, avec des images propres au téléphone. En document : « Fond de page : », « Fond de bas de page : », « Fond fixe : », « … sur téléphone : ».
+- `sitec explain habillage` ; `catalog` marque les composants d'habillage ; `explain site` liste `fonts` et `background`.
+- **Banc d'écart visuel** : `scripts/compare-visuel.mjs <origine> <recréation>` capture les deux sites aux mêmes largeurs avec Chrome sans fenêtre et mesure l'écart du premier écran, la palette commune et le rapport des hauteurs. Sur le site réel recréé à la v0.17.0 (hors dépôt), en lui écrivant un en-tête, un pied et une charte : à 1280 px, l'écart du premier écran de l'accueil passe de 24,7 % à 10,2 % et la palette commune de 17,6 % à 92,7 % ; à 390 px, de 22,6 % à 14,2 % et de 44,4 % à 83,4 %. Indices grossiers, deux pages mesurées avant et après.
+- Non fait : l'apparence libre d'une section dans une page (largeur de colonne, titre posé sur une photo), les polices du site d'essai (non téléchargées), un habillage fourni par un paquet. Banc du site en documents à 151 contrôles, dont dix pour l'habillage et la charte.
+
+## v0.17.0 — 2026-11-14 — un site réel recréé : cinq défauts corrigés, redirections des anciennes adresses
+
+Un site en ligne (une école de permis bateau, sept pages) a été recréé en documents, hors du dépôt, pour éprouver le compilateur. Il a compilé au deuxième passage, et montré ce qui suit.
+
+- **Liste sans « élément »** : `- liste de points :` suivi d'un `- texte : text` sortait `<ul><p>…</p></ul>`, un HTML invalide, sans aucun refus. Chaque tour d'une liste écrite sans `élément` est maintenant enveloppé dans `<li>`.
+- **Bandeau de consentement** : il s'affichait sur un site qui ne personnalise rien. Sans segments, sans composant `recent` et sans boutique, la personnalisation est coupée à la compilation : ni bandeau, ni cookie de profil, ni événements. `personalization: { enabled: true }` la garde pour les mesures du back-office.
+- **Page dérivée** : sous une puce de `Remplace :` (ou de `Variantes :`), des lignes en retrait prolongent son dernier texte ; un texte de plusieurs paragraphes se remplace donc.
+- **Titre principal** : une page sans bandeau n'avait pas de `h1`. Le premier titre de section de la page le devient au rendu.
+- **Redirections** : `site › redirects: [ { from: /contact.html, to: /contact } ]`, ou dans `site.md` « Redirections : » puis une puce « /contact.html | /contact ». Une ancienne adresse déclarée répond par une redirection permanente (301) vers une page du site ; `to` est vérifié comme tout lien.
+- Laissé tel quel, par choix : une introduction courte qui finit par deux-points (« Allez au : ») reste refusée tant qu'elle n'est pas annoncée par son nom (« Introduction : Allez au : »), parce qu'une annonce de liste mal nommée aurait la même forme. Non fait : un numéro de téléphone dans l'en-tête.
 
 ## v0.16.0 — 2026-11-14 — composants, composés, vocabulaire, exemples, dépôt de site et générateur en documents : plus aucun YAML d'auteur au dépôt
 

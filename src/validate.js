@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { compileApparence, siteIntents } from './lang/apparence.js';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import { err, nearest } from './errors.js';
@@ -42,15 +43,30 @@ export const SITE_SCHEMA = {
       properties: {
         name: { type: 'string', minLength: 1 },
         tagline: { type: 'string' },
+        // Apparence par composant, pour toutes ses sections : { composant: { partie: intentions } }.
+        appearance: { type: 'object', additionalProperties: { type: 'object', additionalProperties: { type: ['string', 'object'] } } },
+        // Intentions nommées par le site : { nom: « intention, intention » }, « nom, sur téléphone » pour un écran étroit.
+        intentions: { type: 'object', additionalProperties: { type: 'string' } },
         locale: { type: 'string' },
         theme: {
           type: 'object', additionalProperties: false,
           properties: {
             preset: { type: 'string', enum: Object.keys(THEME_PRESETS) },
             tokens: { type: 'object', additionalProperties: { type: 'string' } },
+            // Polices du site : fichiers de assets/ (woff2, woff, ttf, otf), nommées dans font.body et font.heading.
+            fonts: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['family', 'file'], properties: {
+              family: { type: 'string', pattern: '^[A-Za-z0-9][A-Za-z0-9 _-]*$' }, file: { type: 'string', format: 'asset', pattern: '\\.(woff2|woff|ttf|otf)$' },
+              weight: { type: ['string', 'integer'], pattern: '^[1-9]00( [1-9]00)?$' }, style: { type: 'string', enum: ['normal', 'italic'] } } } },
+            // Fond de page : une image de assets/ en haut de la page, une autre en bas, ou une image fixe qui couvre l'écran.
+            background: { type: 'object', additionalProperties: false, properties: { image: { type: 'string', format: 'asset' }, bottom: { type: 'string', format: 'asset' }, fixed: { type: 'boolean' },
+              phone: { type: 'object', additionalProperties: false, properties: { image: { type: 'string', format: 'asset' }, bottom: { type: 'string', format: 'asset' } } } } },
           },
         },
         nav: { type: 'array', items: { $ref: '#/$defs/link' } },
+        redirects: {
+          type: 'array',
+          items: { type: 'object', additionalProperties: false, required: ['from', 'to'], properties: { from: { type: 'string', pattern: '^/[^\\s?#]*$' }, to: { type: 'string', format: 'route' } } },
+        },
         footer: {
           type: 'object', additionalProperties: false,
           properties: { text: { type: 'string' }, links: { type: 'array', items: { $ref: '#/$defs/link' } } },
@@ -158,6 +174,14 @@ function resolveDerivedPages(project, errors) {
 }
 
 /** Retourne la liste des erreurs (vide si tout est valide). */
+/** Apparence dite hors du composant (dans une page, dans le site) : jugée contre les parties de sa forme. */
+function checkAppearance(block, comp, { file, path: at, custom = null }) {
+  if (!block || typeof block !== 'object' || Array.isArray(block)) return [err('E_TYPE', { file, path: at, message: 'appearance attend { partie: intentions }.', hint: 'sitec explain apparence' })];
+  if (!comp.look) return [err('E_APPEARANCE', { file, path: at, message: `${comp.name} n'est pas écrit dans le langage (pas de bloc forme) : son apparence ne se règle pas d'ici.`, hint: 'Réglez-la dans son styles.css, ou écrivez sa forme.' })];
+  const r = compileApparence(block, { parts: comp.look.parts, sectionClass: comp.look.sectionClass, custom, outside: true });
+  return r.errors.map(e => err('E_APPEARANCE', { file, path: at + e.path.replace(/^apparence/, ''), message: `${comp.name} : ${e.message}`, hint: `Parties et intentions : sitec explain apparence ; forme du composant : sitec explain ${comp.name}.` }));
+}
+
 export function validateProject(project, catalog) {
   const errors = [...project.loadErrors];
   const routes = new Set(project.pages.map(p => p.data?.route).filter(r => typeof r === 'string'));
@@ -259,7 +283,7 @@ export function validateProject(project, catalog) {
   for (const src of [...sources, ...(project.componentSources || [])]) {
     const mf = src.dir + (src.documentText !== undefined ? '/lecture.yaml' : src.outlineText !== undefined ? '/composant.md' : '/manifest.yaml');
     if (!src.pkg && prefixes.has(src.name.split('.')[0]) && src.name.includes('.')) { errors.push(err('E_COMPONENT_CONFLICT', { file: mf, path: '', message: `Le préfixe ${src.name.split('.')[0]} appartient à un paquet.` })); continue; }
-    const { entry, details: ce } = buildComponent({ ...src, project: true, words: src.pkg ? wordsOf.get(src.pkg) : siteVocab.words });
+    const { entry, details: ce } = buildComponent({ ...src, project: true, words: src.pkg ? wordsOf.get(src.pkg) : siteVocab.words, intentions: src.pkg ? null : siteIntents(project.site?.site?.intentions).custom });
     for (const d of ce) errors.push(err(d.code || 'E_COMPONENT', { file: d.file ? src.dir + '/' + d.file : mf, path: d.line ? `ligne ${d.line}` : '', message: `Composant ${src.name} : ${d.message}${/[.?!…»]$/.test(d.message) ? '' : '.'}`, ...(d.hint ? { hint: d.hint } : {}) }));
     // Composant illisible (document refusé, manifeste cassé) : son erreur est dite ; les pages qui l'emploient ne la répètent pas.
     if (!entry) { (project.brokenComponents ||= new Set()).add(src.name); continue; }
@@ -290,7 +314,9 @@ export function validateProject(project, catalog) {
     if (typeof entry.files['styles.css'] === 'string') {
       const lint = lintComponentCss(entry.files['styles.css'], entry.name);
       for (const e of lint.errors) errors.push(err('E_CSS', { file: cssFile, path: `ligne ${e.line}`, message: `${entry.name} : ${e.message}.`, hint: 'Règles du CSS des composants : docs/LANGAGE.md, section 6.' }));
-      for (const w of lint.warnings) (project.componentWarnings ||= []).push({ level: 'warning', code: 'W_CSS', file: cssFile, path: `ligne ${w.line}`, message: `${entry.name} : ${w.message}.` });
+      // Les avertissements (couleur écrite en dur) portent sur la feuille de l'auteur, pas sur ce que forme et apparence ont produit.
+      const own = typeof src.files?.['styles.css'] === 'string' ? lintComponentCss(src.files['styles.css'], entry.name).warnings : [];
+      for (const w of own) (project.componentWarnings ||= []).push({ level: 'warning', code: 'W_CSS', file: cssFile, path: `ligne ${w.line}`, message: `${entry.name} : ${w.message}.` });
     }
     // Comportements déclarés : vocabulaire fermé, attributs du gabarit et déclaration du manifeste cohérents.
     const declared = entry.manifest.behaviors;
@@ -306,6 +332,21 @@ export function validateProject(project, catalog) {
   }
   const cat = entries.length ? catalog.extend(entries) : catalog;
   project.catalog = cat;
+  // Intentions du site : lues une fois, employées dans l'apparence du site, des pages et des composants du site.
+  { const r = siteIntents(project.site?.site?.intentions); project.intentions = r.custom;
+    for (const e of r.errors) errors.push(err('E_APPEARANCE', { file: project.siteFile, path: e.key ? `site.intentions.${e.key}` : 'site.intentions', message: `Intention du site : ${e.message}.`, hint: 'sitec explain apparence' })); }
+  // Apparence au niveau du site : chaque composant nommé existe, est écrit dans le langage, et ses parties sont celles de sa forme.
+  for (const [cname, block] of Object.entries(project.site?.site?.appearance || {})) {
+    const c = cat.get(cname), at = `site.appearance.${cname}`;
+    if (!c) { const s = cat.suggest(cname); errors.push(err('E_UNKNOWN_COMPONENT', { file: project.siteFile, path: at, message: `Apparence d'un composant inconnu : ${cname}.`, hint: s ? `Vouliez-vous dire ${s} ?` : 'sitec catalog pour la liste.' })); continue; }
+    errors.push(...checkAppearance(block, c, { file: project.siteFile, path: at, custom: project.intentions }));
+  }
+  // Habillage : un site écrit au plus un en-tête et un pied ; celui qu'il écrit remplace celui du catalogue.
+  for (const kind of ['header', 'footer']) {
+    const own = entries.filter(c => c.manifest.shell === kind && !c.package);
+    const what = kind === 'header' ? 'en-tête de site' : 'pied de site';
+    for (const c of own.slice(1)) errors.push(err('E_SHELL', { file: path.join(c.dir, c.outline ? 'composant.md' : 'manifest.yaml'), path: 'forme', message: `Deux composants du site s'ouvrent par « ${what} » : ${own[0].name} et ${c.name}. Un site n'a qu'un ${kind === 'header' ? 'en-tête' : 'pied de page'}.`, hint: `Gardez-en un ; l'autre s'ouvre par « section » s'il sert dans une page.` }));
+  }
   // Registres : un registre appartient aux formulaires qui y écrivent ; ses règles ne se déclarent qu'une fois, et on ne lit que ce qui existe.
   {
     const writers = new Map();
@@ -392,7 +433,11 @@ export function validateProject(project, catalog) {
         const s = cat.suggest(name);
         if (project.brokenComponents?.has(name)) return;
         if (name === 'custom') { errors.push(err('E_UNKNOWN_COMPONENT', { file, path: base, message: 'Le bloc custom (un fichier PHP du projet) n\'existe plus.', hint: 'Écrivez un composant du site : components/<nom>/ au format langage (données, forme, apparence, fonctionnement), puis « - <nom>: { … } » dans la page. sitec component new <dossier> <nom> en pose le squelette.' })); return; }
-        errors.push(err('E_UNKNOWN_COMPONENT', { file, path: base, message: `Composant inconnu : ${name}.`, expected: cat.names(), hint: s ? `Vouliez-vous dire ${s} ?` : 'sitec catalog pour la liste.', fix: s ? { rename: { from: name, to: s } } : undefined }));
+        errors.push(err('E_UNKNOWN_COMPONENT', { file, path: base, message: `Composant inconnu : ${name}.`, expected: cat.names().filter(n => !cat.get(n).manifest.shell), hint: s ? `Vouliez-vous dire ${s} ?` : 'sitec catalog pour la liste.', fix: s ? { rename: { from: name, to: s } } : undefined }));
+        return;
+      }
+      if (comp.manifest.shell) {
+        errors.push(err('E_SHELL', { file, path: base, message: `${name} est un habillage (${comp.manifest.shell === 'header' ? 'en-tête' : 'pied de page'} du site) : il est rendu autour de chaque page, pas dans une page.`, hint: 'Retirez cette section. Un site récrit son en-tête ou son pied par un composant dont la forme s\'ouvre par « en-tête de site » ou « pied de site » : sitec explain habillage.' }));
         return;
       }
       const props = section[name] ?? {};
@@ -403,6 +448,8 @@ export function validateProject(project, catalog) {
       const pv = compile('comp:' + name, comp.manifest.props);
       // Variantes : { segment: { props surchargées } } ; validées segment par segment, fusionnées avec la base.
       const { variants, ...baseProps } = props;
+      // Apparence de cette section : les mêmes parties et les mêmes intentions que le bloc apparence du composant.
+      if (props.appearance !== undefined) errors.push(...checkAppearance(props.appearance, comp, { file, path: `${base}.${name}.appearance`, custom: project.intentions }));
       if (!pv(baseProps)) errors.push(...mapAjvErrors(pv.errors, { file, prefix: `${base}.${name}`, ctx, component: name }));
       if (variants !== undefined) {
         if (!variants || typeof variants !== 'object' || Array.isArray(variants)) errors.push(err('E_TYPE', { file, path: `${base}.${name}.variants`, message: 'variants attend { nom_de_segment: { props à surcharger } }.' }));
@@ -413,7 +460,7 @@ export function validateProject(project, catalog) {
             continue;
           }
           if (!over || typeof over !== 'object' || Array.isArray(over)) { errors.push(err('E_TYPE', { file, path: `${base}.${name}.variants.${segName}`, message: 'Une variante est un objet de props à surcharger.' })); continue; }
-          if ('id' in over || 'variants' in over || 'keywords' in over) errors.push(err('E_FORBIDDEN', { file, path: `${base}.${name}.variants.${segName}`, message: 'Une variante ne peut pas changer id, keywords ni variants.' }));
+          if ('id' in over || 'variants' in over || 'keywords' in over || 'appearance' in over) errors.push(err('E_FORBIDDEN', { file, path: `${base}.${name}.variants.${segName}`, message: 'Une variante ne peut pas changer id, keywords, variants ni appearance.' }));
           const merged = { ...baseProps, ...over };
           if (!pv(merged)) errors.push(...mapAjvErrors(pv.errors, { file, prefix: `${base}.${name}.variants.${segName}`, ctx, component: name }));
         }

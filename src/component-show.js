@@ -9,7 +9,7 @@ import { parseComponentOutline } from './lang/outline.js';
 import { compileTemplate } from './lang/template.js';
 import { SOURCES, sourceSchema } from './lang/sources.js';
 
-const COMMON_PROPS = new Set(['id', 'keywords', 'variants']);
+const COMMON_PROPS = new Set(['id', 'keywords', 'variants', 'appearance']);
 const flow = v => YAML.stringify(v, { collectionStyle: 'flow', lineWidth: 0 }).trim();
 
 /** Lignes d'un bloc de premier niveau du manifeste : { from, to, text } (commentaires et lignes vides de fin retirés). */

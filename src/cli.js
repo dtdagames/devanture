@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { loadCatalog } from './catalog.js';
+import { loadCatalog, SHELL_DATA } from './catalog.js';
 import { loadProject } from './load.js';
 import { validateProject, collectWarnings, SITE_SCHEMA } from './validate.js';
 import { emit, TARGETS } from './emit/index.js';
@@ -17,7 +17,7 @@ import { writeCompositesDocument, PARAM_WORDS } from './lang/composites-document
 import { writeSiteDocument, writePageDocument, writeSectionDocument, componentSchemas, readSiteDocument, readPageDocument, COMPONENT_NAMES, PROP_NAMES, GROUP_NAMES, writeDataDocument, readDataDocument, PRODUCTS, collectionData, writeSegmentsDocument, readSegmentsDocument, writeFixtureDocument, readFixtureDocument, writePackageDocument, writeHostsDocument } from './lang/site-document.js';
 import { SOURCES, SOURCE_NAMES, PUBLIC_SOURCE_NAMES, sourceUsage, sourceFields } from './lang/sources.js';
 import YAML from 'yaml';
-import { INTENT_NAMES } from './lang/apparence.js';
+import { INTENT_NAMES, VALUED_NAMES, GENERIC_PARTS } from './lang/apparence.js';
 import { FIELD_TYPE_WORDS, FIELD_MODIFIERS, FORM_SETTINGS } from './lang/fonctionnement.js';
 import { EVENTS, GOAL_EVENTS, CONTROL, DEFAULT_MINIMUM } from './segments.js';
 import { DEFAULTS as IMAGE_DEFAULTS } from './images/index.js';
@@ -87,6 +87,8 @@ export async function run(argv) {
       if (!name) { console.error('Usage : sitec explain <composant> [dossier-projet]'); return 2; }
       if (name === 'langage' || name === 'language' || name === 'expressions') { explainLanguage(); return 0; }
       if (name === 'document' || name === 'documents') { explainDocument(); return 0; }
+      if (name === 'habillage' || name === 'charte') { await explainShell(catalog); return 0; }
+      if (name === 'apparence' || name === 'intentions') { explainAppearance(); return 0; }
       const proj = args[1] ? await projectCatalog(args[1], catalog) : null;
       if (proj?.project.composites?.[name]) { printComposite(proj.project.composites[name]); return 0; }
       // Un mot du vocabulaire (natif, du site ou d'un paquet) s'explique comme un composant : « sitec explain "carte de visite" <dossier> ».
@@ -96,6 +98,9 @@ export async function run(argv) {
       // Une source (ce qu'un composant lit à la visite) s'explique de la même façon : « sitec explain "panier du visiteur" ».
       const srcName = SOURCE_NAMES.find(n => n === name.trim().toLowerCase().replace(/\s+/g, ' '));
       if (srcName) { printSource(srcName); return 0; }
+      // Un composant d'habillage (en-tête, pied) n'a pas de props : sa fiche est celle de l'habillage.
+      const shellC = (proj?.catalog || catalog).get(name);
+      if (shellC?.manifest.shell) { console.log(`# ${shellC.name}\n${shellC.manifest.description}\n\n${shellC.manifest.shell === 'header' ? 'En-tête' : 'Pied de page'} du site${shellC.project ? ', écrit par le site : il remplace celui du catalogue' : ''}. Il n'est pas écrit dans une page.\n`); await explainShell(catalog); return 0; }
       return explain(proj?.catalog || catalog, name, words, flags.has('--document') || !!(proj?.project.documents?.site || proj?.project.documents?.pages.length));
     }
 
@@ -819,6 +824,8 @@ Spécification complète : docs/LANGAGE.md.`);
 function printCatalog(catalog, proj = null) {
   console.log('Composants disponibles (sections). Props : * = obligatoire. Détail : sitec explain <nom>\n');
   for (const c of catalog.list()) {
+    // Habillage : rendu autour de chaque page, jamais écrit dans une page.
+    if (c.manifest.shell) { console.log(`${c.name.padEnd(14)} ${c.manifest.description}   [habillage : ${c.manifest.shell === 'header' ? 'en-tête' : 'pied de page'} du site${c.project ? ', écrit par le site' : ''} ; sitec explain habillage]`); continue; }
     const props = Object.entries(c.manifest.props.properties || {})
       .map(([k]) => (c.manifest.props.required || []).includes(k) ? `${k}*` : k)
       .join(', ');
@@ -835,6 +842,91 @@ function printCatalog(catalog, proj = null) {
   console.log(`\nFichiers attendus : site.yaml, pages/*.page.yaml, assets/ (images). Voir CLAUDE.md. En documents (site.md, pages/<id>.md) : sitec explain document.\nConfiguration du site (nav, thème, tokens, pied, coordonnées) : sitec explain site`);
 }
 
+/** L'apparence : où elle se dit, ce qu'elle vise, les intentions. */
+function explainAppearance() {
+  console.log(`# Apparence : des parties, des intentions
+
+L'apparence se dit « partie : intention, intention ». Elle s'écrit à trois endroits, avec les mêmes mots :
+
+  dans un composant    son bloc « apparence » (composant.md, « ## Apparence ») : toutes les sections de ce composant
+  dans le site         site › appearance: { composant: { partie: intentions } } ; en document, « ## Apparence » dans site.md puis
+                       une puce « - steps › cartes | sans fond, sans bordure » : toutes les sections de ce composant, dans ce site
+  dans une page        la prop appearance d'une section : { partie: intentions } ; en document, « Apparence : » sous l'intitulé
+                       de la section puis une puce « - conteneur | largeur 620px » : cette section-là seulement
+
+Dans une page, une ligne vide sépare les puces de l'apparence des puces de la section (ses éléments, la liste de son texte).
+
+Parties : « section » (la section entière), « conteneur » (la boîte qui tient son contenu), les primitives de la forme du composant
+(au singulier ou au pluriel : carte, cartes), ses noms donnés entre « », et les parties des mots qu'il emploie (liens du menu…).
+Hors du composant (site, page), une primitive que la forme n'a pas nommée se vise par son genre : ${Object.keys(GENERIC_PARTS).join(', ')}.
+Les parties d'un composant : sitec component show <dossier> <nom> ; une partie inconnue est refusée avec la liste.
+
+Écran : « sur téléphone » et « sur grand écran ». Dans un composant, un bloc « sur téléphone : » puis ses parties ; partout,
+sur la même ligne : « cartes, sur téléphone : une colonne » (dans une page : « - cartes, sur téléphone | une colonne »).
+
+Intentions du langage :
+  ${INTENT_NAMES.join(', ')}
+
+Intentions à valeur (mesure : un nombre et px, rem, em, %, vw, vh ou ch, ou 0, ou auto ; couleur : #hex, rgb(), rgba(), transparent,
+blanc, noir) :
+  ${VALUED_NAMES.join('\n  ')}
+
+Poser une partie sur une autre : la partie qui porte est « cadre » (ou « repère »), celle qui est posée « posé en bas », « posé en
+haut » ou « épinglé en haut à droite » ; « haut 72px », « droite 0 » la déplacent. Exemple, un titre sur une photo :
+  - vignette : cadre
+  - titre : posé en bas, voile sombre, espace intérieur 28px 12px
+
+Intentions du site : un site nomme les siennes, faites d'intentions du langage, et les emploie partout (pages, « ## Apparence » du
+site, composants du site). site › intentions: { colonne à droite: "largeur 540px, marge à gauche 45%" } ; en document, dans site.md :
+  ## Intentions
+  - colonne à droite | largeur 540px, marge à gauche 45%, à gauche
+  - colonne à droite, sur téléphone | sans marge, pleine largeur
+Une intention du site ne porte pas le nom d'une intention du langage et n'en emploie pas d'autre du site.
+
+Une variante (variants) ne change pas l'apparence. Un composant écrit en gabarit (sans bloc forme) règle la sienne dans styles.css.`);
+}
+
+/** L'habillage du site : ce qui entoure chaque page, et comment un site le récrit. */
+async function explainShell(catalog) {
+  const plan = async n => { try { return (await fs.readFile(path.join(catalog.get(n).dir, 'composant.md'), 'utf8')).split(/^## Forme\s*$/m)[1].trim(); } catch { return ''; } };
+  const data = Object.entries(SHELL_DATA).map(([k, v]) => typeof v === 'string' ? `  ${k.padEnd(14)} ${v}` : `  ${k.replace(/ \(.*$/, '').padEnd(14)} liste — ${Object.entries(v).map(([a, b]) => `${a} (${b})`).join(' ; ')}`).join('\n');
+  console.log(`# Habillage du site : en-tête, pied de page, charte
+
+L'en-tête et le pied de page sont deux composants, rendus autour de chaque page : site.header et site.footer dans le catalogue.
+Un site les remplace en écrivant les siens, au format langage (components/<nom>/composant.md) : un composant dont la forme
+s'ouvre par « en-tête de site » remplace l'en-tête, « pied de site » le pied. Un seul de chaque par site ; rien à déclarer ailleurs.
+
+L'en-tête du catalogue, modèle à suivre :
+
+${(await plan('site.header')).split('\n').map(l => '  ' + l).join('\n')}
+
+Le pied du catalogue :
+
+${(await plan('site.footer')).split('\n').map(l => '  ' + l).join('\n')}
+
+Ouverture : « en-tête de site : » ou « pied de site « classe », conteneur « classe » : ». La classe site-header (ou site-footer) est
+toujours posée ; un composant du site y ajoute la sienne (son nom, ou celle donnée entre « »).
+
+Un habillage n'a ni données ni fonctionnement à lui. Sa forme lit les données du site, comme un autre composant lit les siennes :
+
+${data}
+
+et emploie les mots natifs de l'habillage comme des primitives : marque du site (option : un logo), menu du site (ce qui est écrit
+dessous prend place après les entrées), panier du site, recherche du site, téléphone du site, mentions du site, liens du pied.
+Exemple : « - lien : phone_link », « - texte : tagline », « - liste de nav : » puis « - lien : link », « - liste de footer_links : »
+puis « - lien : valeur ». Apparence : le bloc « apparence » et, pour ce qu'il ne dit pas, styles.css à côté du composant (chaque
+sélecteur commence par la classe du composant, couleurs par les jetons).
+
+Charte (site › theme, sitec explain site) :
+  tokens           couleurs, polices, et l'échelle : font.size, line.height, heading.weight, h1.size, h2.size, h3.size, section.space,
+                   max-width, header.bg, header.fg
+  fonts            polices déposées dans assets/ : [ { family: Lato, file: lato.woff2, weight: 400, style: normal } ], puis
+                   font.body: "Lato, sans-serif". En document : « Polices : » puis « - Lato | lato.woff2 | 400 ».
+  background       fond de page : { image: haut.jpg, bottom: bas.jpg, fixed: false, phone: { image, bottom } }. En document :
+                   « Fond de page : haut.jpg », « Fond de bas de page : bas.jpg », « Fond fixe : oui »,
+                   « Fond de page sur téléphone : … », « Fond de bas de page sur téléphone : … ».`);
+}
+
 function explainSite() {
   const goalEvents = Object.entries(GOAL_EVENTS).map(([k, w]) => k + (w.length ? ' (' + w.join(', ') + ')' : '')).join(', ');
   console.log(`# site.yaml
@@ -847,7 +939,13 @@ Props de site :
       .preset: ${Object.keys(THEME_PRESETS).join(' | ')} — thème de base
       .tokens: objet { nom: valeur } — surcharges du preset. Noms acceptés :
 ${Object.entries(THEME_PRESETS.clair).map(([k, v]) => `          ${k.padEnd(18)} ex. ${v}`).join('\n')}
+      .fonts: liste de { family*, file*, weight, style } — polices du site, fichiers woff2, woff, ttf ou otf de assets/ ; se nomment ensuite dans font.body et font.heading
+      .background: objet { image, bottom, fixed, phone: { image, bottom } } — fond de page : une image de assets/ en haut, une autre en bas, ou une image fixe qui couvre l'écran ; phone pour un écran étroit
+  (en-tête et pied de page : deux composants que le site peut récrire, sitec explain habillage)
+  appearance: objet { composant: { partie: intentions } } — apparence de toutes les sections d'un composant, dans ce site (sitec explain apparence)
+  intentions: objet { nom: intentions } — intentions nommées par le site, employées dans l'apparence comme celles du langage
   nav: liste de liens { label*, to* } — menu principal, dans l'ordre
+  redirects: liste de { from*, to* } — anciennes adresses renvoyées vers une page (redirection permanente) : { from: /contact.html, to: /contact }
   footer: objet
       .text: string — mention courte (SIRET, slogan…)
       .links: liste de liens { label*, to* }
@@ -858,7 +956,8 @@ ${Object.entries(THEME_PRESETS.clair).map(([k, v]) => `          ${k.padEnd(18)}
   agents: objet — jumeau pour agents (/site.json, /llms.txt, JSON-LD)
       .enabled: boolean (défaut true)   .summary: string (une phrase)   .business_type: string (type schema.org, défaut LocalBusiness)
   personalization: objet — segments, variantes et expériences (voir segments.yaml plus bas)
-      .enabled: boolean (défaut true)   .requires_consent: boolean (défaut true)   .consent_text: string
+      .enabled: boolean (défaut true ; sans segments, sans composant recent et sans boutique, rien n'est à personnaliser : ni bandeau ni cookie, sauf enabled: true dit expressément)
+      .requires_consent: boolean (défaut true)   .consent_text: string
   images: objet — { enabled: true, widths: [${IMAGE_DEFAULTS.widths.join(', ')}], quality: ${IMAGE_DEFAULTS.quality} } variantes WebP redimensionnées à la compilation pour les JPEG, PNG et WebP de assets/ (srcset, width/height, chargement différé) ; défaut : activé si sharp est installé
   static: objet — { enabled: true } cache statique des pages sans état pour les visiteurs sans cookie (servi par Apache sans PHP) ; défaut : activé
   offline: objet — { enabled: false, short_name, theme_color } service worker : assets et versions texte consultables hors ligne ; défaut : désactivé
