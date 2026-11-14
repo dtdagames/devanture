@@ -1259,7 +1259,7 @@ export const ASSETS_HTACCESS = `<IfModule mod_headers.c>
   <FilesMatch "\\.(css|js)$">
     Header set Cache-Control "public, max-age=31536000, immutable"
   </FilesMatch>
-  <FilesMatch "\\.(jpe?g|png|webp|gif|svg|ico|woff2?)$">
+  <FilesMatch "\\.(jpe?g|png|webp|gif|svg|ico|woff2?|ttf|otf)$">
     Header set Cache-Control "public, max-age=604800"
   </FilesMatch>
   <FilesMatch "\\.json$">
